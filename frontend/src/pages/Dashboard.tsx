@@ -58,6 +58,38 @@ export default function Dashboard() {
           </table>
         </div>
       </div>
+      <div className="grid k2" style={{ marginTop: 14 }}>
+        <div className="card">
+          <div className="card-head"><h3>זמן ממוצע בכל שלב</h3><span className="spacer" />
+            <span className="small muted">חדשים ב־7 ימים: <span className="num">{d.stages.new_last_7_days}</span> · ממתינים לגורם חוץ: <span className="num">{d.stages.waiting_external}</span></span></div>
+          <table>
+            <thead><tr><th>שלב</th><th>ממוצע (שעות)</th><th>מדידות</th></tr></thead>
+            <tbody>{Object.entries(d.stages.avg_hours_by_stage).map(([k, v]: any) => (
+              <tr key={k}><td>{meta.case_statuses[k] ?? k}</td><td className="num">{v}</td><td className="num">{d.stages.samples_by_stage[k]}</td></tr>
+            ))}</tbody>
+          </table>
+          <h3 style={{ marginTop: 14 }}>תיקים תקועים (ללא שינוי ≥ <span className="num">{d.stages.stuck_threshold_days}</span> ימים)</h3>
+          {d.stages.stuck.length === 0 ? <p className="small muted">אין</p> : (
+            <table><tbody>{d.stages.stuck.map((x: any) => (
+              <tr key={x.case_id}><td><span className="ltr nowrap">{x.case_number}</span></td><td>{meta.case_statuses[x.status] ?? x.status}</td><td className="num">{x.days_in_status} ימים</td></tr>
+            ))}</tbody></table>)}
+          <p className="small muted">הזמנים משוחזרים מיומן הביקורת. סף "תקוע" הוא הנחת תכנון שתיקבע באפיון.</p>
+        </div>
+        <div className="card">
+          <h3>עלות AI לפי חודש</h3>
+          <table>
+            <thead><tr><th>חודש</th><th>קריאות</th><th>עלות ₪</th></tr></thead>
+            <tbody>{d.cost_per_month.map((x: any) => (
+              <tr key={x.month}><td className="num">{x.month}</td><td className="num">{x.calls}</td><td className="num">{x.cost_ils.toFixed(2)}</td></tr>
+            ))}</tbody>
+          </table>
+          <h3 style={{ marginTop: 14 }}>עלות AI לפי משתמש</h3>
+          <table><tbody>{Object.entries(d.cost_per_user).map(([k, v]: any) => (
+            <tr key={k}><td>{users[k] ?? k}</td><td className="num">{v.toFixed(2)} ₪</td></tr>
+          ))}</tbody></table>
+          <p className="small muted">עלות לתיק זמינה ב־API (cost_per_case). תקרת צריכת ענן ומודלים לפי ההסכם: 300,000 ₪ לשנה (סע׳ 13.5).</p>
+        </div>
+      </div>
       <div className="notice" style={{ marginTop: 14 }}>{d.kpi_note_he}</div>
     </>
   )

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import datetime as dt
 import io
+import re
 
 from bidi.algorithm import get_display
 from reportlab.graphics.shapes import Drawing, Line, PolyLine, Polygon as RLPolygon, String
@@ -88,11 +89,36 @@ def build_report(s: Session, case: PermitCase, run: CheckRun, kind: str) -> dict
 
 # ------------------------------------------------------------------ PDF
 
+def _split_long(word: str, font: str, size: float, width: float) -> list[str]:
+    """Break a token wider than the cell (e.g. DEMO-ADDITION-MAX-AREA) after '-', '_' or '/',
+    falling back to a character split; otherwise reportlab would re-wrap a visual line."""
+    if stringWidth(word, font, size) <= width:
+        return [word]
+    parts, cur = [], ""
+    for piece in re.split(r"(?<=[-_/])", word):
+        if cur and stringWidth(cur + piece, font, size) > width:
+            parts.append(cur)
+            cur = ""
+        cur += piece
+    parts.append(cur)
+    out = []
+    for p in parts:
+        while stringWidth(p, font, size) > width and len(p) > 1:
+            k = len(p)
+            while k > 1 and stringWidth(p[:k], font, size) > width:
+                k -= 1
+            out.append(p[:k])
+            p = p[k:]
+        out.append(p)
+    return out
+
+
 def _wrap_logical(text: str, font: str, size: float, width: float) -> list[str]:
     lines: list[str] = []
     for para in (text or "").split("\n"):
         cur = ""
-        for word in para.split(" "):
+        words = [w for word in para.split(" ") for w in _split_long(word, font, size, width)]
+        for word in words:
             cand = (cur + " " + word).strip()
             if stringWidth(cand, font, size) <= width or not cur:
                 cur = cand
@@ -116,8 +142,12 @@ def he(text: str, width: float, size: float = 8.5, bold: bool = False, align=TA_
     return Paragraph(esc, ParagraphStyle("he", fontName=font, fontSize=size, leading=size * 1.35, alignment=align))
 
 
-def _plan_drawing(s: Session, case: PermitCase, findings: list[dict], w: float, h: float) -> Drawing | None:
-    files = [f.id for f in case.files if f.kind in ("dxf", "dwg") and f.ingest_status == "OK"]
+def _plan_drawing(s: Session, case: PermitCase, run_inputs: list[dict], findings: list[dict], w: float,
+                  h: float) -> Drawing | None:
+    """Draw exactly the CAD files this run checked (by sha256), not whatever the case holds today."""
+    hashes = {i["sha256"] for i in run_inputs}
+    files = [f.id for f in case.files if f.kind in ("dxf", "dwg") and f.ingest_status == "OK"
+             and f.sha256 in hashes and f.lifecycle != "DELETED"]
     if not files:
         return None
     ents = list(s.scalars(select(CadEntity).where(CadEntity.file_id.in_(files))))
@@ -177,14 +207,14 @@ def render_pdf(s: Session, case: PermitCase, report: dict) -> bytes:
     story += [he(meta, W, 8.5), Spacer(1, 3), he(report["disclaimer_he"], W, 8.5, True), Spacer(1, 6)]
 
     if report["kind"] == "reviewer":
-        dr = _plan_drawing(s, case, report["findings"], W * 0.6, 70 * mm)
+        dr = _plan_drawing(s, case, report["run"]["inputs"], report["findings"], W * 0.6, 70 * mm)
         if dr:
             story += [he("תשריט מנותח עם סימון ממצאים (אדום = אי-התאמה/דורש בדיקה)", W, 9, True), dr, Spacer(1, 6)]
         if report["run"].get("ai_summary"):
             story += [he(report["run"]["ai_summary"], W, 8.5), Spacer(1, 6)]
 
-    cols = [("#", 10), ("ממצא / כלל", 50), ("סטטוס", 20), ("חומרה", 17), ("נמדד", 22), ("סף", 22),
-            ("הסבר", 70), ("מקור (מסמך/סעיף/עמוד)", 52), ("הנחיית תיקון", 42), ("ודאות", 16), ("החלטת בודק", 20)]
+    cols = [("#", 10), ("ממצא / כלל", 50), ("סטטוס", 20), ("חומרה", 21), ("נמדד", 22), ("סף", 22),
+            ("הסבר", 62), ("מקור (מסמך/סעיף/עמוד)", 52), ("הנחיית תיקון", 42), ("ודאות", 20), ("החלטת בודק", 20)]
     widths = [w * mm for _, w in cols]
     scale = W / sum(widths)
     widths = [x * scale for x in widths]

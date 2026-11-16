@@ -318,6 +318,17 @@ def evaluate_rule(rule: Rule, facts: dict, sources: dict, tenant_is_demo: bool) 
             missing = [r for r in required if r not in found]
             computed = "PASS" if not missing else "FAIL"
             expl = "כל השכבות הנדרשות נמצאו" if not missing else "שכבות חסרות: " + ", ".join(missing)
+    elif kind == "any_present":
+        roles = get_fact(facts, "cad.roles")
+        roles = [] if roles is UNKNOWN else roles
+        found, wanted = [], []
+        for item in chk["items"]:
+            label = item.get("label_he", item.get("doc_type") or item.get("cad_role"))
+            wanted.append(label)
+            if ("doc_type" in item and get_fact(facts, f"docs.present.{item['doc_type']}") is True) or                     ("cad_role" in item and item["cad_role"] in roles):
+                found.append(label)
+        computed = "PASS" if found else "FAIL"
+        expl = ("נמצא: " + ", ".join(found)) if found else ("לא נמצא אף אחד מאלה: " + " / ".join(wanted))
     elif kind == "declared_bool":
         v = get_fact(facts, chk["fact"])
         if v is UNKNOWN:

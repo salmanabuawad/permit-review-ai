@@ -47,7 +47,7 @@ Ubuntu: [deploy/README.md](deploy/README.md).
 ## מבנה
 ```
 backend/app/        FastAPI: ingest, geometry, rules engine, AI gateway, reports, audit, RBAC
-backend/tests/      69 בדיקות pytest
+backend/tests/      83 בדיקות pytest
 frontend/src/       React + TypeScript, RTL
 knowledge/          תוכן פרויקט: כללים, מקורות, בסיס ידע, מוסכמת שכבות, מדיניות AI, ממשקים
 fixtures/demo/      קבצי הדגמה שנוצרו ע"י scripts/make_fixtures.py

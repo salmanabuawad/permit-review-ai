@@ -11,6 +11,7 @@ const REPORTS = [
   { key: 'rights', label: 'זכויות ותנאים' },
   { key: 'reviewer', label: 'דוח בודק (מלא)' },
 ]
+const LIFECYCLE_HE: Record<string, string> = { ACTIVE: 'פעיל', ARCHIVED: 'בארכיון', DELETED: 'נמחק' }
 const INGEST_HE: Record<string, string> = {
   OK: 'נקלט', NEEDS_OCR: 'נדרש OCR', NEEDS_CONVERSION: 'נדרשת המרה (DWG)', NEEDS_UNITS: 'חסרות יחידות',
   NO_AREA_TABLE: 'לא זוהתה טבלת שטחים', ERROR: 'שגיאה', QUARANTINED: 'בהסגר', PENDING: 'ממתין',
@@ -120,6 +121,8 @@ export default function CaseView() {
             <button className="sm" onClick={() => openBlob(`/api/cases/${c.id}/export`, `case_${c.case_number}.json`)}>ייצוא JSON (פורמט פתוח)</button>
             <span className="spacer" />
             {can('case.run') && !locked && <button className="sm" onClick={() => workflow('RETURNED_FOR_COMPLETION', { note: 'החזרה להשלמות' })}>החזרה להשלמות</button>}
+            {can('case.run') && !locked && c.status !== 'WAITING_EXTERNAL' && <button className="sm" onClick={() => workflow('WAITING_EXTERNAL', { note: 'הועבר לגורם חוץ' })}>ממתין לגורם חוץ</button>}
+            {can('case.run') && !locked && c.status === 'WAITING_EXTERNAL' && <button className="sm" onClick={() => workflow('IN_REVIEW', { note: 'חזר מגורם חוץ' })}>חזרה לבדיקה</button>}
             {can('case.lock') && !locked && <button className="sm primary" disabled={pending > 0} title={pending ? `${pending} ממצאים ממתינים להחלטה` : ''} onClick={() => workflow('LOCK')}>אישור ונעילת גרסה</button>}
             {locked && <span className="chip ok">נעול — גרסה {c.locked_version}</span>}
           </div>
@@ -213,6 +216,15 @@ function Files({ c, onChange, locked }: { c: Case; onChange: () => Promise<void>
   const [units, setUnits] = useState('')
   const [file, setFile] = useState<File | null>(null)
   const [busy, setBusy] = useState(false)
+  const lifecycle = async (fileId: string, state: string) => {
+    const msg = state === 'DELETED'
+      ? 'מחיקה מבוקרת: הקובץ יימחק לצמיתות מהשרת (הרישום וה־hash נשמרים ביומן). נימוק:'
+      : state === 'ARCHIVED' ? 'העברה לארכיון (הקובץ לא ייכלל בבדיקות). נימוק:' : 'שחזור מהארכיון. נימוק:'
+    const note = window.prompt(msg)
+    if (!note || note.trim().length < 3) return
+    try { await api.post(`/api/files/${fileId}/lifecycle`, { state, note }); toast('עודכן — יש להריץ בדיקה מחדש'); await onChange() }
+    catch (e: any) { toast(e.message, true) }
+  }
   const upload = async () => {
     if (!file) return
     const fd = new FormData()
@@ -239,10 +251,10 @@ function Files({ c, onChange, locked }: { c: Case; onChange: () => Promise<void>
       )}
       <div className="table-wrap" style={{ marginTop: 10 }}>
         <table>
-          <thead><tr><th>קובץ</th><th>סוג</th><th>קליטה</th><th>פרטים</th></tr></thead>
+          <thead><tr><th>קובץ</th><th>סוג</th><th>קליטה</th><th>פרטים</th><th>מצב</th></tr></thead>
           <tbody>
             {(c.files ?? []).map(f => (
-              <tr key={f.id}>
+              <tr key={f.id} style={f.lifecycle !== 'ACTIVE' ? { opacity: 0.55 } : undefined}>
                 <td><span className="ltr">{f.filename}</span><div className="small muted">גרסה <span className="num">{f.version}</span> · <span className="mono">{f.sha256.slice(0, 12)}</span></div></td>
                 <td>{meta.doc_types[f.doc_type] ?? f.doc_type}
                   {f.suggested_doc_type && f.suggested_doc_type !== f.doc_type && <div className="small" style={{ color: 'var(--unc)' }}>סיווג AI מציע: {meta.doc_types[f.suggested_doc_type]}</div>}</td>
@@ -254,6 +266,16 @@ function Files({ c, onChange, locked }: { c: Case; onChange: () => Promise<void>
                   {f.kind === 'pdf' && <>עמודים <span className="num">{f.ingest_report.page_count}</span> · חתימה: {f.signature_status === 'NO_SIGNATURE_FIELD' ? 'אין שדה חתימה' : 'שדה חתימה קיים (לא אומת)'}</>}
                   {f.kind === 'xlsx' && <>שורות <span className="num">{f.ingest_report.row_count}</span> · מוצע עיקרי <span className="num">{f.ingest_report.totals_m2?.proposed_main_m2}</span> מ״ר</>}
                   {(f.ingest_report.warnings ?? []).map((w: string, i: number) => <div key={i} style={{ color: 'var(--unc)' }}>{w}</div>)}
+                </td>
+                <td className="small">
+                  <span className={'chip ' + (f.lifecycle === 'ACTIVE' ? 'ok' : f.lifecycle === 'ARCHIVED' ? 'outline' : 'bad')}>{LIFECYCLE_HE[f.lifecycle] ?? f.lifecycle}</span>
+                  {!locked && f.lifecycle !== 'DELETED' && (
+                    <div style={{ display: 'flex', gap: 4, marginTop: 4, flexWrap: 'wrap' }}>
+                      {can('case.upload') && f.lifecycle === 'ACTIVE' && <button className="sm" onClick={() => lifecycle(f.id, 'ARCHIVED')}>לארכיון</button>}
+                      {can('case.upload') && f.lifecycle === 'ARCHIVED' && <button className="sm" onClick={() => lifecycle(f.id, 'ACTIVE')}>שחזור</button>}
+                      {can('file.delete') && <button className="sm danger" onClick={() => lifecycle(f.id, 'DELETED')}>מחיקה</button>}
+                    </div>
+                  )}
                 </td>
               </tr>
             ))}

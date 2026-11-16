@@ -22,7 +22,7 @@ export interface Report {
 export interface CaseFile {
   id: string; filename: string; doc_type: string; kind: string; suggested_doc_type: string | null
   sha256: string; size_bytes: number; version: number; ingest_status: string; ingest_report: any
-  av_status: string; signature_status: string; uploaded_at: string
+  av_status: string; signature_status: string; uploaded_at: string; lifecycle: string
 }
 export interface Case {
   id: string; case_number: string; title: string; is_demo: boolean; permit_type: string; track: string

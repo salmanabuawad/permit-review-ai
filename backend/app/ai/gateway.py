@@ -50,6 +50,7 @@ DOC_KEYWORDS = {
     "ownership_docs": [r"נסח\s+טאבו", r"נסח\s+רישום"],
     "consents": [r"הסכמ(ה|ות)\s+בעלי", r"הסכמת\s+השכנים"],
     "architectural_plan": [r"תכנית\s+הגשה", r"גרמושק"],
+    "sections_elevations": [r"חתך", r"חזית\s+(צפונית|דרומית|מזרחית|מערבית|קדמית|אחורית)"],
 }
 
 

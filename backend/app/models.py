@@ -105,6 +105,8 @@ class CaseFile(Base):
     supersedes_id: Mapped[str | None] = mapped_column(String(32))
     storage_path: Mapped[str] = mapped_column(String(600))
     ingest_status: Mapped[str] = mapped_column(String(40), default="PENDING")  # OK | NEEDS_OCR | NEEDS_CONVERSION | ERROR
+    # Document life cycle (tender spec §12.3): ACTIVE | ARCHIVED (kept, excluded from checks) | DELETED (bytes purged)
+    lifecycle: Mapped[str] = mapped_column(String(12), default="ACTIVE")
     ingest_report: Mapped[dict] = mapped_column(JSON, default=dict)
     av_status: Mapped[str] = mapped_column(String(30), default="NOT_SCANNED")   # NOT_SCANNED | CLEAN | INFECTED
     signature_status: Mapped[str] = mapped_column(String(30), default="NOT_CHECKED")

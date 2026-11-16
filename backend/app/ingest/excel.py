@@ -63,9 +63,12 @@ def parse_area_table(path: Path) -> ExcelResult:
         wb = load_workbook(str(path), data_only=True, read_only=True)
     except Exception as exc:  # noqa: BLE001
         return ExcelResult(status="ERROR", warnings=[f"Excel open error: {exc}"])
+    try:   # read_only workbooks keep the file handle open until close()
+        sheets = [(ws.title, list(ws.iter_rows(values_only=True))) for ws in wb.worksheets]
+    finally:
+        wb.close()
     res = ExcelResult(status="OK")
-    for ws in wb.worksheets:
-        rows = list(ws.iter_rows(values_only=True))
+    for title, rows in sheets:
         header_idx, cols = None, {}
         for i, row in enumerate(rows[:15]):
             found = {}
@@ -89,12 +92,12 @@ def parse_area_table(path: Path) -> ExcelResult:
                 continue
             raw_status = str(get("status") or "").strip()
             status = STATUS_MAP.get(raw_status)
-            ar = AreaRow(ws.title, k, str(item or ""), status, _num(get("main_m2")),
+            ar = AreaRow(title, k, str(item or ""), status, _num(get("main_m2")),
                          _num(get("service_m2")), _num(get("total_m2")))
             if re.search(r"סה.?כ|total", ar.item, re.IGNORECASE):
                 continue   # skip subtotal rows; totals recomputed below
             if status is None:
-                res.warnings.append(f"{ws.title}!{k}: status (existing/proposed) not recognised: '{raw_status}'")
+                res.warnings.append(f"{title}!{k}: status (existing/proposed) not recognised: '{raw_status}'")
             res.rows.append(ar)
     if not res.rows:
         res.status = "NO_AREA_TABLE"

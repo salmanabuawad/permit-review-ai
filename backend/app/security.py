@@ -26,6 +26,7 @@ PERMISSIONS = {
     "case.read":       {"sysadmin", "city_engineer", "dept_manager", "reviewer", "secretariat", "planner", "external"},
     "case.create":     {"sysadmin", "dept_manager", "secretariat", "reviewer"},
     "case.upload":     {"sysadmin", "dept_manager", "secretariat", "reviewer", "planner"},
+    "file.delete":     {"sysadmin", "dept_manager", "city_engineer"},
     "case.run":        {"sysadmin", "dept_manager", "reviewer"},
     "case.assign":     {"sysadmin", "dept_manager", "city_engineer"},
     "finding.decide":  {"reviewer", "dept_manager", "city_engineer"},

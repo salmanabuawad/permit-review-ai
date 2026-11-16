@@ -34,6 +34,7 @@ DOC_TYPES_HE = {
     "building_master_plan": "תכנית כוללת לבניין",
     "ownership_docs": "מסמכי בעלות",
     "consents": "הסכמות בעלי זכויות",
+    "sections_elevations": "חתכים וחזיתות",
     "other": "אחר",
 }
 
@@ -53,7 +54,10 @@ def ingest_file(s: Session, case: PermitCase, filename: str, data: bytes, doc_ty
     intake = files.store(case.tenant_id, case.id, filename, data)
     dup = s.scalars(select(CaseFile).where(CaseFile.case_id == case.id, CaseFile.sha256 == intake.sha256)).first()
     if dup:
-        raise files.IntakeError(f"קובץ זהה כבר קיים בתיק ({dup.filename}, גרסה {dup.version})")
+        if dup.lifecycle == "DELETED":
+            raise files.IntakeError(f"קובץ זהה ({dup.filename}) נמחק בעבר מהתיק במחיקה מבוקרת; לא ניתן לקלוט אותו מחדש")
+        where = " (בארכיון — ניתן לשחזר)" if dup.lifecycle == "ARCHIVED" else ""
+        raise files.IntakeError(f"קובץ זהה כבר קיים בתיק ({dup.filename}, גרסה {dup.version}){where}")
     prev = s.scalars(select(CaseFile).where(CaseFile.case_id == case.id, CaseFile.doc_type == doc_type)
                      .order_by(CaseFile.version.desc())).first()
     cf = CaseFile(tenant_id=case.tenant_id, case_id=case.id, doc_type=doc_type, filename=filename, kind=intake.kind,
@@ -101,6 +105,13 @@ def ingest_file(s: Session, case: PermitCase, filename: str, data: bytes, doc_ty
 
 # ------------------------------------------------------------------ facts
 
+def add_months(d: dt.date, n: int) -> dt.date:
+    """Calendar-month arithmetic (31.8 + 6 months -> 28/29.2), never a 183-day approximation."""
+    import calendar
+    y, m = divmod(d.month - 1 + n, 12)
+    y, m = d.year + y, m + 1
+    return dt.date(y, m, min(d.day, calendar.monthrange(y, m)[1]))
+
 @dataclass
 class _Ent:
     layer: str
@@ -112,7 +123,7 @@ class _Ent:
 
 def latest_files(s: Session, case: PermitCase) -> list[CaseFile]:
     out: dict[str, CaseFile] = {}
-    for f in sorted(case.files, key=lambda f: f.version):
+    for f in sorted((f for f in case.files if f.lifecycle == "ACTIVE"), key=lambda f: f.version):
         out[f.doc_type + ":" + f.kind] = f
     return list(out.values())
 
@@ -142,6 +153,15 @@ def build_facts(s: Session, case: PermitCase) -> tuple[dict, dict]:
         facts["cad"]["roles"] = sorted({e.role for e in ents if e.role})
         measurements = {k: m.as_dict() for k, m in standard_measurements(ents).items()}
     facts["measure"] = measurements
+    survey = case.declared.get("survey_map_date")
+    if survey:
+        try:
+            sd, rd = dt.date.fromisoformat(str(survey)), dt.date.fromisoformat(ref_date)
+            if sd <= rd:   # a survey dated after the reference date is left unknown -> UNCERTAIN
+                facts["facts_derived"]["survey_map_within_6_months"] = rd <= add_months(sd, 6)
+                facts["facts_derived"]["survey_map_valid_until"] = add_months(sd, 6).isoformat()
+        except ValueError:
+            pass
     xl = [f for f in usable if f.kind == "xlsx" and f.ingest_status == "OK"]
     if xl:
         t = xl[-1].ingest_report.get("totals_m2", {})
@@ -217,6 +237,30 @@ def lock_case(s: Session, case: PermitCase, user: str) -> None:
     case.locked_version = last.version
     case.status = "REVIEWER_APPROVED"
     audit.record(s, case.tenant_id, user, "case.lock", "permit_case", case.id, {"run_version": last.version})
+
+
+LIFECYCLE_STATES = ("ACTIVE", "ARCHIVED", "DELETED")
+
+
+def set_file_lifecycle(s: Session, cf: CaseFile, state: str, user: str, note: str) -> None:
+    """ACTIVE <-> ARCHIVED is reversible. DELETED is final: the stored bytes are removed, while the
+    row (name, sha256, versions) and the audit trail are kept as evidence of what was deleted."""
+    if state not in LIFECYCLE_STATES:
+        raise ValueError("מצב לא מוכר")
+    if cf.lifecycle == "DELETED":
+        raise ValueError("הקובץ נמחק — לא ניתן לשנות את מצבו")
+    if cf.case.locked_version is not None:
+        raise ValueError("התיק נעול; לא ניתן לשנות מסמכים בגרסה נעולה")
+    prev = cf.lifecycle
+    if state == "DELETED":
+        try:
+            Path(cf.storage_path).unlink(missing_ok=True)
+        except OSError as exc:
+            raise ValueError(f"מחיקת הקובץ נכשלה: {exc}") from exc
+        s.query(CadEntity).filter(CadEntity.file_id == cf.id).delete()
+    cf.lifecycle = state
+    audit.record(s, cf.tenant_id, user, f"file.{state.lower()}", "case_file", cf.id,
+                 {"case_id": cf.case_id, "filename": cf.filename, "sha256": cf.sha256, "from": prev, "note": note})
 
 
 def sla_default(now: dt.datetime | None = None) -> dt.datetime:

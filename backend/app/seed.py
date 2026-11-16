@@ -11,7 +11,7 @@ import sys
 
 from sqlalchemy.orm import Session
 
-from . import services
+from . import audit, services
 from .config import ROOT, settings
 from .db import Base, engine
 from .models import Municipality, PermitCase, User
@@ -34,18 +34,19 @@ CASES = [
          permit_type="addition_extension", applicable_plans=["DEMO/1", "בב/105"], zone="residential_B",
          gush="DEMO", helka="1", address="רחוב הדגמה 1 (פיקטיבי)", assigned_to="u-reviewer",
          declared={"multi_floor_addition": True, "has_unbuilt_floor_in_wing": True,
-                   "unbuilt_floor_railing_height_m": 1.0},
+                   "unbuilt_floor_railing_height_m": 1.0, "survey_map_date": "2025-12-01"},
          files=[("case1_extension_exceeds.dxf", "architectural_plan"), ("case1_area_table.xlsx", "area_table"),
                 ("application_form.pdf", "application_form"), ("survey_map.pdf", "survey_map"),
                 ("permit_info.pdf", "permit_info")]),
     dict(case_number="DEMO-0002", title="[הדגמה] הרחבת דירה תקינה בתוך קווי הבניין",
          permit_type="addition_extension", applicable_plans=["DEMO/1"], zone="residential_B",
          gush="DEMO", helka="2", address="רחוב הדגמה 2 (פיקטיבי)", assigned_to="u-reviewer2",
-         declared={"multi_floor_addition": False, "has_unbuilt_floor_in_wing": False},
+         declared={"multi_floor_addition": False, "has_unbuilt_floor_in_wing": False,
+                   "survey_map_date": "2026-09-01"},
          files=[("case2_extension_ok.dxf", "architectural_plan"), ("case2_area_table.xlsx", "area_table"),
                 ("application_form.pdf", "application_form"), ("survey_map.pdf", "survey_map"),
                 ("permit_info.pdf", "permit_info"), ("photos.pdf", "existing_building_photos"),
-                ("master_plan.pdf", "building_master_plan")]),
+                ("master_plan.pdf", "building_master_plan"), ("sections.pdf", "sections_elevations")]),
     dict(case_number="DEMO-0003", title="[הדגמה] חדר גג — תכנית לתוספת זכויות (מדיניות 13.1.2026), נסיגה 2.49 מ׳",
          permit_type="roof_room_addition", track="policy_2026_roof_rights", stage="plan_review",
          applicable_plans=["DEMO/1"], zone="residential_B", gush="DEMO", helka="3",
@@ -86,6 +87,8 @@ def seed(reset: bool = False) -> None:
             c = PermitCase(tenant_id="demo", is_demo=True, sla_due=services.sla_default(), **spec)
             s.add(c)
             s.flush()
+            audit.record(s, "demo", "u-secretary", "case.create", "permit_case", c.id,
+                         {"case_number": c.case_number, "permit_type": c.permit_type})
             for fname, dtype in files:
                 services.ingest_file(s, c, fname, (FIX / fname).read_bytes(), dtype, "u-secretary")
             s.flush()

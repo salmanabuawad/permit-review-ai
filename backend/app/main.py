@@ -15,7 +15,7 @@ from shapely.geometry import mapping
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from . import __version__, audit, services
+from . import __version__, audit, metrics, services
 from .ai.gateway import AIGateway
 from .config import settings
 from .db import Base, engine, get_session
@@ -52,6 +52,7 @@ STAGES = {"permit_request": "בקשה להיתר", "plan_review": "בדיקת ת
 ZONES = {"residential_A": "מגורים א׳", "residential_B": "מגורים ב׳", "residential_B1": "מגורים ב׳1",
          "residential_C": "מגורים ג׳"}
 CASE_STATUSES = {"INTAKE": "קליטה", "IN_REVIEW": "בבדיקה", "RETURNED_FOR_COMPLETION": "הוחזר להשלמות",
+                 "WAITING_EXTERNAL": "ממתין לגורם חוץ",
                  "REVIEWER_APPROVED": "אושר ע\"י בודק", "CLOSED": "סגור"}
 
 
@@ -76,7 +77,7 @@ def case_dict(c: PermitCase, with_files=True) -> dict:
         d["files"] = [{"id": f.id, "filename": f.filename, "doc_type": f.doc_type, "kind": f.kind,
                        "suggested_doc_type": f.suggested_doc_type, "sha256": f.sha256, "size_bytes": f.size_bytes,
                        "version": f.version, "ingest_status": f.ingest_status, "ingest_report": f.ingest_report,
-                       "av_status": f.av_status, "signature_status": f.signature_status,
+                       "av_status": f.av_status, "signature_status": f.signature_status, "lifecycle": f.lifecycle,
                        "uploaded_at": f.uploaded_at.isoformat()} for f in sorted(c.files, key=lambda f: f.uploaded_at)]
     return d
 
@@ -191,11 +192,35 @@ async def upload(case_id: str, file: UploadFile = File(...), doc_type: str = For
     return case_dict(c)
 
 
-def _file(s: Session, p: Principal, file_id: str) -> CaseFile:
+def _file(s: Session, p: Principal, file_id: str, allow_deleted: bool = False) -> CaseFile:
     f = s.get(CaseFile, file_id)
     if not f or f.tenant_id != p.tenant_id:
         raise HTTPException(404, "קובץ לא נמצא")
+    if f.lifecycle == "DELETED" and not allow_deleted:
+        raise HTTPException(410, "הקובץ נמחק במחיקה מבוקרת")
     return f
+
+
+class LifecycleIn(BaseModel):
+    state: str      # ACTIVE | ARCHIVED | DELETED
+    note: str
+
+
+@app.post("/api/files/{file_id}/lifecycle")
+def file_lifecycle(file_id: str, body: LifecycleIn, p: Principal = Depends(current_user),
+                   s: Session = Depends(get_session)):
+    f = _file(s, p, file_id, allow_deleted=True)
+    need = "file.delete" if body.state == "DELETED" else "case.upload"
+    if not p.can(need):
+        raise HTTPException(403, f"אין הרשאה: {need}")
+    if len(body.note.strip()) < 3:
+        raise HTTPException(422, "נדרש נימוק")
+    try:
+        services.set_file_lifecycle(s, f, body.state, p.id, body.note)
+    except ValueError as e:
+        raise HTTPException(409, str(e)) from e
+    s.commit()
+    return case_dict(f.case)
 
 
 @app.get("/api/files/{file_id}/page/{n}.png")
@@ -321,7 +346,7 @@ def workflow(case_id: str, body: StatusIn, p: Principal = Depends(current_user),
             raise HTTPException(422, "בודק לא תקין")
         c.assigned_to = u.id
         audit.record(s, p.tenant_id, p.id, "case.assign", "permit_case", c.id, {"to": u.id})
-    elif body.status in ("RETURNED_FOR_COMPLETION", "IN_REVIEW", "CLOSED"):
+    elif body.status in ("RETURNED_FOR_COMPLETION", "IN_REVIEW", "WAITING_EXTERNAL", "CLOSED"):
         if not p.can("case.run"):
             raise HTTPException(403)
         if c.locked_version is not None and body.status != "CLOSED":
@@ -482,6 +507,8 @@ def dashboard(p: Principal = Depends(require("dashboard.read")), s: Session = De
         "cost_per_case": {k: round(v or 0, 4) for k, v in cost_per_case},
         "run_duration_ms": {"count": len(durations), "max": max(durations, default=0),
                             "avg": round(sum(durations) / len(durations)) if durations else 0},
+        "stages": metrics.stage_stats(s, t),
+        **metrics.cost_breakdown(s, t),
         "kpi_note_he": "מדדי הקבלה של המכרז (95%/90%/85%) יימדדו מול ground truth של בודקים על 100 תיקי אמת — טרם נמדדו.",
     }
 
