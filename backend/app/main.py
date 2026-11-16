@@ -409,8 +409,10 @@ def approve_rule(rule_id: str, body: ApproveIn, p: Principal = Depends(require("
 
 
 @app.get("/api/sources")
-def sources():
-    return list(load_sources().values())
+def sources(p: Principal = Depends(current_user), s: Session = Depends(get_session)):
+    tenant = s.get(Municipality, p.tenant_id)
+    show_demo = bool(tenant and tenant.is_demo)   # the fictitious DEMO/1 plan is listed only in a demo tenant
+    return [src for src in load_sources().values() if show_demo or src.get("category") != "DEMO"]
 
 
 @app.get("/api/kb/search")

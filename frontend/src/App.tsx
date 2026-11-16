@@ -80,7 +80,7 @@ export default function App() {
               </NavLink>
             ))}
           </nav>
-          <div className="sidebar-footer"><div className="sidebar-footer-dot" /> פיילוט · סביבת הדגמה<small>גרסה ראשונית · נתונים פיקטיביים</small></div>
+          <div className="sidebar-footer"><div className="sidebar-footer-dot" /> פיילוט · מערכת תומכת החלטה<small>גרסה ראשונית</small></div>
         </aside>
         <div className="main">
           {isDemo && (
@@ -93,7 +93,7 @@ export default function App() {
             <div className="topbar-location"><span className="topbar-eyebrow">סביבת עבודה / עיריית בני ברק</span><strong>{isDemo ? 'סביבת הדגמה' : 'מינהל ההנדסה'}</strong></div>
             <span className="spacer" />
             <span className="topbar-policy"><span className="live-dot" /> כל תוצר הוא המלצה בלבד — ההחלטה בסמכות בעל תפקיד מוסמך</span>
-            <label className="small muted" htmlFor="user-switch">משתמש (הדגמה):</label>
+            <label className="small muted" htmlFor="user-switch">משתמש:</label>
             <select className="user-switch" id="user-switch" value={userId} onChange={e => setUserId(e.target.value)}>
               {users.map(u => <option key={u.id} value={u.id}>{u.display_name} — {u.role_he}</option>)}
             </select>

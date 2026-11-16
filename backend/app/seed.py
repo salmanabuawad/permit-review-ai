@@ -1,8 +1,9 @@
 """Create schema + demo tenant/users/cases from fixtures. `python -m app.seed --reset`
 
-Tenants:
-  demo       — is_demo=True; fictitious cases; DEMO_FIXTURE rules are active here only.
-  bnei-brak  — real tenant, intentionally EMPTY (no invented case data).
+Modes:
+  default        demo tenant with fictitious sample cases (local development + tests);
+                 DEMO_FIXTURE rules are active only there. Also creates an empty bnei-brak tenant.
+  --no-samples   clean pilot install: bnei-brak tenant with role users only, no cases or files.
 """
 from __future__ import annotations
 
@@ -63,12 +64,41 @@ CASES = [
 ]
 
 
-def seed(reset: bool = False) -> None:
+PILOT_USERS = [
+    ("u-admin", "מנהל מערכת", "sysadmin"),
+    ("u-engineer", "מהנדס העיר", "city_engineer"),
+    ("u-manager", "מנהל/ת אגף רישוי", "dept_manager"),
+    ("u-reviewer", "בודק/ת תכניות א׳", "reviewer"),
+    ("u-reviewer2", "בודק/ת תכניות ב׳", "reviewer"),
+    ("u-planner", "עורך/ת בקשה", "planner"),
+    ("u-secretary", "מזכירות", "secretariat"),
+]
+
+
+def seed_empty() -> None:
+    """Clean pilot install: Bnei Brak tenant with role users only — no sample cases, no files,
+    and no demo tenant (so the fictitious DEMO/1 rules never run)."""
+    Base.metadata.create_all(engine)
+    with Session(engine) as s:
+        if s.get(Municipality, "bnei-brak"):
+            print("already seeded (use --reset)")
+            return
+        s.add(Municipality(id="bnei-brak", name_he="עיריית בני ברק", is_demo=False))
+        s.flush()
+        s.add_all([User(id=i, tenant_id="bnei-brak", display_name=n, role=r) for i, n, r in PILOT_USERS])
+        s.commit()
+    print("seeded empty Bnei Brak tenant with", len(PILOT_USERS), "users and no sample data")
+
+
+def seed(reset: bool = False, samples: bool = True) -> None:
     if reset:
         Base.metadata.drop_all(engine)
         if settings.storage_dir.exists():
             shutil.rmtree(settings.storage_dir)
         settings.storage_dir.mkdir(parents=True, exist_ok=True)
+    if not samples:
+        seed_empty()
+        return
     Base.metadata.create_all(engine)
     if not FIX.exists():
         raise SystemExit("fixtures missing — run: python scripts/make_fixtures.py")
@@ -99,4 +129,4 @@ def seed(reset: bool = False) -> None:
 
 
 if __name__ == "__main__":
-    seed(reset="--reset" in sys.argv)
+    seed(reset="--reset" in sys.argv, samples="--no-samples" not in sys.argv)
