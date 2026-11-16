@@ -16,20 +16,34 @@ const AppCtx = createContext<Ctx>({ me: null, meta: null, can: () => false, toas
 export const useApp = () => useContext(AppCtx)
 
 const NAV = [
-  { to: '/', label: 'לוח בקרה', end: true },
-  { to: '/cases', label: 'תיקי בקשות' },
-  { to: '/rules', label: 'מאגר כללים' },
-  { to: '/sources', label: 'מקורות ובסיס ידע' },
-  { to: '/ai', label: 'הגדרות AI' },
-  { to: '/integrations', label: 'ממשקים', tag: 'מתוכנן' },
-  { to: '/audit', label: 'יומן ביקורת' },
+  { to: '/', label: 'לוח בקרה', icon: 'dashboard', end: true },
+  { to: '/cases', label: 'תיקי בקשות', icon: 'files' },
+  { to: '/rules', label: 'מאגר כללים', icon: 'rules' },
+  { to: '/sources', label: 'מקורות ובסיס ידע', icon: 'database' },
+  { to: '/ai', label: 'הגדרות AI', icon: 'brain' },
+  { to: '/integrations', label: 'ממשקים', icon: 'links', tag: 'מתוכנן' },
+  { to: '/audit', label: 'יומן ביקורת', icon: 'shield' },
 ]
+
+const ICON_PATHS: Record<string, string> = {
+  dashboard: 'M3 3h8v8H3z M13 3h8v5h-8z M13 10h8v11h-8z M3 13h8v8H3z',
+  files: 'M5 3h9l5 5v13H5z M14 3v6h5 M8 13h8 M8 17h8',
+  rules: 'M5 4h14v16H5z M9 9h6 M9 13h6 M9 17h4',
+  database: 'M4 6c0-4 16-4 16 0s-16 4-16 0 M4 6v12c0 4 16 4 16 0V6 M4 12c0 4 16 4 16 0',
+  brain: 'M12 3a4 4 0 0 0-7 3 4 4 0 0 0-1 7 4 4 0 0 0 3 7 4 4 0 0 0 5-2 M12 3a4 4 0 0 1 7 3 4 4 0 0 1 1 7 4 4 0 0 1-3 7 4 4 0 0 1-5-2 M12 3v16',
+  links: 'M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-2 2 M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l2-2',
+  shield: 'M12 2 4 5v6c0 5 3 8 8 11 5-3 8-6 8-11V5z M9 12l2 2 4-4',
+}
+function NavIcon({ name }: { name: string }) {
+  return <svg className="nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round" strokeLinejoin="round"><path d={ICON_PATHS[name]} /></svg>
+}
 
 export default function App() {
   const [me, setMe] = useState<Me | null>(null)
   const [meta, setMeta] = useState<any>(null)
   const [users, setUsers] = useState<any[]>([])
   const [userId, setUserId] = useState(getUser())
+  const [mobileOpen, setMobileOpen] = useState(false)
   const [msg, setMsg] = useState<{ text: string; err: boolean } | null>(null)
 
   const toast = useCallback((text: string, err = false) => {
@@ -52,18 +66,21 @@ export default function App() {
   return (
     <AppCtx.Provider value={{ me, meta, can, toast }}>
       <div className="app">
-        <aside className="sidebar">
-          <div className="logo">
-            בדיקת היתרי בנייה בסיוע AI
-            <small>הוועדה המקומית בני ברק · פיילוט (POC)</small>
+        {mobileOpen && <button className="mobile-overlay" aria-label="סגירת תפריט" onClick={() => setMobileOpen(false)} />}
+        <aside className={'sidebar' + (mobileOpen ? ' mobile-open' : '')}>
+          <div className="brand-lockup">
+            <div className="brand-mark" aria-hidden="true">ב</div>
+            <div><strong>מערכת רישוי חכמה</strong><small>בני ברק · מערכת תומכת החלטה</small></div>
           </div>
+          <div className="sidebar-section-label">סביבת עבודה</div>
           <nav aria-label="ניווט ראשי">
             {NAV.map(n => (
-              <NavLink key={n.to} to={n.to} end={n.end}>
-                {n.label}{n.tag && <span className="tag">{n.tag}</span>}
+              <NavLink key={n.to} to={n.to} end={n.end} onClick={() => setMobileOpen(false)}>
+                <NavIcon name={n.icon} /><span className="nav-label">{n.label}</span>{n.tag && <span className="tag">{n.tag}</span>}
               </NavLink>
             ))}
           </nav>
+          <div className="sidebar-footer"><div className="sidebar-footer-dot" /> פיילוט · סביבת הדגמה<small>גרסה ראשונית · נתונים פיקטיביים</small></div>
         </aside>
         <div className="main">
           {isDemo && (
@@ -72,11 +89,12 @@ export default function App() {
             </div>
           )}
           <header className="topbar">
-            <strong>{isDemo ? 'סביבת הדגמה' : 'עיריית בני ברק'}</strong>
-            <span className="chip outline">כל תוצר הוא המלצה בלבד — ההחלטה בסמכות בעל תפקיד מוסמך</span>
+            <button className="mobile-menu" aria-label="פתיחת תפריט" onClick={() => setMobileOpen(true)}>☰</button>
+            <div className="topbar-location"><span className="topbar-eyebrow">סביבת עבודה / עיריית בני ברק</span><strong>{isDemo ? 'סביבת הדגמה' : 'מינהל ההנדסה'}</strong></div>
             <span className="spacer" />
+            <span className="topbar-policy"><span className="live-dot" /> כל תוצר הוא המלצה בלבד — ההחלטה בסמכות בעל תפקיד מוסמך</span>
             <label className="small muted" htmlFor="user-switch">משתמש (הדגמה):</label>
-            <select id="user-switch" value={userId} onChange={e => setUserId(e.target.value)}>
+            <select className="user-switch" id="user-switch" value={userId} onChange={e => setUserId(e.target.value)}>
               {users.map(u => <option key={u.id} value={u.id}>{u.display_name} — {u.role_he}</option>)}
             </select>
           </header>

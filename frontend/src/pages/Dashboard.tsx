@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { api } from '../api'
 import { useApp } from '../App'
 
@@ -23,12 +24,16 @@ export default function Dashboard() {
   const cost = d.ai_usage.reduce((a: number, x: any) => a + x.cost_ils, 0)
   return (
     <>
-      <div className="page-head"><div><h1>לוח בקרה</h1><p>עומסים, זמני בדיקה ועלויות AI — נתוני הסביבה הנוכחית</p></div></div>
+      <div className="dashboard-hero">
+        <div className="hero-copy"><span className="hero-kicker">מרכז הבקרה · מינהל ההנדסה</span><h1>תמונת מצב רישוי ובקרה</h1><p>מידע תפעולי, ביצועי בדיקות AI, עומסי טיפול ועלויות — במבט אחד.</p><div className="hero-actions"><Link className="hero-btn" to="/cases">צפייה בתיקי הבקשות <span aria-hidden="true">←</span></Link><Link className="hero-link" to="/rules">מאגר הכללים והנהלים</Link></div></div>
+        <div className="hero-visual" aria-hidden="true"><div className="hero-visual-ring"><span>AI</span><i /></div><div className="hero-visual-note">בדיקה · שקיפות · בקרה</div></div>
+      </div>
+      <div className="section-heading"><div><h2>מדדים מרכזיים</h2><p>נתוני הסביבה הנוכחית</p></div><span className="status-dot-label"><i/> נתונים חיים מהמערכת</span></div>
       <div className="grid k4">
-        <div className="card stat"><div className="l">תיקים</div><div className="v num">{total}</div></div>
-        <div className="card stat"><div className="l">חריגות SLA</div><div className="v num" style={{ color: d.sla_overdue ? 'var(--fail)' : undefined }}>{d.sla_overdue}</div></div>
-        <div className="card stat"><div className="l">זמן הרצת בדיקה (ממוצע / מרבי)</div><div className="v"><span className="num">{(d.run_duration_ms.avg / 1000).toFixed(2)}</span> / <span className="num">{(d.run_duration_ms.max / 1000).toFixed(2)}</span> ש׳</div><div className="small muted">יעד מכרז: דוח ≤ 60 ש׳, תיק מלא ≤ 2 דק׳</div></div>
-        <div className="card stat"><div className="l">עלות AI מצטברת</div><div className="v"><span className="num">{cost.toFixed(2)}</span> ₪</div><div className="small muted">עיבוד מקומי = 0 ₪ ישיר</div></div>
+        <div className="card stat stat-blue"><div className="stat-decoration">▤</div><div className="l">תיקים במערכת</div><div className="v num">{total}</div></div>
+        <div className="card stat stat-red"><div className="stat-decoration">◷</div><div className="l">חריגות בזמני טיפול</div><div className="v num" style={{ color: d.sla_overdue ? 'var(--fail)' : undefined }}>{d.sla_overdue}</div></div>
+        <div className="card stat stat-teal"><div className="stat-decoration">◉</div><div className="l">זמן בדיקה ממוצע / מרבי</div><div className="v"><span className="num">{(d.run_duration_ms.avg / 1000).toFixed(2)}</span> / <span className="num">{(d.run_duration_ms.max / 1000).toFixed(2)}</span> ש׳</div><div className="small muted">יעד מכרז: דוח ≤ 60 ש׳, תיק מלא ≤ 2 דק׳</div></div>
+        <div className="card stat stat-violet"><div className="stat-decoration">₪</div><div className="l">עלות AI מצטברת</div><div className="v"><span className="num">{cost.toFixed(2)}</span> ₪</div><div className="small muted">עיבוד מקומי = 0 ₪ ישיר</div></div>
       </div>
       <div className="grid k2" style={{ marginTop: 14 }}>
         <div className="card">
