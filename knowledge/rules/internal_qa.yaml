@@ -1,0 +1,90 @@
+# Internal QA checks — consistency between the application's own documents.
+# These are not legal rules; they flag a contradiction inside the submission
+# (e.g. drawn area vs. declared area table). Tolerances are DESIGN_ASSUMPTION values
+# to be calibrated during the POC against manual reviewer measurements.
+jurisdiction: "*"
+rules:
+  - id: QA-AREA-CAD-VS-TABLE
+    version: "0.1"
+    title_he: "התאמה בין שטח הבנייה המוצעת בשרטוט לבין טבלת השטחים"
+    legal_level: INTERNAL_QA
+    report: rights
+    severity: medium
+    review_state: DESIGN_ASSUMPTION
+    check:
+      kind: consistency
+      operand_a: measure.proposed_addition_area_m2
+      operand_b: facts_derived.table_proposed_total_m2
+      a_label_he: "שטח מחושב מהשרטוט"
+      b_label_he: "שטח מוצהר בטבלה"
+      max_rel_diff: 0.01
+    applicability:
+      all: [{fact: case.permit_type, op: in, value: [addition_extension], label_he: "הרחבה"}]
+    sources: [{source_id: INTERNAL-QA}]
+    fix_hint_he: "לתקן את טבלת השטחים או את השרטוט כך שיתאימו."
+
+  - id: QA-CAD-LAYERS
+    version: "0.1"
+    title_he: "שכבות CAD נדרשות לפי מוסכמת ההגשה"
+    legal_level: INTERNAL_QA
+    report: completeness
+    severity: medium
+    review_state: DESIGN_ASSUMPTION
+    check: {kind: cad_roles, roles_from: layer_convention}
+    sources: [{source_id: LAYER-CONVENTION}]
+    fix_hint_he: "להגיש DXF/DWG עם השכבות לפי מוסכמת ההגשה של הוועדה."
+
+  - id: QA-REQ-APPLICATION-FORM
+    version: "0.1"
+    title_he: "טופס בקשה להיתר"
+    legal_level: REGULATION
+    report: completeness
+    severity: high
+    review_state: SOURCE_LOCATED
+    stages: [permit_request]
+    check: {kind: doc_required, doc_type: application_form, doc_label_he: "טופס בקשה להיתר"}
+    sources: [{source_id: GOV-LIC-FORMS}, {source_id: REG-RISHUY-2016}]
+
+  - id: QA-REQ-SURVEY
+    version: "0.1"
+    title_he: "מפת מדידה"
+    legal_level: REGULATION
+    report: completeness
+    severity: high
+    review_state: SOURCE_LOCATED
+    stages: [permit_request]
+    check: {kind: doc_required, doc_type: survey_map, doc_label_he: "מפת מדידה"}
+    sources: [{source_id: GOV-LIC-FORMS}, {source_id: REG-RISHUY-2016}]
+
+  - id: QA-REQ-AREA-TABLE
+    version: "0.1"
+    title_he: "טבלת שטחים"
+    legal_level: REGULATION
+    report: completeness
+    severity: medium
+    review_state: SOURCE_LOCATED
+    stages: [permit_request]
+    check: {kind: doc_required, doc_type: area_table, doc_label_he: "טבלת שטחים (Excel)"}
+    sources: [{source_id: GOV-LIC-FORMS}]
+
+  - id: QA-REQ-ARCH-PLANS
+    version: "0.1"
+    title_he: "תכנית הגשה (שרטוט CAD)"
+    legal_level: REGULATION
+    report: completeness
+    severity: high
+    review_state: SOURCE_LOCATED
+    stages: [permit_request]
+    check: {kind: doc_required, doc_type: architectural_plan, doc_label_he: "תכנית הגשה (DXF/DWG)"}
+    sources: [{source_id: GOV-LIC-FORMS}]
+
+  - id: QA-REQ-PERMIT-INFO
+    version: "0.1"
+    title_he: "מידע להיתר"
+    legal_level: REGULATION
+    report: completeness
+    severity: medium
+    review_state: SOURCE_LOCATED
+    stages: [permit_request]
+    check: {kind: doc_required, doc_type: permit_info, doc_label_he: "מידע להיתר"}
+    sources: [{source_id: GOV-LIC-STEPS}]

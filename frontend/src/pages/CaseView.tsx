@@ -1,0 +1,297 @@
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Link, useParams } from 'react-router-dom'
+import { Case, Citation, Finding, Report, api, fmt, fmtDate, openBlob } from '../api'
+import { useApp } from '../App'
+import CadViewer from '../components/CadViewer'
+import FindingCard, { StatusChip } from '../components/FindingCard'
+import SourceDrawer from '../components/SourceDrawer'
+
+const REPORTS = [
+  { key: 'completeness', label: 'שלמות ותנאי סף' },
+  { key: 'rights', label: 'זכויות ותנאים' },
+  { key: 'reviewer', label: 'דוח בודק (מלא)' },
+]
+const INGEST_HE: Record<string, string> = {
+  OK: 'נקלט', NEEDS_OCR: 'נדרש OCR', NEEDS_CONVERSION: 'נדרשת המרה (DWG)', NEEDS_UNITS: 'חסרות יחידות',
+  NO_AREA_TABLE: 'לא זוהתה טבלת שטחים', ERROR: 'שגיאה', QUARANTINED: 'בהסגר', PENDING: 'ממתין',
+}
+
+export default function CaseView() {
+  const { id } = useParams()
+  const { meta, can, toast } = useApp()
+  const [c, setC] = useState<Case | null>(null)
+  const [report, setReport] = useState<Report | null>(null)
+  const [kind, setKind] = useState('reviewer')
+  const [geo, setGeo] = useState<any>(null)
+  const [sel, setSel] = useState<string | null>(null)
+  const [cite, setCite] = useState<Citation | null>(null)
+  const [tab, setTab] = useState<'findings' | 'files' | 'data' | 'history'>('findings')
+  const [filter, setFilter] = useState<'open' | 'all'>('open')
+  const [busy, setBusy] = useState(false)
+  const [runs, setRuns] = useState<any[]>([])
+
+  const load = useCallback(async () => {
+    const cc = await api.get<Case>(`/api/cases/${id}`)
+    setC(cc)
+    setGeo(await api.get(`/api/cases/${id}/geometry`))
+    setRuns(await api.get<any[]>(`/api/cases/${id}/runs`))
+    if (cc.last_run) setReport(await api.get<Report>(`/api/runs/${cc.last_run.id}/report/${kind}`))
+    else setReport(null)
+  }, [id, kind])
+  useEffect(() => { load().catch(e => toast(e.message, true)) }, [load, toast])
+
+  const run = async () => {
+    setBusy(true)
+    try {
+      const r = await api.post<any>(`/api/cases/${id}/run`)
+      toast(`בדיקה גרסה ${r.version} הושלמה תוך ${r.duration_ms} מ״ש`)
+      await load()
+    } catch (e: any) { toast(e.message, true) } finally { setBusy(false) }
+  }
+  const workflow = async (status: string, extra: any = {}) => {
+    try { await api.post(`/api/cases/${id}/workflow`, { status, ...extra }); toast('עודכן'); await load() }
+    catch (e: any) { toast(e.message, true) }
+  }
+  const decide = async (fid: string, decision: string, note: string) => {
+    try { await api.post(`/api/findings/${fid}/decision`, { decision, note }); await load() }
+    catch (e: any) { toast(e.message, true) }
+  }
+
+  const findings = useMemo(() => (report?.findings ?? []).filter(f =>
+    filter === 'all' ? true : f.status !== 'NA'), [report, filter])
+  const counts = useMemo(() => {
+    const o: Record<string, number> = { PASS: 0, FAIL: 0, UNCERTAIN: 0, NA: 0 }
+    report?.findings.forEach(f => { o[f.status]++ })
+    return o
+  }, [report])
+
+  if (!c || !meta) return <div className="empty">טוען תיק…</div>
+  const locked = c.locked_version !== null
+  const hasFiles = (c.files?.length ?? 0) > 0
+  const pending = (report?.findings ?? []).filter(f => (f.status === 'FAIL' || f.status === 'UNCERTAIN') && !f.reviewer_decision).length
+  const steps = [
+    { label: 'קליטת קבצים', done: hasFiles },
+    { label: 'בדיקת שלמות ותנאי סף', done: !!c.last_run },
+    { label: 'דוח זכויות', done: !!c.last_run },
+    { label: 'דוח בודק והחלטות', done: !!c.last_run && pending === 0 },
+    { label: 'אישור ונעילת גרסה', done: locked },
+  ]
+  const current = steps.findIndex(s => !s.done)
+
+  return (
+    <>
+      <div className="page-head">
+        <div>
+          <div className="small muted"><Link to="/cases">תיקי בקשות</Link> ‹ <span className="ltr">{c.case_number}</span></div>
+          <h1>{c.title}</h1>
+          <p>
+            {meta.permit_types[c.permit_type]} · {meta.tracks[c.track]} · גוש <span className="ltr">{c.gush ?? '—'}</span> חלקה <span className="ltr">{c.helka ?? '—'}</span>
+            {' · '}{c.address ?? ''}
+          </p>
+        </div>
+        <span className="spacer" />
+        {c.is_demo && <span className="chip demo">הדגמה</span>}
+        <span className="chip outline">{meta.case_statuses[c.status] ?? c.status}</span>
+        {can('case.run') && <button className="primary" onClick={run} disabled={busy || locked || !hasFiles}>{busy ? 'מריץ…' : 'הרצת בדיקה'}</button>}
+      </div>
+
+      <ol className="stepper" aria-label="שלבי הטיפול בתיק">
+        {steps.map((s, i) => <li key={i} className={s.done ? 'done' : i === current ? 'current' : ''}>{s.label}</li>)}
+      </ol>
+
+      {c.last_run && report && (
+        <div className="card" style={{ marginBottom: 14 }}>
+          <div className="card-head">
+            <h3>תוצאות בדיקה — גרסה <span className="num">{report.run.version}</span></h3>
+            <span className="small muted">{fmtDate(report.run.at)} · <span className="num">{report.run.duration_ms}</span> מ״ש · ruleset <span className="mono">{report.run.ruleset_hash.slice(0, 10)}</span></span>
+            <span className="spacer" />
+            <div className="counts">
+              {(['FAIL', 'UNCERTAIN', 'PASS', 'NA'] as const).map(s => <span key={s}><StatusChip s={s} /> <span className="num">{counts[s]}</span></span>)}
+            </div>
+          </div>
+          {report.run.ai_summary && <div className="notice info small" style={{ whiteSpace: 'pre-line' }}>{report.run.ai_summary}</div>}
+          <div className="card-head no-print" style={{ marginTop: 10, marginBottom: 0 }}>
+            <span className="small muted">ייצוא:</span>
+            {REPORTS.map(r => (
+              <button key={r.key} className="sm" onClick={() => openBlob(`/api/runs/${c.last_run!.id}/pdf/${r.key}`).catch(e => toast(e.message, true))}>
+                PDF — {r.label}
+              </button>
+            ))}
+            <button className="sm" onClick={() => openBlob(`/api/cases/${c.id}/export`, `case_${c.case_number}.json`)}>ייצוא JSON (פורמט פתוח)</button>
+            <span className="spacer" />
+            {can('case.run') && !locked && <button className="sm" onClick={() => workflow('RETURNED_FOR_COMPLETION', { note: 'החזרה להשלמות' })}>החזרה להשלמות</button>}
+            {can('case.lock') && !locked && <button className="sm primary" disabled={pending > 0} title={pending ? `${pending} ממצאים ממתינים להחלטה` : ''} onClick={() => workflow('LOCK')}>אישור ונעילת גרסה</button>}
+            {locked && <span className="chip ok">נעול — גרסה {c.locked_version}</span>}
+          </div>
+        </div>
+      )}
+
+      <div className="workspace">
+        <section className="card" aria-label="תשריט">
+          <div className="card-head"><h3>תצוגת תשריט ושכבות</h3><span className="spacer" /><span className="small muted">לחיצה על סימון אדום/צהוב מציגה את הממצא</span></div>
+          <CadViewer geo={geo} findings={report?.findings ?? []} selected={sel} onSelect={id => { setSel(id); setTab('findings') }} />
+          {report && <Measurements m={report.measurements} />}
+        </section>
+
+        <section className="card" aria-label="ממצאים ונתונים">
+          <div className="tabs" role="tablist">
+            <button className={tab === 'findings' ? 'active' : ''} onClick={() => setTab('findings')}>ממצאים <span className="count num">{findings.length}</span></button>
+            <button className={tab === 'files' ? 'active' : ''} onClick={() => setTab('files')}>קבצים <span className="count num">{c.files?.length ?? 0}</span></button>
+            <button className={tab === 'data' ? 'active' : ''} onClick={() => setTab('data')}>נתוני התיק</button>
+            <button className={tab === 'history' ? 'active' : ''} onClick={() => setTab('history')}>גרסאות</button>
+          </div>
+
+          {tab === 'findings' && (
+            <>
+              <div className="card-head">
+                <select value={kind} onChange={e => setKind(e.target.value)} aria-label="סוג דוח">
+                  {REPORTS.map(r => <option key={r.key} value={r.key}>{r.label}</option>)}
+                </select>
+                <select value={filter} onChange={e => setFilter(e.target.value as any)} aria-label="סינון">
+                  <option value="open">ללא "לא חל"</option><option value="all">הכל</option>
+                </select>
+                <span className="spacer" />
+                {pending > 0 && <span className="chip warn">{pending} ממתינים להחלטה</span>}
+              </div>
+              {!report && <div className="empty">טרם הורצה בדיקה</div>}
+              {report && <p className="small muted" style={{ marginTop: 0 }}>{report.disclaimer_he}</p>}
+              <div className="findings-scroll">
+                {findings.map((f: Finding) => (
+                  <FindingCard key={f.id} f={f} selected={sel === f.id} onSelect={() => setSel(f.id)} onCite={setCite}
+                    canDecide={can('finding.decide')} locked={locked} onDecide={(d, n) => decide(f.id, d, n)} />
+                ))}
+              </div>
+            </>
+          )}
+          {tab === 'files' && <Files c={c} onChange={load} locked={locked} />}
+          {tab === 'data' && <CaseData c={c} onChange={load} locked={locked} />}
+          {tab === 'history' && (
+            <table>
+              <thead><tr><th>גרסה</th><th>מועד</th><th>תוצאות</th><th>Ruleset</th></tr></thead>
+              <tbody>{runs.slice().reverse().map(r => (
+                <tr key={r.id}><td className="num">{r.version}{r.locked ? ' 🔒' : ''}</td><td>{fmtDate(r.at)}</td>
+                  <td className="small">{Object.entries(r.counts ?? {}).map(([rep, cs]: any) => `${rep}: ${Object.entries(cs).map(([k, v]) => `${k} ${v}`).join(', ')}`).join(' | ')}</td>
+                  <td className="mono">{r.ruleset_hash.slice(0, 10)}</td></tr>
+              ))}</tbody>
+            </table>
+          )}
+        </section>
+      </div>
+      <SourceDrawer cite={cite} onClose={() => setCite(null)} />
+    </>
+  )
+}
+
+const M_HE: Record<string, string> = {
+  plot_area_m2: 'שטח מגרש', existing_footprint_m2: 'תכסית קיימת', proposed_addition_area_m2: 'שטח תוספת מוצעת',
+  balcony_area_m2: 'שטח מרפסת', sukkah_area_m2: 'שטח סוכה', roof_room_area_m2: 'שטח חדר גג',
+  roof_room_front_setback_m: 'נסיגת חדר גג מחזית שפת הגג', proposed_to_plot_boundary_m: 'מרחק תוספת מגבול מגרש',
+  sukkah_to_plot_boundary_m: 'מרחק סוכה מגבול מגרש', proposed_outside_building_line_m2: 'שטח תוספת מחוץ לקו בניין',
+  balcony_outside_building_line_m2: 'שטח מרפסת מחוץ לקו בניין',
+}
+
+function Measurements({ m }: { m: Record<string, any> }) {
+  const rows = Object.values(m).filter((x: any) => x.value !== null)
+  if (!rows.length) return null
+  return (
+    <div style={{ marginTop: 12 }}>
+      <h3>מדידות דטרמיניסטיות</h3>
+      <div className="table-wrap"><table>
+        <thead><tr><th>מדידה</th><th>ערך</th><th>יחידות</th><th>שיטה</th></tr></thead>
+        <tbody>{rows.map((x: any) => (
+          <tr key={x.key}><td>{M_HE[x.key] ?? x.key}</td><td className="num"><b>{fmt(x.value)}</b></td>
+            <td>{x.units === 'm2' ? 'מ״ר' : 'מ׳'}</td><td className="small mono">{x.method}</td></tr>
+        ))}</tbody>
+      </table></div>
+    </div>
+  )
+}
+
+function Files({ c, onChange, locked }: { c: Case; onChange: () => Promise<void>; locked: boolean }) {
+  const { meta, can, toast } = useApp()
+  const [docType, setDocType] = useState('architectural_plan')
+  const [units, setUnits] = useState('')
+  const [file, setFile] = useState<File | null>(null)
+  const [busy, setBusy] = useState(false)
+  const upload = async () => {
+    if (!file) return
+    const fd = new FormData()
+    fd.append('file', file); fd.append('doc_type', docType)
+    if (units) fd.append('declared_units_m', units)
+    setBusy(true)
+    try { await api.upload(`/api/cases/${c.id}/files`, fd); toast('הקובץ נקלט'); setFile(null); await onChange() }
+    catch (e: any) { toast(e.message, true) } finally { setBusy(false) }
+  }
+  return (
+    <>
+      {can('case.upload') && !locked && (
+        <div className="card" style={{ background: 'var(--surface-2)', boxShadow: 'none' }}>
+          <h3>העלאת קובץ (PDF / DXF / DWG / Excel)</h3>
+          <div className="form-grid">
+            <label className="field">קובץ<input type="file" accept=".pdf,.dxf,.dwg,.xlsx,.xlsm" onChange={e => setFile(e.target.files?.[0] ?? null)} /></label>
+            <label className="field">סוג מסמך<select value={docType} onChange={e => setDocType(e.target.value)}>
+              {Object.entries(meta.doc_types).map(([k, v]: any) => <option key={k} value={k}>{v}</option>)}</select></label>
+            <label className="field">יחידות שרטוט (מ׳ ליחידה, רק אם חסר בקובץ)<input value={units} onChange={e => setUnits(e.target.value)} placeholder="למשל 0.001" inputMode="decimal" /></label>
+          </div>
+          <div style={{ marginTop: 10 }}><button className="primary" disabled={!file || busy} onClick={upload}>{busy ? 'קולט…' : 'העלאה וקליטה'}</button>
+            <span className="small muted" style={{ marginInlineStart: 10 }}>הקבצים נשמרים מקומית; SHA-256, זיהוי כפילויות וגרסאות. סריקת וירוסים: ClamAV אם מותקן.</span></div>
+        </div>
+      )}
+      <div className="table-wrap" style={{ marginTop: 10 }}>
+        <table>
+          <thead><tr><th>קובץ</th><th>סוג</th><th>קליטה</th><th>פרטים</th></tr></thead>
+          <tbody>
+            {(c.files ?? []).map(f => (
+              <tr key={f.id}>
+                <td><span className="ltr">{f.filename}</span><div className="small muted">גרסה <span className="num">{f.version}</span> · <span className="mono">{f.sha256.slice(0, 12)}</span></div></td>
+                <td>{meta.doc_types[f.doc_type] ?? f.doc_type}
+                  {f.suggested_doc_type && f.suggested_doc_type !== f.doc_type && <div className="small" style={{ color: 'var(--unc)' }}>סיווג AI מציע: {meta.doc_types[f.suggested_doc_type]}</div>}</td>
+                <td><span className={'chip ' + (f.ingest_status === 'OK' ? 'ok' : 'warn')}>{INGEST_HE[f.ingest_status] ?? f.ingest_status}</span>
+                  <div className="small muted">AV: {f.av_status === 'NOT_SCANNED' ? 'לא נסרק' : f.av_status}</div></td>
+                <td className="small">
+                  {f.kind === 'dxf' && <>יחידות: <span className="ltr">{f.ingest_report.units}</span> · ישויות <span className="num">{f.ingest_report.entity_count}</span>
+                    {f.ingest_report.unmapped_layers?.length ? <> · שכבות לא ממופות: <span className="ltr">{f.ingest_report.unmapped_layers.join(', ')}</span></> : null}</>}
+                  {f.kind === 'pdf' && <>עמודים <span className="num">{f.ingest_report.page_count}</span> · חתימה: {f.signature_status === 'NO_SIGNATURE_FIELD' ? 'אין שדה חתימה' : 'שדה חתימה קיים (לא אומת)'}</>}
+                  {f.kind === 'xlsx' && <>שורות <span className="num">{f.ingest_report.row_count}</span> · מוצע עיקרי <span className="num">{f.ingest_report.totals_m2?.proposed_main_m2}</span> מ״ר</>}
+                  {(f.ingest_report.warnings ?? []).map((w: string, i: number) => <div key={i} style={{ color: 'var(--unc)' }}>{w}</div>)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
+  )
+}
+
+function CaseData({ c, onChange, locked }: { c: Case; onChange: () => Promise<void>; locked: boolean }) {
+  const { meta, can, toast } = useApp()
+  const [zone, setZone] = useState(c.zone ?? '')
+  const [plans, setPlans] = useState(c.applicable_plans.join(', '))
+  const [declared, setDeclared] = useState(JSON.stringify(c.declared, null, 2))
+  const save = async () => {
+    let d
+    try { d = JSON.parse(declared) } catch { toast('JSON לא תקין בנתונים המוצהרים', true); return }
+    try {
+      await api.patch(`/api/cases/${c.id}`, { zone: zone || null, applicable_plans: plans.split(',').map(s => s.trim()).filter(Boolean), declared: d })
+      toast('נשמר — יש להריץ בדיקה מחדש'); await onChange()
+    } catch (e: any) { toast(e.message, true) }
+  }
+  const editable = can('case.upload') && !locked
+  return (
+    <>
+      <div className="notice small" style={{ marginBottom: 10 }}>
+        תכניות חלות ואזור ייעוד מוזנים כרגע ידנית. בשלב ב׳ יגיעו מ־GIS עירוני (ממשק מתוכנן, אינו מחובר).
+      </div>
+      <div className="form-grid">
+        <label className="field">אזור מגורים<select value={zone} disabled={!editable} onChange={e => setZone(e.target.value)}>
+          <option value="">— לא ידוע —</option>{Object.entries(meta.zones).map(([k, v]: any) => <option key={k} value={k}>{v}</option>)}</select></label>
+        <label className="field">תכניות חלות (מופרד בפסיק)<input value={plans} disabled={!editable} onChange={e => setPlans(e.target.value)} /></label>
+        <label className="field">מסלול<input value={meta.tracks[c.track]} disabled /></label>
+      </div>
+      <label className="field" style={{ marginTop: 12 }}>נתונים מוצהרים מהבקשה (JSON)
+        <textarea dir="ltr" rows={10} value={declared} disabled={!editable} onChange={e => setDeclared(e.target.value)} className="mono" /></label>
+      {editable && <button className="primary" style={{ marginTop: 10 }} onClick={save}>שמירה</button>}
+    </>
+  )
+}

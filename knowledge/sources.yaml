@@ -1,0 +1,130 @@
+# Source register (machine-readable). Human-readable version: docs/01_source_register.md
+# verification: VERIFIED_READ (official copy downloaded and read) | FOUND_NOT_READ |
+#               LISTING_ONLY (seen in an official index, document not read) | NOT_FOUND |
+#               DESIGN_ASSUMPTION | DEMO
+# category: TENDER | LAW | REGULATION | STATUTORY_PLAN | LOCAL_POLICY | GOV_GUIDANCE | INTERNAL | DEMO
+# Read on 2026-11-16 unless stated otherwise.
+sources:
+  - id: TENDER-7-26
+    category: TENDER
+    title_he: "מכרז פומבי 7/2026 — אספקה, הקמה והטמעה של מערכת מבוססת בינה מלאכותית לבדיקת בקשות להיתר בנייה (החברה הכלכלית לבני ברק)"
+    url: https://www.cbb.co.il/uploads/n/1790070907.3576.pdf
+    index_url: https://www.cbb.co.il/bids/?id=65
+    edition: "ספטמבר 2026 (אלול התשפ\"ו), 45 עמ׳"
+    verification: VERIFIED_READ
+    notes: "Deadline conflict p.2 (5.11.26) vs p.9 §11.1 (15.11.26); web notice postpones to 06/12/26 12:00. No clarification docs published."
+  - id: TENDER-7-26-POSTPONEMENT
+    category: TENDER
+    title_he: "הודעת דחיית מועד הגשה — מכרז 7/26"
+    url: https://www.cbb.co.il/bids/?id=65
+    edition: "ללא תאריך; מועד חדש 06/12/2026 12:00"
+    verification: VERIFIED_READ
+  - id: LAW-TVB-1965
+    category: LAW
+    title_he: "חוק התכנון והבנייה, התשכ\"ה-1965"
+    url: null
+    verification: FOUND_NOT_READ
+  - id: REG-RISHUY-2016
+    category: REGULATION
+    title_he: "תקנות התכנון והבנייה (רישוי בנייה), התשע\"ו-2016"
+    url: null
+    verification: FOUND_NOT_READ
+    notes: "Referenced on gov.il (permit validity, reg. 59). Full text + transition provisions not yet read."
+  - id: GOV-LIC-STEPS
+    category: GOV_GUIDANCE
+    title_he: "מינהל התכנון — שלבי רישוי: היתר בנייה מלא / בקשה למידע להיתר"
+    url: https://www.gov.il/he/pages/steps_licensing_full_permit?chapterIndex=4
+    url_2: https://www.gov.il/he/pages/steps_licensing_request_permit?chapterIndex=4
+    edition: "עודכן 10.11.2025 / 25.12.2025"
+    verification: VERIFIED_READ
+  - id: GOV-LIC-FORMS
+    category: GOV_GUIDANCE
+    title_he: "מינהל התכנון — טפסים בתהליך הרישוי (ללא מכון בקרה)"
+    url: https://www.gov.il/he/pages/forms_licensing_process?chapterIndex=2
+    edition: "עודכן 21.10.2026; רשימת טפסים 2022.01.02"
+    verification: VERIFIED_READ
+    notes: "Forms ZIP not opened. Submission forms live inside רישוי זמין."
+  - id: BB-SG-2016
+    category: LOCAL_POLICY
+    title_he: "הנחיות מרחביות בהתאם לתיקון 101 — כללי (בני ברק)"
+    url: https://www.bnei-brak.muni.il/construction-planning-policy/
+    edition: "מהדורה 1, ספטמבר 2016 (אלול תשע\"ו), 38 עמ׳"
+    verification: VERIFIED_READ
+    notes: "Chapter ה׳ pp.15–17; §30.3: in a conflict with the law, the law prevails."
+  - id: BB-POL-2026-01-13
+    category: LOCAL_POLICY
+    title_he: "מסמך מדיניות — קביעת עקרונות לאישור תכניות לתוספת שטחי בנייה בבניינים קיימים"
+    url: https://www.bnei-brak.muni.il/construction-planning-policy/
+    edition: "ועדת משנה ישיבה 2026228, 13.1.2026; 3 עמ׳"
+    verification: VERIFIED_READ
+    notes: "Principles for approving LOCAL PLANS under s.62א(א)(13)/(16) — not permit-review criteria. Applies to plans submitted from publication (publication date not stated: VERIFY)."
+  - id: BB-SERV-2024-08
+    category: LOCAL_POLICY
+    title_he: "הנחיות מרחביות לשימושי השירות בבנייני מגורים חדשים"
+    url: https://www.bnei-brak.muni.il/construction-planning-policy/
+    edition: "אוגוסט 2024 – תמוז תשפ\"ד (סתירה פנימית בתאריך), 4 עמ׳"
+    verification: VERIFIED_READ
+  - id: BB-PARDES-KATZ-2024
+    category: LOCAL_POLICY
+    title_he: "הנחיות מרחביות לבנייה חדשה למגורים במתחם פרדס כץ כולל מתחם יונתן"
+    url: https://www.bnei-brak.muni.il/construction-planning-policy/
+    edition: "ינואר 2024 (טבת תשפ\"ד), 11 עמ׳"
+    verification: VERIFIED_READ
+  - id: BB-BBC-2016
+    category: LOCAL_POLICY
+    title_he: "מסמך מדיניות תכנון אזור התעסוקה BBC"
+    url: https://www.bnei-brak.muni.il/construction-planning-policy/
+    edition: "ועדה מחוזית 29.2.2016"
+    verification: VERIFIED_READ
+    notes: "Partly scanned images — OCR not performed."
+  - id: BB-EXEMPT-2015
+    category: LOCAL_POLICY
+    title_he: "תנאים מרחביים — עבודות ומבנים הפטורים מהיתר"
+    url: https://www.bnei-brak.muni.il/construction-planning-policy/
+    edition: "ישיבה 2015046, 1.6.2015, 12 עמ׳"
+    verification: VERIFIED_READ
+  - id: BB-NUISANCE
+    category: LOCAL_POLICY
+    title_he: "הנחיות כלליות למניעת מפגעים במהלך עבודות בנייה"
+    url: https://www.bnei-brak.muni.il/construction-planning-policy/
+    edition: "ללא תאריך בגוף המסמך"
+    verification: VERIFIED_READ
+  - id: BB-ENFORCEMENT-2025
+    category: LOCAL_POLICY
+    title_he: "מדיניות אכיפה — הוועדה המקומית לתכנון ובנייה בני ברק"
+    url: https://www.bnei-brak.muni.il/construction-planning-policy/
+    edition: "אושר במועצה 07.09.2025"
+    verification: VERIFIED_READ
+  - id: MAVAT-BB-105
+    category: STATUTORY_PLAN
+    title_he: "תכנית בב/105 ותיקוניה (כ־35 תכניות בפיילוט — רשימה תיקבע באפיון)"
+    url: https://mavat.iplan.gov.il/
+    verification: LISTING_ONLY
+    notes: "23 approved plans of the family seen in mavat search listing; base plan בב/105 not found; no תקנון/תשריט read."
+  - id: IPLAN-BB-MK-105-AGAFIM
+    category: STATUTORY_PLAN
+    title_he: "בב/מק/105/אגפים — ביטול הדרישה לבנייה באגפים שלמים (אושרה 06/04/2006)"
+    url: https://mavat.iplan.gov.il/
+    verification: LISTING_ONLY
+    notes: "Prompt cited 'ב/מק/105/אנכים' — NOT FOUND; likely אגפים. Name suggests it cancels the full-wing requirement that SG §30.5 relies on — CONFLICT to resolve."
+  - id: PLAN-501-0873794
+    category: STATUTORY_PLAN
+    title_he: "תכנית 501-0873794 — חדרי יציאה לגג ודירות גג בבנייני מגורים בבני ברק (תכנית הגגות)"
+    url: https://mavat.iplan.gov.il/
+    edition: "אושרה 23/01/2023"
+    verification: LISTING_ONLY
+  - id: INTERNAL-QA
+    category: INTERNAL
+    title_he: "בקרת עקביות פנימית בין מסמכי הבקשה (אינה הוראת דין)"
+    url: null
+    verification: DESIGN_ASSUMPTION
+  - id: LAYER-CONVENTION
+    category: INTERNAL
+    title_he: "מוסכמת שכבות CAD להגשה — טיוטה לתיאום עם אגף ההנדסה"
+    url: null
+    verification: DESIGN_ASSUMPTION
+  - id: DEMO-PLAN
+    category: DEMO
+    title_he: "תכנית הדגמה DEMO/1 (פיקטיבית — אינה תכנית אמיתית)"
+    url: null
+    verification: DEMO

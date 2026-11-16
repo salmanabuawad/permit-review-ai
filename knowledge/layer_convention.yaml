@@ -1,0 +1,27 @@
+# Configurable CAD submission layer convention (תקן הגשה — מוסכמת שכבות).
+# STATUS: DESIGN_ASSUMPTION. The municipality has not (yet) published an official layer
+# standard that we have verified. Patterns below are a proposal to be agreed with the
+# engineering department before the pilot. Matching is case-insensitive regex on layer name.
+# A missing role never produces an "illegal" finding — it yields INCOMPLETE/UNCERTAIN.
+version: "0.1-draft"
+status: DESIGN_ASSUMPTION
+roles:
+  PLOT_BOUNDARY:        {label_he: "גבול מגרש",               patterns: ["^PLOT", "גבול.?מגרש", "^A-PLOT"]}
+  BUILDING_LINE:        {label_he: "קו בניין (מעטפת מותרת)",   patterns: ["^BLDG.?LINE", "קו.?בניין", "^A-SETBACK"]}
+  EXISTING:             {label_he: "בנוי קיים",                patterns: ["^EXIST", "קיים", "^A-EXST"]}
+  PROPOSED:             {label_he: "בנייה מוצעת",              patterns: ["^PROP", "מוצע", "^A-NEW"]}
+  BALCONY:              {label_he: "מרפסת",                    patterns: ["^BALC", "מרפס"]}
+  SUKKAH:               {label_he: "מרפסת/מבנה סוכה",          patterns: ["^SUKK", "סוכ"]}
+  ROOF_EDGE_FRONT:      {label_he: "שפת גג — חזית",            patterns: ["^ROOF.?EDGE.?FRONT", "שפת.?גג.?חזית"]}
+  ROOF_ROOM:            {label_he: "חדר על הגג",               patterns: ["^ROOF.?ROOM", "חדר.?גג"]}
+  AREA_MAIN:            {label_he: "שטח עיקרי",                patterns: ["^AREA.?MAIN", "עיקרי"]}
+  AREA_SERVICE:         {label_he: "שטח שירות",                patterns: ["^AREA.?SERV", "שירות"]}
+  SECTION:              {label_he: "חתך",                      patterns: ["^SECT", "חתך"]}
+  ELEVATION:            {label_he: "חזית",                     patterns: ["^ELEV", "^חזית$"]}
+  SURVEY:               {label_he: "מפת מדידה",                patterns: ["^SURV", "מדידה"]}
+  SIGNATURE:            {label_he: "חתימות",                   patterns: ["^SIGN", "חתימ"]}
+required_roles_by_permit_type:
+  addition_extension: [PLOT_BOUNDARY, EXISTING, PROPOSED]
+  addition_balcony:   [PLOT_BOUNDARY, EXISTING, BALCONY]
+  addition_sukkah:    [PLOT_BOUNDARY, EXISTING, SUKKAH]
+  roof_room_addition: [PLOT_BOUNDARY, EXISTING, ROOF_ROOM, ROOF_EDGE_FRONT]

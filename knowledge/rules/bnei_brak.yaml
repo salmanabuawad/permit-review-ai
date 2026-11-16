@@ -1,0 +1,285 @@
+# Bnei Brak initial rule catalogue — PILOT DRAFT.
+# NONE of these rules is PROFESSIONALLY_APPROVED. Until a licensed reviewer approves a rule
+# (via the rules screen / API, recorded in rule_approvals + audit), a computed FAIL is shown
+# only as a "potential non-compliance" (status UNCERTAIN). exact_clause_he is filled only
+# with text read from the official source; null = not yet transcribed/verified.
+jurisdiction: bnei-brak
+rules:
+
+  # ---------------------------------------------------------------- Policy 13.1.2026 (roof rooms)
+  - id: BB-POL26-RR-SETBACK
+    version: "0.1"
+    title_he: "נסיגת חדר גג חדש מחזית שפת הגג ≥ 2.5 מ׳ (בנוסף לנסיגה בתכנית הגגות)"
+    legal_level: MUNICIPAL_POLICY
+    report: reviewer
+    severity: high
+    review_state: SOURCE_VERIFIED
+    valid_from: 2026-01-13
+    valid_to: null
+    permit_types: [roof_room_addition]
+    stages: [plan_review]
+    applicability:
+      all:
+        - {fact: case.track, op: eq, value: policy_2026_roof_rights, label_he: "מסלול: תכנית בסמכות מקומית (62א(א)) לתוספת זכויות לפי מדיניות 13.1.2026"}
+        - {fact: case.building_existing, op: true, label_he: "בניין קיים"}
+    check:
+      kind: compare
+      operand: measure.roof_room_front_setback_m
+      operand_label_he: "מרחק חדר הגג משפת הגג בחזית"
+      operator: ">="
+      threshold: 2.5
+      units: "מ׳"
+      geometry_method_he: "מרחק מינימלי (Shapely) בין פוליגון חדר הגג לקו שפת הגג בחזית, בשכבת ROOF_EDGE_FRONT"
+      measuring_point_status: UNVERIFIED   # the exact measuring point must be confirmed by the reviewer
+    evidence_required: [dxf:ROOF_ROOM, dxf:ROOF_EDGE_FRONT]
+    sources:
+      - {source_id: BB-POL-2026-01-13, section: "סעיף 4ג׳ — נסיגות", page: 3, quote_he: "בנסיגה של 2.5 מ' לכל הפחות מחזית שפת הגג של קומת דירות הגג"}
+    exact_clause_he: "חדרי הגג שיתווספו ייבנו בנסיגה של 2.5 מ' לכל הפחות מחזית שפת הגג של קומת דירות הגג. נסיגה זו תהיה בנוסף לנסיגה הדרושה לדירת הגג על פי תכנית הגגות."
+    related_plans: ["501-0873794"]
+    fix_hint_he: "להרחיק את חדר הגג כך שהנסיגה מחזית שפת הגג תהיה 2.5 מ׳ לפחות, בנוסף לנסיגה הנדרשת בתכנית הגגות."
+    notes: "Applies ONLY to plans adding rights under the 13.1.2026 policy — never as a general roof/balcony limit."
+
+  - id: BB-POL26-FLOORS
+    version: "0.1"
+    title_he: "מספר קומות טיפוסיות מעל קומת הכניסה — לפי אזור מגורים (מדיניות 13.1.2026)"
+    legal_level: MUNICIPAL_POLICY
+    report: rights
+    severity: high
+    review_state: SOURCE_VERIFIED
+    valid_from: 2026-01-13
+    permit_types: [roof_room_addition]
+    stages: [plan_review]
+    applicability:
+      all:
+        - {fact: case.track, op: eq, value: policy_2026_roof_rights, label_he: "מסלול מדיניות 13.1.2026"}
+    check:
+      kind: compare
+      operand: declared.typical_floors_above_entry
+      operand_label_he: "קומות טיפוסיות מעל קומת הכניסה, ללא התוספת וללא קומת דירות הגג (מוצהר)"
+      operator: "<="
+      threshold_by:
+        fact: case.zone
+        label_he: "אזור מגורים"
+        map: {residential_B: 5, residential_C: 5, residential_A: 4, residential_B1: 4}
+      units: "קומות"
+      geometry_method_he: "נתון מוצהר מהבקשה; יש לאמת מול החתכים"
+    sources:
+      - {source_id: BB-POL-2026-01-13, section: "סעיף 4ב׳ — מגבלת גובה", page: 3}
+    exact_clause_he: "סך הקומות הטיפוסיות (בבניין לא כולל התוספת המבוקשת וקומת דירות הגג) לא יעלה על: באזורי מגורים ב' ו-ג' עד 5 קומות טיפוסיות מעל קומת הכניסה; באזורי מגורים א' ו-ב'1 עד 4."
+
+    fix_hint_he: "לבדוק את תחולת המדיניות על הבניין; מעבר למספר הקומות המותר — המדיניות אינה חלה."
+    notes: "Zone keys must be mapped from the parcel's statutory zoning (GIS/plan) — mapping still VERIFY."
+
+  - id: BB-POL26-RR-NO-SEPARATE-ACCESS
+    version: "0.1"
+    title_he: "חדר הגג חלק בלתי נפרד מדירת הגג — ללא גישה נפרדת"
+    legal_level: MUNICIPAL_POLICY
+    report: reviewer
+    severity: high
+    review_state: SOURCE_VERIFIED
+    valid_from: 2026-01-13
+    permit_types: [roof_room_addition]
+    stages: [plan_review]
+    applicability:
+      all: [{fact: case.track, op: eq, value: policy_2026_roof_rights, label_he: "מסלול מדיניות 13.1.2026"}]
+    check:
+      kind: declared_bool
+      fact: declared.roof_room_separate_access
+      fact_label_he: "קיימת גישה נפרדת לחדר הגג"
+      expected: false
+    sources: [{source_id: BB-POL-2026-01-13, section: "סעיף 3ב׳ וסעיף 4ו׳", page: 2}]
+    exact_clause_he: "הגישה אליהם תתבצע אך ורק מתוך דירת הגג לה הם מתווספים, ולא תותר גישה נפרדת מהשטחים המשותפים בבניין." 
+    fix_hint_he: "לבטל גישה נפרדת; הגישה לחדר הגג תהיה מתוך דירת הגג בלבד."
+
+  - id: BB-POL26-CONSENT
+    version: "0.1"
+    title_he: "אישורי בעלי זכויות בכתב (100% / 75% לפי מצב ההצמדה)"
+    legal_level: MUNICIPAL_POLICY
+    report: completeness
+    severity: high
+    review_state: SOURCE_VERIFIED
+    valid_from: 2026-01-13
+    permit_types: [roof_room_addition]
+    stages: [plan_review]
+    applicability:
+      all: [{fact: case.track, op: eq, value: policy_2026_roof_rights, label_he: "מסלול מדיניות 13.1.2026"}]
+    check:
+      kind: compare
+      operand: declared.consent_pct
+      operand_label_he: "שיעור הסכמות בכתב"
+      operator: ">="
+      threshold_by:
+        fact: declared.roof_attachment_status
+        label_he: "מצב הצמדת הגג"
+        map: {common_property: 100, attached_to_roof_apartment: 75}
+      units: "%"
+    sources: [{source_id: BB-POL-2026-01-13, section: "סעיף 4ז׳ — הסכמת בעלים (תנאי סף)", page: 3}]
+    exact_clause_he: "היה גג דירת הגג רכוש משותף תידרש הסכמה בכתב של 100% מבעלי הזכויות במגרש... במקרה שגג דירת הגג צמוד לדירת הגג תידרש הסכמה בכתב של 75%." 
+    fix_hint_he: "לצרף הסכמות בכתב בשיעור הנדרש לפי מצב ההצמדה."
+
+  - id: BB-POL26-BETTERMENT
+    version: "0.1"
+    title_he: "היטל השבחה או הבטחת תשלומו — תנאי למתן היתר"
+    legal_level: MUNICIPAL_POLICY
+    report: rights
+    severity: medium
+    review_state: SOURCE_VERIFIED
+    valid_from: 2026-01-13
+    permit_types: [roof_room_addition]
+    stages: [plan_review]
+    applicability:
+      all: [{fact: case.track, op: eq, value: policy_2026_roof_rights, label_he: "מסלול מדיניות 13.1.2026"}]
+    check: {kind: condition}
+    condition_he: "תנאי למתן היתר: תשלום היטל השבחה או הבטחת תשלומו, במקרה המתאים. אינו נבדק בשלב זה."
+    sources: [{source_id: BB-POL-2026-01-13, section: "סעיף 4ח׳ — היטל השבחה", page: 3}]
+
+  # ---------------------------------------------------------------- Spatial guidelines 2016, ch. ה'
+  - id: BB-SG16-30.5
+    version: "0.1"
+    title_he: "תוספות לכמה קומות יתוכננו לכל גובה הבניין (\"אגף\") עפ\"י בב/מק/105/אגפים"
+    legal_level: SPATIAL_GUIDELINES
+    report: reviewer
+    severity: medium
+    review_state: SOURCE_VERIFIED
+    permit_types: [addition_extension]
+    applicability:
+      all: [{fact: declared.multi_floor_addition, op: true, label_he: "תוספת בכמה קומות"}]
+    check: {kind: qualitative}
+    sources: [{source_id: BB-SG-2016, section: "פרק ה׳ סעיף 30.5", page: 15}, {source_id: IPLAN-BB-MK-105-AGAFIM}]
+    exact_clause_he: null
+
+  - id: BB-SG16-30.6-PHOTOS
+    version: "0.1"
+    title_he: "תמונות של הבניין הקיים"
+    legal_level: SPATIAL_GUIDELINES
+    report: completeness
+    severity: medium
+    review_state: SOURCE_VERIFIED
+    permit_types: [addition_extension, addition_balcony, addition_sukkah, roof_room_addition]
+    check: {kind: doc_required, doc_type: existing_building_photos, doc_label_he: "תמונות בניין קיים"}
+    sources: [{source_id: BB-SG-2016, section: "פרק ה׳ סעיף 30.6", page: 15}]
+    exact_clause_he: null
+    fix_hint_he: "לצרף תמונות עדכניות של הבניין הקיים."
+
+  - id: BB-SG16-30.8-FACADE
+    version: "0.1"
+    title_he: "חזית רחוב אחידה בתוספות"
+    legal_level: SPATIAL_GUIDELINES
+    report: reviewer
+    severity: low
+    review_state: SOURCE_VERIFIED
+    permit_types: [addition_extension, addition_balcony, addition_sukkah]
+    check: {kind: qualitative}
+    sources: [{source_id: BB-SG-2016, section: "פרק ה׳ סעיף 30.8", page: 15}]
+
+  - id: BB-SG16-30.9-MASTERPLAN
+    version: "0.1"
+    title_he: "תכנית כוללת לבניין המציגה אפשרות לתוספות עתידיות לכל הדירות"
+    legal_level: SPATIAL_GUIDELINES
+    report: completeness
+    severity: medium
+    review_state: SOURCE_VERIFIED
+    permit_types: [addition_extension, addition_balcony]
+    check: {kind: doc_required, doc_type: building_master_plan, doc_label_he: "תכנית כוללת לבניין (תוספות עתידיות)"}
+    sources: [{source_id: BB-SG-2016, section: "פרק ה׳ סעיף 30.9", page: 15}]
+    fix_hint_he: "לצרף תכנית כוללת לבניין המראה את אפשרות התוספות לכל הדירות."
+
+  - id: BB-SG16-31.7-9
+    version: "0.1"
+    title_he: "פתרונות אשפה/גז, תכנית פיתוח ושיפוץ שטחים משותפים (לפי תחולה)"
+    legal_level: SPATIAL_GUIDELINES
+    report: reviewer
+    severity: low
+    review_state: SOURCE_VERIFIED
+    permit_types: [addition_extension]
+    check: {kind: qualitative}
+    sources: [{source_id: BB-SG-2016, section: "פרק ה׳ סעיפים 31.7–31.9", page: 15}]
+
+  # ---------------------------------------------------------------- B/105 family (statutory) — sources missing
+  - id: BB-B105-BUILDING-LINES
+    version: "0.1"
+    title_he: "התאמה לקווי הבניין לפי תכנית בב/105 ותיקוניה"
+    legal_level: STATUTORY_PLAN
+    report: rights
+    severity: high
+    review_state: SOURCE_MISSING
+    permit_types: [addition_extension, addition_balcony, addition_sukkah]
+    spatial_scope: {plans: ["בב/105"]}
+    check:
+      kind: compare
+      operand: measure.proposed_outside_building_line_m2
+      operand_label_he: "שטח בנייה מוצעת מחוץ לקווי הבניין"
+      operator: "<="
+      threshold: 0.0
+      units: "מ\"ר"
+      geometry_method_he: "הפרש פוליגונים: בנייה מוצעת פחות מעטפת קווי הבניין"
+    sources: [{source_id: MAVAT-BB-105, section: "TODO — הוראות קווי בניין"}]
+    notes: "Building-line distances must come from the plan instructions + tasrit for the specific parcel. The envelope polygon is drawn by the applicant; verifying it against the plan is a reviewer task until GIS of B/105 is loaded."
+
+  - id: BB-B105-MAX-HEIGHT
+    version: "0.1"
+    title_he: "גובה מרבי לפי תכנית בב/105 ותיקוניה"
+    legal_level: STATUTORY_PLAN
+    report: rights
+    severity: high
+    review_state: SOURCE_MISSING
+    spatial_scope: {plans: ["בב/105"]}
+    check:
+      kind: compare
+      operand: declared.building_height_m
+      operator: "<="
+      threshold: null
+      threshold_missing_he: "גובה מרבי טרם הוזן מתקנון ב/105 — נדרש מסמך מקור ואישור בודק"
+      units: "מ׳"
+    sources: [{source_id: MAVAT-BB-105, section: "TODO"}]
+
+  - id: BB-B105-RIGHTS-AREA
+    version: "0.1"
+    title_he: "שטחי בנייה מותרים (עיקרי) לפי בב/105 ותיקוניה"
+    legal_level: STATUTORY_PLAN
+    report: rights
+    severity: high
+    review_state: SOURCE_MISSING
+    spatial_scope: {plans: ["בב/105"]}
+    check:
+      kind: compare
+      operand: facts_derived.total_main_after_m2
+      operator: "<="
+      threshold: null
+      threshold_missing_he: "טבלת זכויות ב/105 למגרש טרם הוזנה ואומתה"
+      units: "מ\"ר"
+    sources: [{source_id: MAVAT-BB-105, section: "TODO — טבלת זכויות"}]
+
+  # ---------------------------------------------------------------- Service-use guidelines Aug 2024
+  - id: BB-SERV24-NEW-ONLY
+    version: "0.1"
+    title_he: "הנחיות שימושי שירות (אוגוסט 2024) — חלות על בנייני מגורים חדשים בלבד"
+    legal_level: MUNICIPAL_POLICY
+    report: reviewer
+    severity: low
+    review_state: SOURCE_LOCATED
+    permit_types: [new_residential_building]
+    check: {kind: qualitative}
+    sources: [{source_id: BB-SERV-2024-08}]
+    notes: "Deliberately scoped to new buildings so it is NA for additions; applying it to additions requires an applicability decision."
+
+  - id: BB-SG16-31.2-RAILING
+    version: "0.1"
+    title_he: "מעקה בנוי בקומה שלא בונים בה — גובה ≥ 1.05 מ׳ מעל פני הרצפה"
+    legal_level: SPATIAL_GUIDELINES
+    report: reviewer
+    severity: medium
+    review_state: SOURCE_VERIFIED
+    permit_types: [addition_extension]
+    applicability:
+      all: [{fact: declared.has_unbuilt_floor_in_wing, op: true, label_he: "קיימת קומה באגף שלא בונים בה"}]
+    check:
+      kind: compare
+      operand: declared.unbuilt_floor_railing_height_m
+      operand_label_he: "גובה המעקה הבנוי (מתוך החתך)"
+      operator: ">="
+      threshold: 1.05
+      units: "מ׳"
+      geometry_method_he: "נתון מהחתך/מוצהר — טרם מחולץ אוטומטית מהשרטוט"
+    sources: [{source_id: BB-SG-2016, section: "פרק ה׳ סעיף 31.2", page: 15}]
+    fix_hint_he: "לתכנן רצפה ומעקה בנוי בגובה 1.05 מ׳ לפחות מעל פני הרצפה."

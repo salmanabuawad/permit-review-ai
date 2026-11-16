@@ -1,0 +1,70 @@
+# AI Gateway policy (per tenant defaults). Editable by an authorised admin through the
+# "הגדרות AI" screen; every change is audited. Hard guarantees enforced in code:
+#   - fallback never crosses data residency / confidentiality / approval constraints
+#   - a provider that is not `approved: true` is never called
+#   - total provider failure -> MANUAL_REVIEW (never a silent guess)
+#   - models never decide legality: their output feeds the rule engine as evidence only
+version: "0.1"
+providers:
+  local_keyword:
+    label_he: "מסווג מקומי דטרמיניסטי (מילות מפתח)"
+    kind: LOCAL
+    location: ON_PREM
+    tasks: [Classification]
+    model_version: "kw-classifier-1.0"
+    approved: true
+    cost_per_unit_ils: 0.0
+  local_template:
+    label_he: "מנסח דוח מקומי מבוסס תבניות"
+    kind: LOCAL
+    location: ON_PREM
+    tasks: [ReportDraft]
+    model_version: "template-1.0"
+    approved: true
+    cost_per_unit_ils: 0.0
+  local_bm25:
+    label_he: "אחזור לקסיקלי מקומי (BM25)"
+    kind: LOCAL
+    location: ON_PREM
+    tasks: [Retrieval]
+    model_version: "bm25-1.0"
+    approved: true
+    cost_per_unit_ils: 0.0
+  local_ollama:
+    label_he: "מודל שפה מקומי (Ollama)"
+    kind: LOCAL
+    location: ON_PREM
+    tasks: [Classification, ReportDraft]
+    model_version: "qwen2.5:7b-instruct"     # pinned tag; change only via canary
+    approved: true
+    enabled: false                            # enable after local benchmark passes
+    cost_per_unit_ils: 0.0
+  local_tesseract:
+    label_he: "OCR מקומי (Tesseract heb)"
+    kind: LOCAL
+    location: ON_PREM
+    tasks: [OCR]
+    model_version: "tesseract-5-heb"
+    approved: true
+    enabled: false                            # not installed on this machine
+    cost_per_unit_ils: 0.0
+  cloud_llm_il:
+    label_he: "ספק ענן מאושר (אזור ישראל) — ממתין לאישור"
+    kind: CLOUD
+    location: IL_REGION
+    tasks: [Classification, ReportDraft, Vision, OCR]
+    model_version: "TBD-pinned"
+    approved: false                           # requires written approval of the authority (tender sec. on data/cloud)
+    enabled: false
+    no_training_on_data: true
+    cost_per_unit_ils: 0.05
+data_classes:
+  PUBLIC_REGULATION: {label_he: "מסמכי רגולציה פומביים", allowed_locations: [ON_PREM, IL_REGION, APPROVED_CLOUD]}
+  CASE_DOCUMENT:     {label_he: "מסמכי תיק (כולל מידע אישי)", allowed_locations: [ON_PREM]}
+  PII:               {label_he: "מידע אישי מזהה", allowed_locations: [ON_PREM]}
+policies:   # (task, data_class) -> mode + provider order
+  - {task: Classification, data_class: CASE_DOCUMENT, mode: LOCAL,  providers: [local_ollama, local_keyword]}
+  - {task: ReportDraft,    data_class: CASE_DOCUMENT, mode: LOCAL,  providers: [local_ollama, local_template]}
+  - {task: Retrieval,      data_class: PUBLIC_REGULATION, mode: LOCAL, providers: [local_bm25]}
+  - {task: OCR,            data_class: CASE_DOCUMENT, mode: HYBRID, providers: [local_tesseract, cloud_llm_il]}
+  - {task: Vision,         data_class: CASE_DOCUMENT, mode: HYBRID, providers: [cloud_llm_il]}

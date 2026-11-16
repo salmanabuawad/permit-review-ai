@@ -1,0 +1,11 @@
+# Future integrations — ALL disabled for the pilot (tender §1.4: files only, no interfaces).
+# status: PLANNED (stage 2/3 per tender spec pp.28–30). No adapter here talks to a real API;
+# endpoints/auth are unknown until the authority provides interface specs.
+integrations:
+  - {id: gis_municipal,   name_he: "GIS עירוני",                   stage: 2, status: PLANNED}
+  - {id: licensing_muni,  name_he: "מערכת רישוי עירונית",            stage: 2, status: PLANNED}
+  - {id: eng_archive,     name_he: "ארכיב הנדסה",                   stage: 2, status: PLANNED}
+  - {id: rishui_zamin,    name_he: "רישוי זמין (מינהל התכנון)",      stage: 3, status: PLANNED}
+  - {id: xplan,           name_he: "XPLAN / מבא\"ת",                 stage: 3, status: PLANNED}
+  - {id: arnona_billing,  name_he: "ארנונה וגבייה",                  stage: 3, status: PLANNED}
+  - {id: smart_inspection, name_he: "פיקוח חכם / ניתוח שינויי שטח", stage: 3, status: PLANNED}

@@ -1,0 +1,57 @@
+# בדיקת היתרי בנייה בסיוע AI — בני ברק (POC למכרז 7/26)
+
+מערכת תומכת החלטה לבדיקת בקשות לתוספות בנייה: קליטת PDF / DXF / DWG / Excel במצב Offline, מדידה דטרמיניסטית, מנוע כללים עם אסמכתאות, דוח שלמות, דוח זכויות ודוח בודק (כולל PDF עברי), Workflow, Audit, AI Gateway מקומי/ענן/היברידי.
+**כל תוצר הוא המלצה בלבד; ההחלטה בסמכות בעל תפקיד מוסמך.**
+
+## מסמכים
+| # | מסמך |
+|---|---|
+| 00 | [מצב, סתירות וחוסרים](docs/00_status_contradictions_gaps.md) — **כולל סתירת מועדי ההגשה והחובה להשתתף בכנס המציעים** |
+| 01 | [רשם מקורות](docs/01_source_register.md) |
+| 02 | [מטריצת עמידה ועקיבות למכרז](docs/02_compliance_matrix.md) |
+| 03 | [SRS, ארכיטקטורה, ERD, אבטחה וסיכונים](docs/03_srs_architecture_security.md) |
+| 04 | [מאגר כללים ובדיקות גבול](docs/04_rules_catalog.md) |
+| 05 | [תכנית עבודה, Backlog ובדיקות](docs/05_workplan_backlog.md) |
+| 06 | [IP Inventory לנספח ה5](docs/06_ip_inventory.md) — **לבדיקת עו"ד** |
+
+## הפעלה מקומית (Windows, ללא Docker)
+```bash
+python -m venv .venv
+.venv/Scripts/pip install -r backend/requirements.txt
+.venv/Scripts/python scripts/make_fixtures.py
+cd backend && ../.venv/Scripts/python -m app.seed --reset && cd ..
+.venv/Scripts/python -m uvicorn app.main:app --app-dir backend --port 8000
+```
+בחלון נוסף:
+```bash
+cd frontend && npm install && npm run dev
+```
+פתחו http://127.0.0.1:5173 · תיעוד API: http://127.0.0.1:8000/api/docs
+החלפת משתמש (תפקיד) — בתפריט שבראש המסך (הדגמה בלבד).
+
+בדיקות:
+```bash
+cd backend && ../.venv/Scripts/python -m pytest -q
+```
+
+Ubuntu: [deploy/README.md](deploy/README.md).
+
+## תרחיש הדגמה (נתונים פיקטיביים)
+| תיק | מה מדגים |
+|---|---|
+| DEMO-0001 | הרחבה שחורגת 18 מ"ר מקו הבניין ו־30 מ"ר > 25 (כלל הדגמה) → **לא עומד** + סימון על התשריט; אי-התאמה שרטוט↔טבלת שטחים (30 מול 26); מרפסת כבלוק עם קשת; מסמכים חסרים לפי הנחיות 30.6/30.9 → "דורש בדיקה" (כלל טרם אושר) |
+| DEMO-0002 | הרחבה תקינה — עומד |
+| DEMO-0003 | חדר גג לפי מדיניות 13.1.2026, נסיגה **2.49 מ׳** → תוצאה מחושבת "לא עומד" אך **מוצגת "דורש בדיקה"** כי הכלל טרם אושר. החליפו למשתמש "מהנדס העיר", אשרו את הכלל `BB-POL26-RR-SETBACK` במאגר הכללים, הריצו שוב → "לא עומד" בגרסה חדשה |
+| DEMO-0004 | מרפסת סוכה 1.2 מ׳ מגבול המגרש (כלל הדגמה ≥ 1.5) |
+
+## מבנה
+```
+backend/app/        FastAPI: ingest, geometry, rules engine, AI gateway, reports, audit, RBAC
+backend/tests/      69 בדיקות pytest
+frontend/src/       React + TypeScript, RTL
+knowledge/          תוכן פרויקט: כללים, מקורות, בסיס ידע, מוסכמת שכבות, מדיניות AI, ממשקים
+fixtures/demo/      קבצי הדגמה שנוצרו ע"י scripts/make_fixtures.py
+db/                 סכמת PostgreSQL/PostGIS ליעד הייצור
+deploy/             systemd + Nginx + env לדוגמה
+docs/               מסמכי המכרז והאפיון
+```

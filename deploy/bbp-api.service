@@ -1,0 +1,18 @@
+[Unit]
+Description=BBP permit-review API (FastAPI/Uvicorn)
+After=network.target
+
+[Service]
+User=bbp
+Group=bbp
+WorkingDirectory=/opt/bbp/app
+EnvironmentFile=/etc/bbp.env
+ExecStart=/opt/bbp/app/.venv/bin/uvicorn app.main:app --app-dir backend --host 127.0.0.1 --port 8000 --workers 2
+Restart=on-failure
+NoNewPrivileges=true
+ProtectSystem=strict
+ReadWritePaths=/opt/bbp/var
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

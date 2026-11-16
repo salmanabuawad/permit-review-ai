@@ -1,0 +1,80 @@
+# DEMO FIXTURE rules — a FICTITIOUS plan ("תכנית הדגמה DEMO/1") used only to demonstrate
+# the full pipeline (measurement -> PASS/FAIL -> overlay -> report) in the demo tenant.
+# The engine returns NA for these rules on any non-demo tenant. Values are invented and
+# MUST NOT be read as Bnei Brak regulations.
+jurisdiction: demo
+rules:
+  - id: DEMO-BUILDING-LINE
+    version: "1.0"
+    title_he: "[הדגמה] בנייה מוצעת בתוך קווי הבניין"
+    legal_level: DEMO
+    report: rights
+    severity: high
+    review_state: DEMO_FIXTURE
+    spatial_scope: {plans: ["DEMO/1"]}
+    permit_types: [addition_extension]
+    check:
+      kind: compare
+      operand: measure.proposed_outside_building_line_m2
+      operand_label_he: "שטח בנייה מוצעת מחוץ לקווי הבניין"
+      operator: "<="
+      threshold: 0.0
+      units: "מ\"ר"
+      geometry_method_he: "הפרש פוליגונים: מוצע פחות מעטפת קווי בניין"
+    sources: [{source_id: DEMO-PLAN, section: "סעיף 4 (פיקטיבי)"}]
+    fix_hint_he: "להקטין את התוספת כך שתהיה בתוך קווי הבניין."
+
+  - id: DEMO-BALCONY-BUILDING-LINE
+    version: "1.0"
+    title_he: "[הדגמה] מרפסת בתוך קווי הבניין"
+    legal_level: DEMO
+    report: rights
+    severity: medium
+    review_state: DEMO_FIXTURE
+    spatial_scope: {plans: ["DEMO/1"]}
+    permit_types: [addition_balcony, addition_extension]
+    check:
+      kind: compare
+      operand: measure.balcony_outside_building_line_m2
+      operator: "<="
+      threshold: 0.0
+      units: "מ\"ר"
+      geometry_method_he: "הפרש פוליגונים: מרפסת פחות מעטפת קווי בניין"
+    sources: [{source_id: DEMO-PLAN, section: "סעיף 5 (פיקטיבי)"}]
+
+  - id: DEMO-ADDITION-MAX-AREA
+    version: "1.0"
+    title_he: "[הדגמה] שטח תוספת מרבי 25 מ\"ר לדירה"
+    legal_level: DEMO
+    report: rights
+    severity: high
+    review_state: DEMO_FIXTURE
+    spatial_scope: {plans: ["DEMO/1"]}
+    permit_types: [addition_extension]
+    check:
+      kind: compare
+      operand: measure.proposed_addition_area_m2
+      operator: "<="
+      threshold: 25.0
+      units: "מ\"ר"
+      geometry_method_he: "שטח איחוד פוליגוני שכבת PROPOSED"
+    sources: [{source_id: DEMO-PLAN, section: "סעיף 6 (פיקטיבי)"}]
+    fix_hint_he: "להקטין את שטח התוספת ל־25 מ\"ר לכל היותר."
+
+  - id: DEMO-SUKKAH-MIN-SIDE
+    version: "1.0"
+    title_he: "[הדגמה] מרחק מרפסת סוכה מגבול המגרש ≥ 1.5 מ׳"
+    legal_level: DEMO
+    report: reviewer
+    severity: medium
+    review_state: DEMO_FIXTURE
+    spatial_scope: {plans: ["DEMO/1"]}
+    permit_types: [addition_sukkah]
+    check:
+      kind: compare
+      operand: measure.sukkah_to_plot_boundary_m
+      operator: ">="
+      threshold: 1.5
+      units: "מ׳"
+      geometry_method_he: "מרחק מינימלי בין פוליגון הסוכה לגבול המגרש"
+    sources: [{source_id: DEMO-PLAN, section: "סעיף 7 (פיקטיבי)"}]
