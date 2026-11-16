@@ -3,7 +3,7 @@
 > POC: SQLite + קבצים מקומיים. לייצור — PostgreSQL+PostGIS (`db/postgres_schema.sql`), SSO/MFA, הצפנת דיסק, גיבויים. אין להעלות נתוני תיקים אמיתיים לסביבת POC.
 
 ```bash
-sudo apt update && sudo apt install -y python3.12-venv nginx fonts-noto-core clamav clamav-daemon
+sudo apt update && sudo apt install -y python3.12-venv nginx fonts-dejavu-core clamav clamav-daemon
 sudo useradd --system --create-home --home-dir /opt/bbp bbp
 sudo -u bbp git clone <repo> /opt/bbp/app
 cd /opt/bbp/app
