@@ -9,6 +9,7 @@ import Sources from './pages/Sources'
 import AISettings from './pages/AISettings'
 import Integrations from './pages/Integrations'
 import Audit from './pages/Audit'
+import ImportCases from './pages/ImportCases'
 
 export interface Me { id: string; tenant_id: string; role: string; role_he: string; display_name: string; permissions: string[] }
 interface Ctx { me: Me | null; meta: any; can: (p: string) => boolean; toast: (m: string, err?: boolean) => void }
@@ -103,6 +104,7 @@ export default function App() {
               <Routes>
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/cases" element={<Cases />} />
+                <Route path="/cases/import" element={<ImportCases />} />
                 <Route path="/cases/:id" element={<CaseView />} />
                 <Route path="/rules" element={<Rules />} />
                 <Route path="/sources" element={<Sources />} />

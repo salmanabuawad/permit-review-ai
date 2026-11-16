@@ -103,6 +103,65 @@ def pdf_doc(path: Path, title: str, lines: list[str]):
     c.save()
 
 
+def pdf_pages(path: Path, pages: list[tuple[str, list[str]]]):
+    """Multi-page PDF, one (title, lines) per page — used for batch-import fixtures."""
+    from bidi.algorithm import get_display
+    from reportlab.lib.pagesizes import A4
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
+    from reportlab.pdfgen import canvas
+    import os
+    pdfmetrics.registerFont(TTFont("He", os.environ.get("BBP_PDF_FONT", r"C:\Windows\Fonts\arial.ttf")))
+    c = canvas.Canvas(str(path), pagesize=A4)
+    w, h = A4
+    for title, lines in pages:
+        c.setFont("He", 16)
+        c.drawRightString(w - 50, h - 70, get_display(title))
+        c.setFont("He", 11)
+        y = h - 110
+        for line in lines + ["", "קובץ בדיקה — נתונים פיקטיביים."]:
+            c.drawRightString(w - 50, y, get_display(line))
+            y -= 20
+        c.showPage()
+    c.save()
+
+
+def import_fixtures(out: Path):
+    """Batch-import samples: a PDF holding two application forms, and a ZIP with two request
+    folders plus a request list. All values are fictitious (gush 9999 does not exist)."""
+    import zipfile
+    out.mkdir(parents=True, exist_ok=True)
+    pdf_pages(out / "two_requests.pdf", [
+        ("טופס בקשה להיתר", ["מספר בקשה: T-2026-001", "גוש: 9999 חלקה: 11", "כתובת: רחוב הבדיקה 1",
+                             "מהות הבקשה: הרחבת דירה באגף אחורי", "תאריך מדידה: 01/09/2026"]),
+        ("נספח לבקשה", ["גוש: 9999 חלקה: 11", "המשך פרטי הבקשה"]),
+        ("טופס בקשה להיתר", ["מספר בקשה: T-2026-002", "גוש: 9999 חלקה: 12", "כתובת: רחוב הבדיקה 2",
+                             "מהות הבקשה: מרפסת סוכה"]),
+    ])
+    tmp = out / "_tmp"
+    tmp.mkdir(exist_ok=True)
+    pdf_doc(tmp / "form_a.pdf", "טופס בקשה להיתר", ["גוש: 9999 חלקה: 21", "מהות הבקשה: הרחבת דירה"])
+    pdf_doc(tmp / "survey_a.pdf", "מפת מדידה", ["מודד מוסמך: בדיקה"])
+    pdf_doc(tmp / "form_b.pdf", "טופס בקשה להיתר", ["גוש: 9999 חלקה: 22", "מהות הבקשה: חדר יציאה לגג"])
+    wb = Workbook()
+    ws = wb.active
+    ws.append(["תיקייה", "מספר בקשה", "נושא", "סוג בקשה", "גוש", "חלקה", "כתובת", "תכניות"])
+    ws.append(["REQ-A", "Z-2026-010", "הרחבת דירה — בקשת בדיקה", "הרחבה", 9999, 21, "רחוב הבדיקה 21", "DEMO/1"])
+    ws.append(["REQ-B", "Z-2026-011", "חדר יציאה לגג — בקשת בדיקה", "חדר גג", 9999, 22, "רחוב הבדיקה 22", ""])
+    wb.save(tmp / "requests.xlsx")
+    with zipfile.ZipFile(out / "two_requests.zip", "w", zipfile.ZIP_DEFLATED) as z:
+        z.write(tmp / "requests.xlsx", "requests.xlsx")
+        z.write(tmp / "form_a.pdf", "REQ-A/form_a.pdf")
+        z.write(tmp / "survey_a.pdf", "REQ-A/survey_a.pdf")
+        z.write(OUT / "case2_extension_ok.dxf", "REQ-A/plan.dxf")
+        z.write(OUT / "case2_area_table.xlsx", "REQ-A/areas.xlsx")
+        z.write(tmp / "form_b.pdf", "REQ-B/form_b.pdf")
+        z.write(OUT / "case3_roof_room_249.dxf", "REQ-B/roof.dxf")
+    for f in tmp.iterdir():
+        f.unlink()
+    tmp.rmdir()
+
+
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     # Case 1: addition 6 x 5 = 30 m² from y=20 to y=25 -> 3 m beyond the rear building line (y=22);
@@ -131,7 +190,8 @@ def main():
     pdf_doc(OUT / "master_plan.pdf", "תכנית כוללת לבניין — תוספות עתידיות (הדגמה)", ["תוספות עתידיות לכל הדירות"])
     pdf_doc(OUT / "sections.pdf", "חתכים וחזיתות — הדגמה", ["חתך א-א", "חזית צפונית", "חזית דרומית"])
     pdf_doc(OUT / "consents.pdf", "הסכמות בעלי זכויות — הדגמה", ["הסכמת השכנים: 75% (פיקטיבי)"])
-    print("fixtures written to", OUT)
+    import_fixtures(OUT.parent / "import")
+    print("fixtures written to", OUT, "and", OUT.parent / "import")
 
 
 if __name__ == "__main__":

@@ -15,7 +15,7 @@ from shapely.geometry import mapping
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from . import __version__, audit, metrics, services
+from . import __version__, audit, batch_import, metrics, services
 from .ai.gateway import AIGateway
 from .config import settings
 from .db import Base, engine, get_session
@@ -357,6 +357,162 @@ def workflow(case_id: str, body: StatusIn, p: Principal = Depends(current_user),
         raise HTTPException(422)
     s.commit()
     return case_dict(c)
+
+
+# ------------------------------------------------------------------ batch import
+
+IMPORT_TTL_HOURS = 24
+
+
+def _import_dir(tenant: str, token: str | None = None) -> Path:
+    base = settings.storage_dir / "_import" / tenant
+    return base / token if token else base
+
+
+def _cleanup_imports(tenant: str) -> None:
+    base = _import_dir(tenant)
+    if not base.exists():
+        return
+    cutoff = dt.datetime.now().timestamp() - IMPORT_TTL_HOURS * 3600
+    import shutil
+    for d in base.iterdir():
+        if d.is_dir() and d.stat().st_mtime < cutoff:
+            shutil.rmtree(d, ignore_errors=True)
+
+
+@app.post("/api/import/analyze")
+async def import_analyze(files: list[UploadFile] = File(...), p: Principal = Depends(require("case.create")),
+                         s: Session = Depends(get_session)):
+    """Find the requests in the uploaded files and return an editable preview. Creates nothing."""
+    _cleanup_imports(p.tenant_id)
+    uploads = []
+    total = 0
+    for f in files:
+        data = await f.read()
+        total += len(data)
+        if total > settings.max_upload_mb * 1024 * 1024:
+            raise HTTPException(413, f"סך הקבצים גדול מ־{settings.max_upload_mb}MB")
+        uploads.append((f.filename or "upload", data))
+    gw = AIGateway()
+    log = services.gateway_logger(s, p.tenant_id, None, p.id)
+
+    def classify(name: str, text: str):
+        r = gw.route("Classification", "CASE_DOCUMENT", {"filename": name, "text": text[:20000]}, log=log)
+        return (r.output or {}).get("label") if r.outcome in ("OK", "FALLBACK") else None
+
+    try:
+        drafts, blobs, warnings = batch_import.analyze(uploads, classify=classify)
+    except batch_import.ImportError_ as e:
+        raise HTTPException(422, str(e)) from e
+    token = dt.datetime.now().strftime("%Y%m%d%H%M%S") + "-" + __import__("uuid").uuid4().hex[:8]
+    d = _import_dir(p.tenant_id, token)
+    (d / "blobs").mkdir(parents=True, exist_ok=True)
+    for ref, data in blobs.items():
+        (d / "blobs" / ref).write_bytes(data)
+    existing = {c for (c,) in s.execute(select(PermitCase.case_number).where(PermitCase.tenant_id == p.tenant_id))}
+    out = [batch_import.asdict(x) for x in drafts]
+    for x in out:
+        if x["fields"].get("case_number") in existing:
+            x["warnings"].append("מספר הבקשה כבר קיים במערכת — שנו אותו או הסירו את הבקשה מהייבוא")
+    (d / "preview.json").write_text(json.dumps({"drafts": out, "user": p.id}, ensure_ascii=False), encoding="utf-8")
+    audit.record(s, p.tenant_id, p.id, "import.analyze", "import", token,
+                 {"files": [n for n, _ in uploads], "requests_found": len(out)})
+    s.commit()
+    return {"token": token, "drafts": out, "warnings": warnings}
+
+
+class ImportFileIn(BaseModel):
+    ref: str
+    doc_type: str
+    include: bool = True
+
+
+class ImportRequestIn(BaseModel):
+    key: str
+    include: bool = True
+    fields: dict
+    files: list[ImportFileIn]
+
+
+class ImportCommitIn(BaseModel):
+    token: str
+    requests: list[ImportRequestIn]
+    run_checks: bool = True
+
+
+@app.post("/api/import/commit")
+def import_commit(body: ImportCommitIn, p: Principal = Depends(require("case.create")),
+                  s: Session = Depends(get_session)):
+    d = _import_dir(p.tenant_id, body.token)
+    if not body.token.replace("-", "").isalnum() or not (d / "preview.json").exists():
+        raise HTTPException(404, "הייבוא לא נמצא או שפג תוקפו — יש לנתח את הקבצים מחדש")
+    preview = json.loads((d / "preview.json").read_text(encoding="utf-8"))
+    drafts = {x["key"]: x for x in preview["drafts"]}
+    chosen = [r for r in body.requests if r.include]
+    if not chosen:
+        raise HTTPException(422, "לא נבחרו בקשות לייבוא")
+    existing = {c for (c,) in s.execute(select(PermitCase.case_number).where(PermitCase.tenant_id == p.tenant_id))}
+    errors = []
+    for r in chosen:
+        if r.key not in drafts:
+            errors.append(f"בקשה {r.key} לא נמצאה בתצוגה המקדימה")
+        if r.fields.get("permit_type") not in PERMIT_TYPES:
+            errors.append(f"{r.fields.get('title') or r.key}: יש לבחור סוג בקשה")
+        cn = (r.fields.get("case_number") or "").strip()
+        if cn and cn in existing:
+            errors.append(f"מספר הבקשה {cn} כבר קיים")
+        for f in r.files:
+            if f.include and f.doc_type not in services.DOC_TYPES_HE:
+                errors.append(f"סוג מסמך לא מוכר: {f.doc_type}")
+    nums = [(r.fields.get("case_number") or "").strip() for r in chosen if (r.fields.get("case_number") or "").strip()]
+    if len(nums) != len(set(nums)):
+        errors.append("מספרי בקשה כפולים בייבוא")
+    if errors:
+        raise HTTPException(422, "; ".join(dict.fromkeys(errors)))
+    tenant = s.get(Municipality, p.tenant_id)
+    stamp = dt.datetime.now().strftime("%Y%m%d")
+    created = []
+    for i, r in enumerate(chosen, 1):
+        draft = drafts[r.key]
+        f = r.fields
+        cn = (f.get("case_number") or "").strip() or f"IMP-{stamp}-{body.token[-4:]}-{i:02d}"
+        plans = f.get("applicable_plans") or []
+        if isinstance(plans, str):
+            plans = [x.strip() for x in plans.split(",") if x.strip()]
+        declared = {k: f[k] for k in ("survey_map_date",) if f.get(k)}
+        c = PermitCase(tenant_id=p.tenant_id, is_demo=bool(tenant and tenant.is_demo), sla_due=services.sla_default(),
+                       case_number=cn, title=(f.get("title") or draft["origin"])[:300], permit_type=f["permit_type"],
+                       gush=f.get("gush") or None, helka=f.get("helka") or None, address=f.get("address") or None,
+                       zone=f.get("zone") or None, applicable_plans=plans, declared=declared)
+        s.add(c)
+        s.flush()
+        audit.record(s, p.tenant_id, p.id, "case.create", "permit_case", c.id,
+                     {"case_number": cn, "source": "import", "import": body.token, "origin": draft["origin"],
+                      "field_sources": draft["sources"], "edited_fields": sorted(k for k in f if f.get(k) != draft["fields"].get(k))})
+        files_done, file_errors = 0, []
+        names = {x["ref"]: x["name"] for x in draft["files"]}
+        for fi in r.files:
+            if not fi.include or fi.ref not in names:
+                continue
+            try:
+                services.ingest_file(s, c, names[fi.ref], (d / "blobs" / fi.ref).read_bytes(), fi.doc_type, p.id)
+                files_done += 1
+            except IntakeError as e:
+                file_errors.append(f"{names[fi.ref]}: {e}")
+        s.flush()
+        s.refresh(c)
+        run_info = None
+        if body.run_checks and c.files:
+            run = services.run_checks(s, c, p.id)
+            run_info = {"version": run.version, "counts": run.summary.get("counts")}
+        created.append({"id": c.id, "case_number": cn, "title": c.title, "files": files_done,
+                        "file_errors": file_errors, "run": run_info})
+    audit.record(s, p.tenant_id, p.id, "import.commit", "import", body.token,
+                 {"created": [x["case_number"] for x in created]})
+    s.commit()
+    import shutil
+    shutil.rmtree(d, ignore_errors=True)
+    return {"created": created}
 
 
 @app.get("/api/cases/{case_id}/export")
