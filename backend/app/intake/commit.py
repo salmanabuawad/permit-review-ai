@@ -43,6 +43,7 @@ def commit_preview(s: Session, tenant: str, user: str, batch: ImportBatch, previ
     apps = {a["key"]: a for a in preview["applications"]}
     docs_by_ref = {d["ref"]: d for d in preview["documents"]}
     tenant_row = s.get(Municipality, tenant)
+    gw = services.gateway_for(s, tenant, bulk=True)    # many documents: deterministic providers, no LLM wait
     results, counts = [], Counter()
     stamp = dt.datetime.now().strftime("%Y%m%d")
 
@@ -59,7 +60,7 @@ def commit_preview(s: Session, tenant: str, user: str, batch: ImportBatch, previ
         try:
             with s.begin_nested():
                 out = _commit_one(s, tenant, user, batch, app, req, fields, number, blobs_dir, tenant_row,
-                                  permit_types, stamp, n, run_checks)
+                                  permit_types, stamp, n, run_checks, gw)
             counts[out["status"]] += 1
             results.append(out)
         except Exception as exc:  # noqa: BLE001 — record and continue with the next application
@@ -88,7 +89,7 @@ def commit_preview(s: Session, tenant: str, user: str, batch: ImportBatch, previ
 
 
 def _commit_one(s, tenant, user, batch, app, req, fields, number, blobs_dir, tenant_row, permit_types, stamp, n,
-                run_checks) -> dict:
+                run_checks, gw=None) -> dict:
     existing = s.scalars(select(PermitCase).where(PermitCase.tenant_id == tenant,
                                                   PermitCase.case_number == number)).first() if number else None
     doc_choice = {d["ref"]: d for d in (req.get("documents") or [])}
@@ -134,7 +135,8 @@ def _commit_one(s, tenant, user, batch, app, req, fields, number, blobs_dir, ten
         try:
             # table detection costs ~1.7 s per page and the intake pipeline already read these pages
             cf = services.ingest_file(s, case, d["name"], (blobs_dir / d["ref"]).read_bytes(), doc_type, user,
-                                      extract_tables=d.get("doc_class") not in ("committee_protocol", "permit_application"))
+                                      extract_tables=d.get("doc_class") not in ("committee_protocol", "permit_application"),
+                                      gateway=gw)
         except IntakeError as e:
             s.add(ProcessingJob(tenant_id=tenant, batch_id=batch.id, file_name=d["name"], sha256=d["sha256"],
                                 doc_class=d.get("doc_class"), stage="committed", status="failed", case_id=case.id,
@@ -191,7 +193,7 @@ def _commit_one(s, tenant, user, batch, app, req, fields, number, blobs_dir, ten
         s.flush()
         s.refresh(case)
         if run_checks and case.files:
-            services.run_checks(s, case, user)
+            services.run_checks(s, case, user, gateway=gw)
         status, msg = "created", "נוצר תיק עם מסמך אחד" if attached == 1 else f"נוצר תיק עם {attached} מסמכים"
     elif attached:
         status, msg = "updated", "התיק קיים — צורף מסמך חדש אחד" if attached == 1 else f"התיק קיים — צורפו {attached} מסמכים חדשים"

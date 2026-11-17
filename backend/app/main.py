@@ -24,8 +24,10 @@ from .ingest.pdf import render_page_png
 from .knowledge import load_sources, search
 from .models import (AIPolicyRow, AuditEvent, CadEntity, CaseFile, CheckRun, CommitteeDecision, ExtractedField,
                      Finding, ImportBatch, InferenceCost, Municipality, PlanningComment, SourceReference,
-                     PermitCase, RuleApproval, User)
+                     PermitCase, RuleApproval, RuleDefinition, User)
 from .reports import build_report, render_pdf
+from .rules.engine import (AUTHOR_REVIEW_STATES, CHECK_FIELDS, CONDITION_OPS, LEGAL_LEVEL_RANK, OPERATORS, REPORTS,
+                           SEVERITIES, bump_version, validate_rule)
 from .security import PERMISSIONS, ROLES, Principal, current_user, require
 
 app = FastAPI(title="Bnei Brak Permit Review AI — POC", version=__version__,
@@ -541,8 +543,9 @@ def export_case(case_id: str, p: Principal = Depends(require("case.read")), s: S
 # ------------------------------------------------------------------ rules / knowledge
 
 @app.get("/api/rules")
-def rules(p: Principal = Depends(require("case.read")), s: Session = Depends(get_session)):
-    rs = services.rules_for_tenant(s, p.tenant_id)
+def rules(include_deleted: bool = False, p: Principal = Depends(require("case.read")),
+          s: Session = Depends(get_session)):
+    rs = services.rules_for_tenant(s, p.tenant_id, include_deleted=include_deleted)
     sources = load_sources()
     out = []
     for r in rs:
@@ -576,6 +579,138 @@ def approve_rule(rule_id: str, body: ApproveIn, p: Principal = Depends(require("
     return {"ok": True}
 
 
+# ---- rule authoring (create / update / delete / restore). Approval stays a separate step (rule.approve).
+
+COMPUTED_RULE_KEYS = {"origin", "file_version", "yaml_review_state", "reviewer", "sources_resolved", "deleted"}
+
+
+class RuleIn(BaseModel):
+    rule: dict
+    note: str = ""
+
+
+def _rule_def(s: Session, tenant: str, rule_id: str) -> RuleDefinition | None:
+    return s.scalars(select(RuleDefinition).where(RuleDefinition.tenant_id == tenant,
+                                                  RuleDefinition.rule_id == rule_id)).first()
+
+
+def _clean_rule(raw: dict) -> dict:
+    """The rule as authored: no computed/display keys, no empty top-level fields."""
+    plain = json.loads(json.dumps(raw, default=str, ensure_ascii=False))     # YAML dates -> "YYYY-MM-DD"
+    return {k: v for k, v in plain.items() if k not in COMPUTED_RULE_KEYS and v not in (None, "", [], {})}
+
+
+def _check_rule(s: Session, p: Principal, data: dict) -> None:
+    tenant = s.get(Municipality, p.tenant_id)
+    errs = validate_rule(data, allow_demo=bool(tenant and tenant.is_demo))
+    if errs:
+        raise HTTPException(422, "; ".join(errs))
+
+
+def _note(body_note: str) -> str:
+    if len(body_note.strip()) < 3:
+        raise HTTPException(422, "נדרש נימוק לשינוי (נרשם ביומן הביקורת)")
+    return body_note.strip()
+
+
+@app.get("/api/rules/meta")
+def rules_meta(p: Principal = Depends(require("case.read"))):
+    return {"legal_levels": list(LEGAL_LEVEL_RANK), "reports": list(REPORTS), "severities": list(SEVERITIES),
+            "check_kinds": {k: list(v) for k, v in CHECK_FIELDS.items()}, "operators": list(OPERATORS),
+            "condition_ops": list(CONDITION_OPS), "review_states": list(AUTHOR_REVIEW_STATES),
+            "permit_types": PERMIT_TYPES, "can_edit": p.can("rule.edit")}
+
+
+@app.post("/api/rules")
+def create_rule(body: RuleIn, p: Principal = Depends(require("rule.edit")), s: Session = Depends(get_session)):
+    data = _clean_rule(body.rule)
+    data["version"] = str(data.get("version") or "0.1")
+    data.setdefault("review_state", "DRAFT")
+    rid = str(data.get("id") or "")
+    existing = {r.id for r in services.rules_for_tenant(s, p.tenant_id, include_deleted=True)}
+    if rid in existing:
+        raise HTTPException(409, f"כלל {rid} כבר קיים" + (" (נמחק — ניתן לשחזר)" if _rule_def(s, p.tenant_id, rid) else ""))
+    _check_rule(s, p, data)
+    note = _note(body.note)
+    s.add(RuleDefinition(tenant_id=p.tenant_id, rule_id=rid, version=data["version"], data=data,
+                         created_by=p.id, updated_by=p.id))
+    audit.record(s, p.tenant_id, p.id, "rule.create", "rule", rid, {"version": data["version"], "after": data, "note": note})
+    s.commit()
+    return {"ok": True, "id": rid, "version": data["version"]}
+
+
+@app.put("/api/rules/{rule_id}")
+def update_rule(rule_id: str, body: RuleIn, p: Principal = Depends(require("rule.edit")),
+                s: Session = Depends(get_session)):
+    current = {r.id: r for r in services.rules_for_tenant(s, p.tenant_id)}.get(rule_id)
+    if not current:
+        raise HTTPException(404, "כלל לא נמצא")
+    before = _clean_rule(current.raw)
+    before["review_state"] = current.raw.get("yaml_review_state", before.get("review_state"))
+    data = {**_clean_rule(body.rule), "id": rule_id}
+    if data.get("review_state") in (None, "PROFESSIONALLY_APPROVED"):   # approval is per version: keep the base state
+        data["review_state"] = before.get("review_state") or "DRAFT"
+    if {k: v for k, v in data.items() if k != "version"} == {k: v for k, v in before.items() if k != "version"}:
+        raise HTTPException(422, "לא בוצע שינוי")
+    data["version"] = bump_version(before.get("version"))     # a new version needs a new professional approval
+    _check_rule(s, p, data)
+    note = _note(body.note)
+    d = _rule_def(s, p.tenant_id, rule_id)
+    if d is None:
+        s.add(RuleDefinition(tenant_id=p.tenant_id, rule_id=rule_id, version=data["version"], data=data,
+                             created_by=p.id, updated_by=p.id))
+    else:
+        d.data, d.version, d.deleted, d.updated_by, d.updated_at = data, data["version"], False, p.id, dt.datetime.now(dt.timezone.utc)
+    audit.record(s, p.tenant_id, p.id, "rule.update", "rule", rule_id,
+                 {"version": data["version"], "before": before, "after": data, "note": note})
+    s.commit()
+    return {"ok": True, "id": rule_id, "version": data["version"]}
+
+
+@app.delete("/api/rules/{rule_id}")
+def delete_rule(rule_id: str, note: str = "", p: Principal = Depends(require("rule.edit")),
+                s: Session = Depends(get_session)):
+    current = {r.id: r for r in services.rules_for_tenant(s, p.tenant_id)}.get(rule_id)
+    if not current:
+        raise HTTPException(404, "כלל לא נמצא")
+    note = _note(note)
+    d = _rule_def(s, p.tenant_id, rule_id)
+    now = dt.datetime.now(dt.timezone.utc)
+    if d is None:      # a catalogue (file) rule: a tombstone hides it; restore brings the file version back
+        s.add(RuleDefinition(tenant_id=p.tenant_id, rule_id=rule_id, version=str(current.raw.get("version")),
+                             data=_clean_rule(current.raw), deleted=True, created_by=p.id, updated_by=p.id))
+    else:
+        d.deleted, d.updated_by, d.updated_at = True, p.id, now
+    audit.record(s, p.tenant_id, p.id, "rule.delete", "rule", rule_id,
+                 {"version": current.raw.get("version"), "before": _clean_rule(current.raw), "note": note})
+    s.commit()
+    return {"ok": True}
+
+
+@app.post("/api/rules/{rule_id}/restore")
+def restore_rule(rule_id: str, body: RuleIn | None = None, p: Principal = Depends(require("rule.edit")),
+                 s: Session = Depends(get_session)):
+    """File rule: drop the edit/deletion and go back to the catalogue text. Custom rule: undelete."""
+    d = _rule_def(s, p.tenant_id, rule_id)
+    if d is None:
+        raise HTTPException(404, "אין שינוי לשחזר")
+    note = _note(body.note if body else "")
+    is_file = rule_id in {r.id for r in services.file_rules(p.tenant_id)}
+    if is_file:
+        s.delete(d)
+        action = "rule.restore_file"
+    elif d.deleted:
+        d.deleted, d.version = False, bump_version(d.version)
+        d.data = {**d.data, "version": d.version}
+        d.updated_by, d.updated_at = p.id, dt.datetime.now(dt.timezone.utc)
+        action = "rule.undelete"
+    else:
+        raise HTTPException(409, "הכלל פעיל ואינו כלל מהקטלוג")
+    audit.record(s, p.tenant_id, p.id, action, "rule", rule_id, {"note": note})
+    s.commit()
+    return {"ok": True}
+
+
 @app.get("/api/sources")
 def sources(p: Principal = Depends(current_user), s: Session = Depends(get_session)):
     tenant = s.get(Municipality, p.tenant_id)
@@ -585,7 +720,7 @@ def sources(p: Principal = Depends(current_user), s: Session = Depends(get_sessi
 
 @app.get("/api/kb/search")
 def kb_search(q: str, p: Principal = Depends(require("case.read")), s: Session = Depends(get_session)):
-    res = AIGateway().route("Retrieval", "PUBLIC_REGULATION", {"query": q, "k": 6},
+    res = _gateway_for(s, p.tenant_id).route("Retrieval", "PUBLIC_REGULATION", {"query": q, "k": 6},
                             log=services.gateway_logger(s, p.tenant_id, None, p.id))
     s.commit()
     return {"outcome": res.outcome, "provider": res.provider_id,
@@ -596,9 +731,7 @@ def kb_search(q: str, p: Principal = Depends(require("case.read")), s: Session =
 # ------------------------------------------------------------------ AI settings
 
 def _gateway_for(s: Session, tenant: str) -> AIGateway:
-    ov = [{"task": r.task, "data_class": r.data_class, "mode": r.mode, "providers": r.provider_order}
-          for r in s.scalars(select(AIPolicyRow).where(AIPolicyRow.tenant_id == tenant).order_by(AIPolicyRow.id.desc()))]
-    return AIGateway(overrides=ov)
+    return services.gateway_for(s, tenant)
 
 
 @app.get("/api/ai")
@@ -613,7 +746,98 @@ def ai_settings(p: Principal = Depends(require("case.read")), s: Session = Depen
         seen.add(key)
         pols.append({**pol, "provider_checks": {pid: gw.check_provider(pid, pol["task"], pol["data_class"])
                                                 for pid in pol["providers"]}})
-    return {"providers": gw.providers(), "data_classes": gw.policy["data_classes"], "policies": pols}
+    return {"providers": gw.providers(), "data_classes": gw.policy["data_classes"], "policies": pols,
+            "provider_settings": services.ai_provider_settings(s, p.tenant_id)}
+
+
+def _http_json(url: str, timeout: float):
+    import urllib.request
+    with urllib.request.urlopen(url, timeout=timeout) as r:
+        return json.loads(r.read())
+
+
+@app.get("/api/ai/llm")
+def ai_llm_status(p: Principal = Depends(require("case.read"))):
+    """Where the language model runs and whether it answers: the AI PC through the LLM relay, or a local server."""
+    base = settings.llm_base_url.rstrip("/")
+    root = base[:-3] if base.endswith("/v1") else base
+    out: dict = {"base_url": base, "via_relay": False, "connected": None, "models": [], "error": None}
+    try:
+        h = _http_json(root + "/health", 3)
+        if isinstance(h, dict) and "agent_polls_open" in h:
+            out.update(via_relay=True, connected=bool(h.get("ok")), relay=h)
+    except Exception:  # noqa: BLE001 — not a relay (e.g. Ollama has no /health)
+        pass
+    if out["connected"] is False:
+        out["error"] = "מחשב ה-AI אינו מחובר"
+        return out
+    try:
+        out["models"] = sorted(m["id"] for m in _http_json(base + "/models", 10).get("data", []))
+        out["connected"] = True
+    except Exception as e:  # noqa: BLE001
+        out["connected"], out["error"] = False, f"{type(e).__name__}: {str(e)[:160]}"
+    return out
+
+
+class ProviderIn(BaseModel):
+    enabled: bool | None = None
+    model_version: str | None = None
+
+
+@app.put("/api/ai/providers/{pid}")
+def set_provider(pid: str, body: ProviderIn, p: Principal = Depends(require("ai.configure")),
+                 s: Session = Depends(get_session)):
+    import re
+    base = AIGateway().providers().get(pid)
+    if base is None:
+        raise HTTPException(404, "ספק לא מוגדר")
+    if body.enabled and not base.get("approved"):
+        raise HTTPException(409, "הספק לא אושר ע\"י הרשות — לא ניתן להפעיל")
+    if body.model_version is not None and not re.fullmatch(r"[A-Za-z0-9._:/@+-]{1,120}", body.model_version):
+        raise HTTPException(422, "שם מודל לא תקין")
+    tenant = s.get(Municipality, p.tenant_id)
+    cfg = dict(tenant.settings or {})
+    ai = dict(cfg.get("ai") or {})
+    providers = dict(ai.get("providers") or {})
+    before = dict(providers.get(pid) or {})
+    after = {**before, **{k: v for k, v in body.model_dump().items() if v is not None}}
+    if after.get("model_version") == base.get("model_version"):
+        after.pop("model_version")                    # same as the catalogue: no override
+    if after.get("enabled") == base.get("enabled", True):
+        after.pop("enabled", None)
+    providers[pid] = after
+    if not after:
+        providers.pop(pid)
+    ai["providers"] = providers
+    cfg["ai"] = ai
+    tenant.settings = cfg                             # reassign: JSON column change tracking
+    audit.record(s, p.tenant_id, p.id, "ai.provider.update", "ai_provider", pid, {"before": before, "after": after})
+    s.commit()
+    return {"ok": True, "provider": services.gateway_for(s, p.tenant_id).providers()[pid]}
+
+
+class AITestIn(BaseModel):
+    task: str = "Classification"
+
+
+AI_TEST_PAYLOADS = {
+    "Classification": {"filename": "test.pdf", "text": "מפת מדידה מצבית ערוכה וחתומה על ידי מודד מוסמך, גוש 6195 חלקה 12"},
+    "ReportDraft": {"findings": [
+        {"status": "FAIL", "title_he": "נסיגת חדר גג מחזית ≥ 2.5 מ׳", "explanation_he": "נמדד: 2.49 מ׳; נדרש ≥ 2.50 מ׳."},
+        {"status": "PASS", "title_he": "מספר קומות לפי אזור", "explanation_he": "נתון בתיק: 4.00 קומות; נדרש ≤ 5.00."}]},
+}
+
+
+@app.post("/api/ai/test")
+def ai_test(body: AITestIn, p: Principal = Depends(require("ai.configure")), s: Session = Depends(get_session)):
+    """One real call through the tenant's gateway with a fixed sample (no case data)."""
+    if body.task not in AI_TEST_PAYLOADS:
+        raise HTTPException(422, "משימה לא נתמכת בבדיקה")
+    res = _gateway_for(s, p.tenant_id).route(body.task, "CASE_DOCUMENT", AI_TEST_PAYLOADS[body.task],
+                                             log=services.gateway_logger(s, p.tenant_id, None, p.id))
+    s.commit()
+    return {"task": res.task, "outcome": res.outcome, "provider": res.provider_id, "model": res.model_version,
+            "latency_ms": res.latency_ms, "output": res.output, "trail": res.trail}
 
 
 class PolicyIn(BaseModel):

@@ -7,6 +7,7 @@ blocked ones — is logged to inference_costs with latency and cost for the dash
 """
 from __future__ import annotations
 
+import copy
 import json
 import re
 import time
@@ -76,22 +77,61 @@ def _template_report(payload: dict) -> dict:
     return {"text": "\n".join(lines)}
 
 
+def llm_chat(model: str, prompt: str, json_mode: bool = False) -> str:
+    """One OpenAI-compatible chat completion at BBP_LLM_BASE_URL: local Ollama's /v1, or the LLM relay whose agent
+    runs it on the AI PC. Errors (HTTP 503 = no agent connected, 504 = no answer in time) propagate to the caller."""
+    body: dict = {"model": model, "messages": [{"role": "user", "content": prompt}], "stream": False, "temperature": 0}
+    if json_mode:
+        body["response_format"] = {"type": "json_object"}
+    req = urllib.request.Request(settings.llm_base_url.rstrip("/") + "/chat/completions",
+                                 data=json.dumps(body).encode(), headers={"Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=settings.llm_timeout_s) as r:
+        return json.loads(r.read())["choices"][0]["message"]["content"]
+
+
+STATUS_HE = {"PASS": "עומד", "FAIL": "לא עומד", "UNCERTAIN": "דורש בדיקה", "NA": "לא חל"}
+REPORT_PROMPT = (
+    "אתה מנסח טיוטת סיכום לבודק תכניות. כתוב 3–6 משפטים בעברית על סמך הממצאים שבהמשך בלבד.\n"
+    "כללים: השתמש בשמות הכללים ובהסברים כפי שהם. אל תוסיף סיבות, פרשנות, מספרים, סעיפים או שמות שאינם "
+    "מופיעים בממצאים. פתח במניין התוצאות, פרט את הממצאים 'לא עומד' ו'דורש בדיקה', וסיים במשפט: "
+    "\"הסיכום הוא המלצה בלבד; ההחלטה בסמכות הבודק המוסמך.\" כתוב טקסט רגיל, ללא Markdown (ללא ** או #). "
+    "הכללים הם 'כללים', לא 'תכניות'.\nממצאים (JSON):\n")
+
+
+def _report_facts(findings: list[dict]) -> dict:
+    """What the model may say: counts, and the non-NA findings with the engine's own explanation."""
+    counts = {STATUS_HE[k]: sum(1 for f in findings if f.get("status") == k) for k in STATUS_HE}
+    order = {"FAIL": 0, "UNCERTAIN": 1, "PASS": 2}
+    items = sorted((f for f in findings if f.get("status") in order), key=lambda f: order[f["status"]])
+    return {"נבדקו": len(findings), "תוצאות": counts,
+            "ממצאים": [{"כלל": f.get("title_he"), "תוצאה": STATUS_HE[f["status"]], "הסבר": f.get("explanation_he")}
+                       for f in items[:25]]}
+
+
+_NUM = re.compile(r"\d+(?:[.,]\d+)?")
+
+
+def _ungrounded_numbers(text: str, facts: str) -> list[str]:
+    known = {float(n.replace(",", ".")) for n in _NUM.findall(facts)}
+    return [n for n in _NUM.findall(text) if not any(abs(float(n.replace(",", ".")) - k) < 1e-6 for k in known)]
+
+
 def _ollama(task: str, model: str, payload: dict) -> dict:
     prompt = {
         "Classification": "סווג את סוג המסמך לאחת הקטגוריות: " + ", ".join(DOC_KEYWORDS) +
                           ". החזר JSON {\"label\":...,\"confidence\":0..1}. טקסט:\n" + payload.get("text", "")[:4000],
-        "ReportDraft": "נסח סיכום קצר בעברית לממצאים הבאים בלבד, ללא הוספת עובדות:\n" +
-                       json.dumps(payload.get("findings", [])[:30], ensure_ascii=False),
+        "ReportDraft": REPORT_PROMPT + json.dumps(_report_facts(payload.get("findings", [])), ensure_ascii=False),
     }[task]
-    body = json.dumps({"model": model, "prompt": prompt, "stream": False,
-                       "format": "json" if task == "Classification" else ""}).encode()
-    req = urllib.request.Request(settings.ollama_url + "/api/generate", data=body,
-                                 headers={"Content-Type": "application/json"})
     try:
-        with urllib.request.urlopen(req, timeout=60) as r:
-            out = json.loads(r.read())["response"]
+        out = llm_chat(model, prompt, json_mode=task == "Classification")
     except Exception as exc:  # noqa: BLE001
-        raise ProviderError(f"ollama: {exc}") from exc
+        raise ProviderError(f"llm: {exc}") from exc
+    if task == "ReportDraft":
+        facts = json.dumps(_report_facts(payload.get("findings", [])), ensure_ascii=False)
+        stray = _ungrounded_numbers(out, facts)
+        if stray:   # a number the findings do not contain = an invented fact -> the template drafts instead
+            raise ProviderError("טיוטת הדוח כללה נתונים שאינם בממצאים: " + ", ".join(stray[:5]))
+        return {"text": re.sub(r"\*\*|__|^#+\s*", "", out, flags=re.M).strip()}   # plain text: the report is not Markdown
     if task == "Classification":
         try:
             return json.loads(out)
@@ -120,16 +160,13 @@ EXTRACTION_PROMPT = (
 
 
 def _ollama_extract(model: str, payload: dict) -> dict:
-    """LLM extraction via a local Ollama model. Output is mapped to ApplicationExtraction; the
+    """LLM extraction via the local language model (Ollama, or the AI PC through the relay). Output is mapped to ApplicationExtraction; the
     pipeline then validates it with Pydantic and drops anything not grounded in the text."""
     text = "\n".join(f"[עמוד {p}]\n{t}" for p, t in payload["pages"])[:12000]
-    body = json.dumps({"model": model, "prompt": EXTRACTION_PROMPT + text, "stream": False, "format": "json"}).encode()
-    req = urllib.request.Request(settings.ollama_url + "/api/generate", data=body, headers={"Content-Type": "application/json"})
     try:
-        with urllib.request.urlopen(req, timeout=120) as r:
-            raw = json.loads(json.loads(r.read())["response"])
+        raw = json.loads(llm_chat(model, EXTRACTION_PROMPT + text, json_mode=True))
     except Exception as exc:  # noqa: BLE001
-        raise ProviderError(f"ollama extraction: {exc}") from exc
+        raise ProviderError(f"llm extraction: {exc}") from exc
     return llm_to_extraction(raw, payload, f"ollama:{model}")
 
 
@@ -177,9 +214,21 @@ IMPLEMENTATIONS: dict[str, Callable[[str, dict, dict], dict]] = {
 
 class AIGateway:
     def __init__(self, policy: dict | None = None, overrides: list[dict] | None = None,
-                 implementations: dict | None = None):
-        self.policy = policy or yaml.safe_load(
+                 implementations: dict | None = None, provider_settings: dict | None = None, bulk: bool = False):
+        """provider_settings: the tenant's {provider_id: {enabled, model_version}} (AI settings screen).
+        bulk: an import/recheck of many items — providers marked `interactive_only` (the LLM, seconds per
+        call) are skipped so the request stays within the server's time limit."""
+        self.policy = copy.deepcopy(policy) if policy else yaml.safe_load(
             (settings.knowledge_dir / "ai_policy.yaml").read_text(encoding="utf-8"))
+        for pid, ov in (provider_settings or {}).items():
+            cfg = self.policy["providers"].get(pid)
+            if cfg is None:
+                continue
+            if "enabled" in ov:
+                cfg["enabled"] = bool(ov["enabled"])
+            if ov.get("model_version"):
+                cfg["model_version"] = str(ov["model_version"])
+        self.bulk = bulk
         self.overrides = overrides or []
         self.impl = {**IMPLEMENTATIONS, **(implementations or {})}
 
@@ -203,6 +252,8 @@ class AIGateway:
             return "ספק מושבת"
         if task not in cfg.get("tasks", []):
             return "הספק אינו תומך במשימה"
+        if self.bulk and cfg.get("interactive_only"):
+            return "פעולה מרובת פריטים — הספק משמש רק בפעולה בודדת"
         allowed = self.policy["data_classes"].get(data_class, {}).get("allowed_locations", [])
         if cfg.get("location") not in allowed:
             return f"מיקום עיבוד {cfg.get('location')} אסור לסוג מידע {data_class}"

@@ -398,3 +398,106 @@ def evaluate(rules: list[Rule], facts: dict, sources: dict, tenant_is_demo: bool
     active = [r for r in rules if r.raw.get("review_state") != "RETIRED"]
     results = [evaluate_rule(r, facts, sources, tenant_is_demo) for r in active]
     return results + detect_conflicts(active, results, facts)
+
+
+# ------------------------------------------------------------------ validation (rules authored in the UI)
+
+REPORTS = ("reviewer", "rights", "completeness")
+SEVERITIES = ("high", "medium", "low")
+OPERATORS = tuple(OP_HE)
+CONDITION_OPS = ("eq", "ne", "in", "not_in", "true", "false", "contains", "exists")
+CHECK_FIELDS = {          # required fields per check kind (see evaluate_rule)
+    "compare": ("operand", "operator"),
+    "doc_required": ("doc_type",),
+    "cad_roles": (),
+    "any_present": ("items",),
+    "declared_bool": ("fact",),
+    "consistency": ("operand_a", "operand_b", "max_rel_diff"),
+    "qualitative": (),
+    "condition": (),
+}
+AUTHOR_REVIEW_STATES = ("DRAFT", "SOURCE_MISSING", "SOURCE_LOCATED", "SOURCE_VERIFIED", "DESIGN_ASSUMPTION", "RETIRED")
+_RULE_ID = __import__("re").compile(r"^[A-Z0-9][A-Z0-9_-]{2,79}$")
+
+
+def validate_rule(raw: dict, allow_demo: bool = False) -> list[str]:
+    """Problems that would make a rule unusable or misleading; empty = valid. Ends with a dry run of the
+    engine on empty facts, so a rule that passes here cannot crash a check run."""
+    errs: list[str] = []
+    if not _RULE_ID.match(str(raw.get("id") or "")):
+        errs.append("מזהה כלל: אותיות לטיניות גדולות, ספרות, '-' או '_' (3–80 תווים)")
+    if not str(raw.get("title_he") or "").strip():
+        errs.append("חסרה כותרת")
+    if raw.get("legal_level") not in LEGAL_LEVEL_RANK:
+        errs.append("רמה משפטית לא מוכרת")
+    if raw.get("report", "reviewer") not in REPORTS:
+        errs.append("דוח לא מוכר")
+    if raw.get("severity", "medium") not in SEVERITIES:
+        errs.append("חומרה לא מוכרת")
+    states = AUTHOR_REVIEW_STATES + (("DEMO_FIXTURE",) if allow_demo else ())
+    if raw.get("review_state", "DRAFT") not in states:
+        errs.append("מצב אימות לא מותר בעריכה (אישור מקצועי ניתן רק דרך 'אישור מקצועי')")
+    for k in ("valid_from", "valid_to"):
+        if raw.get(k):
+            try:
+                dt.date.fromisoformat(str(raw[k]))
+            except ValueError:
+                errs.append(f"{k}: תאריך בפורמט YYYY-MM-DD")
+    for k in ("permit_types", "stages"):
+        if raw.get(k) is not None and not (isinstance(raw[k], list) and all(isinstance(x, str) for x in raw[k])):
+            errs.append(f"{k}: רשימת מחרוזות")
+    chk = raw.get("check")
+    if not isinstance(chk, dict) or chk.get("kind") not in CHECK_FIELDS:
+        errs.append("סוג בדיקה לא מוכר")
+    else:
+        missing = [f for f in CHECK_FIELDS[chk["kind"]] if chk.get(f) in (None, "", [])]
+        if missing:
+            errs.append("חסרים שדות בבדיקה: " + ", ".join(missing))
+        if chk["kind"] == "compare":
+            if chk.get("operator") not in OPERATORS:
+                errs.append("אופרטור השוואה לא מוכר")
+            t = chk.get("threshold")
+            if t is not None and not isinstance(t, (int, float)):
+                errs.append("ערך סף חייב להיות מספר (או ריק = חסר במקור)")
+            tb = chk.get("threshold_by")
+            if tb is not None and not (isinstance(tb, dict) and tb.get("fact") and isinstance(tb.get("map"), dict)):
+                errs.append("threshold_by: נדרשים fact ו־map")
+        if chk["kind"] == "consistency" and not isinstance(chk.get("max_rel_diff"), (int, float)):
+            errs.append("max_rel_diff חייב להיות מספר (למשל 0.05)")
+        if chk["kind"] == "any_present" and not (isinstance(chk.get("items"), list)
+                                                 and all(isinstance(i, dict) and ("doc_type" in i or "cad_role" in i)
+                                                         for i in chk["items"])):
+            errs.append("items: רשימה של {doc_type} או {cad_role}")
+    app = raw.get("applicability")
+    if app is not None:
+        if not isinstance(app, dict) or set(app) - {"all", "any"}:
+            errs.append("תחולה: אובייקט עם all / any")
+        else:
+            for c in (app.get("all") or []) + (app.get("any") or []):
+                if not (isinstance(c, dict) and c.get("fact")):
+                    errs.append("תנאי תחולה ללא fact")
+                    break
+                op = c.get("op", "eq")
+                op = ("true" if op else "false") if isinstance(op, bool) else op
+                if op not in CONDITION_OPS:
+                    errs.append(f"אופרטור תחולה לא מוכר: {op}")
+                    break
+    srcs = raw.get("sources", [])
+    if not isinstance(srcs, list) or not all(isinstance(x, dict) and x.get("source_id") for x in srcs):
+        errs.append("מקורות: רשימה של {source_id, section, page, quote_he}")
+    if errs:
+        return errs
+    try:
+        evaluate_rule(Rule(dict(raw)), {"case": {}}, {}, tenant_is_demo=True)
+    except Exception as e:  # noqa: BLE001
+        errs.append(f"הכלל אינו ניתן להרצה: {type(e).__name__}: {e}")
+    return errs
+
+
+def bump_version(v: str | None) -> str:
+    """'0.1' -> '0.2', '1.9' -> '1.10', '3' -> '3.1'."""
+    parts = str(v or "0").split(".")
+    if len(parts) > 1 and parts[-1].isdigit():
+        parts[-1] = str(int(parts[-1]) + 1)
+        return ".".join(parts)
+    return f"{v or '0'}.1"

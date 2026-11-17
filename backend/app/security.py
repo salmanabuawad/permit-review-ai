@@ -32,6 +32,7 @@ PERMISSIONS = {
     "finding.decide":  {"reviewer", "dept_manager", "city_engineer"},
     "case.lock":       {"reviewer", "dept_manager", "city_engineer"},
     "rule.approve":    {"city_engineer", "dept_manager"},
+    "rule.edit":       {"sysadmin", "city_engineer", "dept_manager"},   # authoring; approval stays rule.approve
     "ai.configure":    {"sysadmin"},
     "audit.read":      {"sysadmin", "city_engineer", "dept_manager"},
     "dashboard.read":  {"sysadmin", "city_engineer", "dept_manager"},

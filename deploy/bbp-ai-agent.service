@@ -1,0 +1,21 @@
+# LLM relay agent on the AI PC (same design as muniflow's relay agent): pulls the permit-review server's model
+# calls over outbound HTTPS and serves them from this PC's llama.cpp router (:8081) or Ollama.
+# Install as a systemd *user* service on the AI PC:
+#   cp deploy/bbp-ai-agent.service ~/.config/systemd/user/
+#   cp deploy/bbp-ai-agent.env.example ~/.config/bbp-ai-agent.env && chmod 600 ~/.config/bbp-ai-agent.env   # edit
+#   systemctl --user daemon-reload && systemctl --user enable --now bbp-ai-agent
+# It starts at login; to start at boot before anyone logs in: loginctl enable-linger $USER
+[Unit]
+Description=Permit-review LLM relay agent (serves the app server's model calls from this PC)
+After=network-online.target muniflow-lab.service
+Wants=network-online.target
+
+[Service]
+EnvironmentFile=%h/.config/bbp-ai-agent.env
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/usr/bin/python3 %h/permit-review-ai/agent/bbp_ai_agent.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=default.target

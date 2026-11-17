@@ -64,6 +64,7 @@ export const api = {
   post: <T,>(p: string, b?: any) => req<T>('POST', p, b ?? {}),
   put: <T,>(p: string, b?: any) => req<T>('PUT', p, b),
   patch: <T,>(p: string, b?: any) => req<T>('PATCH', p, b),
+  del: <T,>(p: string) => req<T>('DELETE', p),
   upload: <T,>(p: string, fd: FormData) => req<T>('POST', p, fd, true),
   // binary downloads need the auth header too
   async blob(p: string): Promise<Blob> {

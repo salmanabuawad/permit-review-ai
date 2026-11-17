@@ -16,7 +16,8 @@ from .config import settings
 from .geometry import standard_measurements
 from .ingest import cad, excel, files, pdf
 from .knowledge import load_sources
-from .models import CadEntity, CaseFile, CheckRun, Finding, InferenceCost, Municipality, PermitCase, RuleApproval
+from .models import (AIPolicyRow, CadEntity, CaseFile, CheckRun, Finding, InferenceCost, Municipality, PermitCase,
+                     RuleApproval, RuleDefinition)
 from .rules.engine import Rule, evaluate, load_rules, ruleset_hash
 
 RULE_FILES_BY_TENANT = {
@@ -39,6 +40,18 @@ DOC_TYPES_HE = {
     "planning_regulation": "מסמך תכנוני (תכנית/תקנון)",
     "other": "אחר",
 }
+
+
+def ai_provider_settings(s: Session, tenant: str) -> dict:
+    m = s.get(Municipality, tenant)
+    return dict(((m.settings or {}).get("ai") or {}).get("providers") or {}) if m else {}
+
+
+def gateway_for(s: Session, tenant: str, bulk: bool = False) -> AIGateway:
+    """The tenant's AI gateway: policy overrides and provider settings from the AI settings screen."""
+    ov = [{"task": r.task, "data_class": r.data_class, "mode": r.mode, "providers": r.provider_order}
+          for r in s.scalars(select(AIPolicyRow).where(AIPolicyRow.tenant_id == tenant).order_by(AIPolicyRow.id.desc()))]
+    return AIGateway(overrides=ov, provider_settings=ai_provider_settings(s, tenant), bulk=bulk)
 
 
 def gateway_logger(s: Session, tenant: str, case_id: str | None, user: str | None):
@@ -77,7 +90,7 @@ def ingest_file(s: Session, case: PermitCase, filename: str, data: bytes, doc_ty
         r = pdf.parse_pdf(path, extract_tables=extract_tables)
         cf.ingest_status, report = r.status, r.report()
         cf.signature_status = "FIELD_PRESENT_NOT_VALIDATED" if r.is_signed else "NO_SIGNATURE_FIELD"
-        gw = gateway or AIGateway()
+        gw = gateway or gateway_for(s, case.tenant_id)
         ai = gw.route("Classification", "CASE_DOCUMENT", {"filename": filename, "text": r.full_text[:20000]},
                       log=gateway_logger(s, case.tenant_id, case.id, user))
         if ai.outcome in ("OK", "FALLBACK") and ai.output and ai.output.get("label"):
@@ -177,9 +190,32 @@ def build_facts(s: Session, case: PermitCase) -> tuple[dict, dict]:
 
 # ------------------------------------------------------------------ rules
 
-def rules_for_tenant(s: Session, tenant_id: str) -> list[Rule]:
+def file_rules(tenant_id: str) -> list[Rule]:
     names = RULE_FILES_BY_TENANT.get(tenant_id, ["internal_qa.yaml"])
     rules = load_rules([settings.knowledge_dir / "rules" / n for n in names])
+    for r in rules:
+        r.raw["origin"] = "file"
+    return rules
+
+
+def rules_for_tenant(s: Session, tenant_id: str, include_deleted: bool = False) -> list[Rule]:
+    """The YAML catalogue with the tenant's rules-screen changes applied (RuleDefinition), then approvals."""
+    rules = file_rules(tenant_id)
+    file_ids = {r.id for r in rules}
+    defs = {d.rule_id: d for d in s.scalars(select(RuleDefinition).where(RuleDefinition.tenant_id == tenant_id))}
+    merged = []
+    for r in rules:
+        d = defs.get(r.id)
+        if d is None:
+            merged.append(r)
+        elif not d.deleted:
+            merged.append(Rule({**d.data, "origin": "edited", "file_version": r.raw.get("version")}))
+        elif include_deleted:
+            merged.append(Rule({**r.raw, "origin": "file", "deleted": True}))
+    for rid, d in sorted(defs.items(), key=lambda kv: kv[1].created_at):
+        if rid not in file_ids and (not d.deleted or include_deleted):
+            merged.append(Rule({**d.data, "origin": "custom", **({"deleted": True} if d.deleted else {})}))
+    rules = merged
     approvals = {}
     for a in s.scalars(select(RuleApproval).where(RuleApproval.tenant_id == tenant_id).order_by(RuleApproval.id)):
         approvals[(a.rule_id, a.rule_version)] = a
@@ -214,7 +250,7 @@ def run_checks(s: Session, case: PermitCase, user: str, gateway: AIGateway | Non
     for r in results:
         counts.setdefault(r.report, {}).setdefault(r.status, 0)
         counts[r.report][r.status] += 1
-    gw = gateway or AIGateway()
+    gw = gateway or gateway_for(s, case.tenant_id)
     draft = gw.route("ReportDraft", "CASE_DOCUMENT", {"findings": [r.as_dict() for r in results]},
                      log=gateway_logger(s, case.tenant_id, case.id, user))
     run.duration_ms = int((time.perf_counter() - t0) * 1000)

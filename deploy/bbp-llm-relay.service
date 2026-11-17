@@ -1,0 +1,25 @@
+[Unit]
+Description=BBP LLM relay (the AI PC's agent pulls model jobs from here over outbound HTTPS)
+After=network.target
+
+# Same design as muniflow-llm-relay. One process only: jobs are held in its memory (case text never touches disk).
+# The API calls 127.0.0.1:18112/v1 like any OpenAI-compatible server (BBP_LLM_BASE_URL); the agent reaches /agent/*
+# through nginx (https://<host>/llm-relay/agent/), authenticated with BBP_LLM_RELAY_TOKEN. Without a connected agent it
+# answers 503 and the AI gateway falls back to its non-LLM providers.
+[Service]
+User=bbp
+Group=bbp
+WorkingDirectory=/opt/bbp/app
+EnvironmentFile=/etc/bbp.env
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/bbp/app/.venv/bin/uvicorn app.ai.relay:app --app-dir backend --host 127.0.0.1 --port 18112 --workers 1 --no-access-log
+Restart=always
+RestartSec=3
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ReadWritePaths=/opt/bbp/var
+MemoryMax=512M
+
+[Install]
+WantedBy=multi-user.target

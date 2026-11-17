@@ -351,3 +351,24 @@ class CommitteeDecision(Base):
     text: Mapped[str] = mapped_column(Text)
     conditions: Mapped[list] = mapped_column(JSON, default=list)
     source_ref_id: Mapped[int | None] = mapped_column(ForeignKey("source_references.id"))
+
+
+# ------------------------------------------------------------------ rule authoring
+
+class RuleDefinition(Base):
+    """A rule created or edited in the rules screen. Layered over the YAML catalogue (knowledge/rules):
+    a row with the id of a file rule replaces it, `deleted` hides it, and a row with a new id adds a rule.
+    Every save bumps the version, so an earlier professional approval never carries over to edited text.
+    The full before/after of each change is in the audit log."""
+    __tablename__ = "rule_definitions"
+    __table_args__ = (UniqueConstraint("tenant_id", "rule_id", name="uq_rule_definitions_tenant_rule"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    tenant_id: Mapped[str] = mapped_column(ForeignKey("municipalities.id"), index=True)
+    rule_id: Mapped[str] = mapped_column(String(80))
+    version: Mapped[str] = mapped_column(String(20))
+    data: Mapped[dict] = mapped_column(JSON, default=dict)
+    deleted: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_by: Mapped[str] = mapped_column(String(40))
+    created_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), default=_now)
+    updated_by: Mapped[str] = mapped_column(String(40))
+    updated_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), default=_now)

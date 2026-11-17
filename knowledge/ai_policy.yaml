@@ -38,14 +38,18 @@ providers:
     model_version: "protocol-rules-1.0"
     approved: true
     cost_per_unit_ils: 0.0
-  local_ollama:
-    label_he: "מודל שפה מקומי (Ollama)"
+  local_ollama:   # id kept for stored policy overrides; any OpenAI-compatible local server (BBP_LLM_BASE_URL)
+    label_he: "מודל שפה מקומי (מחשב ה-AI, דרך ה-relay)"
     kind: LOCAL
     location: ON_PREM
     tasks: [Classification, ReportDraft, Extraction]
-    model_version: "qwen2.5:7b-instruct"     # pinned tag; change only via canary
+    # pinned model name; must be served by the AI PC's llama.cpp router (same model as muniflow, so the
+    # router never swaps models between the two apps). Change only via canary.
+    model_version: "ministral-3-8b-iq4xs"
     approved: true
-    enabled: false                            # enable after local benchmark passes
+    # on: when the AI PC is off the relay answers 503 at once and the gateway falls back to the next provider
+    enabled: true
+    interactive_only: true                    # seconds per call: not used in bulk import / recheck
     cost_per_unit_ils: 0.0
   local_tesseract:
     label_he: "OCR מקומי (Tesseract heb)"
