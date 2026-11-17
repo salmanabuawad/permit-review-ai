@@ -18,6 +18,7 @@ from .ingest import cad, excel, files, pdf
 from .knowledge import load_sources
 from .models import (AIPolicyRow, CadEntity, CaseFile, CheckRun, Finding, InferenceCost, Municipality, PermitCase,
                      RuleApproval, RuleDefinition)
+from .rules.derived import derive_completeness_facts
 from .rules.engine import Rule, evaluate, load_rules, ruleset_hash
 
 RULE_FILES_BY_TENANT = {
@@ -37,6 +38,9 @@ DOC_TYPES_HE = {
     "consents": "הסכמות בעלי זכויות",
     "sections_elevations": "חתכים וחזיתות",
     "committee_protocol": "פרוטוקול ועדה",
+    "disabled_committee_approval": "אישור ועדת נכים",
+    "inspection_report": "דו\"ח פיקוח",
+    "reg36_notice_proof": "אסמכתא להודעה לבעלים (תקנה 36)",
     "planning_regulation": "מסמך תכנוני (תכנית/תקנון)",
     "other": "אחר",
 }
@@ -156,7 +160,7 @@ def build_facts(s: Session, case: PermitCase) -> tuple[dict, dict]:
                                                         case.permit_type == "roof_room_addition")},
         "declared": dict(case.declared),
         "docs": {"present": {f.doc_type: True for f in usable}},
-        "facts_derived": {},
+        "facts_derived": derive_completeness_facts(case.title, case.application_type, case.declared),
     }
     convention = cad.load_convention()
     facts["cad"] = {"required_roles": convention["required_roles_by_permit_type"].get(case.permit_type, [])}

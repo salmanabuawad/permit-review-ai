@@ -283,3 +283,93 @@ rules:
       geometry_method_he: "נתון מהחתך/מוצהר — טרם מחולץ אוטומטית מהשרטוט"
     sources: [{source_id: BB-SG-2016, section: "פרק ה׳ סעיף 31.2", page: 15}]
     fix_hint_he: "לתכנן רצפה ומעקה בנוי בגובה 1.05 מ׳ לפחות מעל פני הרצפה."
+
+  # ---------------------------------------------------------------- Completeness — lessons from the blind test of 202401320
+  # The committee refused 202401320 (17/06/2025) for missing documents, not for design:
+  # "לא ניתן לדון בבקשה עד לקבלת אישור וועדת נכים; השלמת חתימות כנדרש", and approved it unchanged
+  # (26/11/2025) after an updated inspection report. These rules make those gates explicit.
+  - id: BB-COMP-DISABLED-UNIT-APPROVAL
+    version: "0.1"
+    title_he: "בקשה לדירת נכה — אישור ועדת נכים כתנאי לדיון"
+    legal_level: COMMITTEE_DECISION
+    report: completeness
+    severity: high
+    review_state: SOURCE_LOCATED
+    stages: [permit_request]
+    applicability:
+      all: [{fact: facts_derived.disabled_unit_requested, op: "true", label_he: "הבקשה היא לדירת נכה (מוצהר או לפי מהות הבקשה)"}]
+    check:
+      kind: doc_required
+      doc_type: disabled_committee_approval
+      doc_label_he: "אישור ועדת נכים (זכאות לדירת נכה)"
+    sources:
+      - {source_id: BB-SUBC-20250219, section: "החלטה בבקשה 202401320", quote_he: "לא ניתן לדון בבקשה עד לקבלת אישור וועדת נכים"}
+    fix_hint_he: "לצרף אישור ועדת נכים (זכאות) לפני העברת הבקשה לדיון."
+    notes: "Derived from committee practice in a decided case; the statutory/administrative basis of the approval must be confirmed by the licensing department before PROFESSIONALLY_APPROVED."
+
+  - id: BB-COMP-OWNER-SIGNATURES
+    version: "0.1"
+    title_he: "חתימות כל בעלי הזכויות לפי נסח הטאבו"
+    legal_level: REGULATION
+    report: completeness
+    severity: high
+    review_state: SOURCE_LOCATED
+    stages: [permit_request]
+    applicability:
+      all: [{fact: facts_derived.owner_signatures_pct, op: exists, label_he: "הוזן מספר בעלי הזכויות ומספר החותמים"}]
+    check:
+      kind: compare
+      operand: facts_derived.owner_signatures_pct
+      operand_label_he: "שיעור בעלי הזכויות שחתמו (מחושב: חותמים / בעלים בנסח)"
+      operator: ">="
+      threshold: 100
+      units: "%"
+      geometry_method_he: "חישוב מנתוני הטופס: declared.owners_signed / declared.owners_total"
+    sources:
+      - {source_id: BB-SUBC-20250219, section: "החלטה בבקשה 202401320", quote_he: "השלמת חתימות כנדרש"}
+      - {source_id: BB-SUBC-20250218, section: "הערות מח׳ רישוי, בקשה 202500019", page: 16}
+      - {source_id: REG-RISHUY-2016, section: "תקנה 36 — הודעה לבעלים שלא חתמו (נוסח לא נקרא)"}
+    fix_hint_he: "להשלים חתימות בעלי הזכויות, או לצרף אסמכתא למסירת הודעה לבעלים שלא חתמו לפי תקנה 36(ב)."
+    notes: "Below 100% is not automatically a refusal — the regulations allow notice to non-signing owners instead; see BB-COMP-REG36-NOTICE. This rule surfaces the gap; it does not decide it."
+
+  - id: BB-COMP-REG36-NOTICE
+    version: "0.1"
+    title_he: "אסמכתא להודעה לבעלים שלא חתמו (תקנה 36(ב)) או להמצאה חלופית"
+    legal_level: REGULATION
+    report: completeness
+    severity: high
+    review_state: SOURCE_LOCATED
+    stages: [permit_request]
+    applicability:
+      all:
+        - {fact: facts_derived.owner_signatures_pct, op: exists, label_he: "הוזן מספר בעלי הזכויות ומספר החותמים"}
+        - {fact: facts_derived.owner_signatures_incomplete, op: "true", label_he: "חסרות חתימות של חלק מבעלי הזכויות"}
+    check:
+      kind: doc_required
+      doc_type: reg36_notice_proof
+      doc_label_he: "אסמכתא למסירת הודעה לפי תקנה 36(ב) / המצאה חלופית לפי הנחיית היועמ\"ש"
+    sources:
+      - {source_id: REG-RISHUY-2016, section: "תקנה 36(ב)"}
+      - {source_id: BB-SUBC-20250218, section: "בקשה 202500019 — \"נעשתה המצאה חלופית לבעלים הרשום בהתאם להנחיות היועמ\"ש\"", page: 16}
+    fix_hint_he: "לצרף אישורי מסירה של ההודעות לבעלים שלא חתמו, או תיעוד ההמצאה החלופית שאושרה ע\"י היועמ\"ש."
+
+  - id: BB-COMP-LEGALIZATION-INSPECTION
+    version: "0.1"
+    title_he: "הכשרת מצב קיים — דו\"ח פיקוח עדכני לפני דיון"
+    legal_level: COMMITTEE_DECISION
+    report: completeness
+    severity: medium
+    review_state: SOURCE_LOCATED
+    stages: [permit_request]
+    applicability:
+      all: [{fact: facts_derived.legalization_existing, op: "true", label_he: "הבקשה להכשרת בנייה קיימת (מוצהר או לפי מהות הבקשה)"}]
+    check:
+      kind: doc_required
+      doc_type: inspection_report
+      doc_label_he: "דו\"ח פיקוח עדכני"
+    sources:
+      - {source_id: BB-SUBC-20250226, section: "דיון חוזר בבקשה 202401320", quote_he: "לדיון חוזר לאחר קבלת דו\"ח פיקוח עדכני"}
+      - {source_id: BB-SUBC-20250218, section: "הערות מח׳ רישוי, בקשה 202500019 — \"ראה דו\"ח פיקוח מיום 27.02.25\"", page: 16}
+      - {source_id: BB-ENFORCEMENT-2025}
+    fix_hint_he: "לבקש ממחלקת הפיקוח דו\"ח עדכני על המצב בשטח ולצרפו לתיק לפני הדיון."
+    notes: "How recent the report must be is not stated in the sources read — no age threshold is applied."

@@ -30,6 +30,26 @@ sources:
     url: null
     verification: FOUND_NOT_READ
     notes: "Referenced on gov.il (permit validity, reg. 59). Full text + transition provisions not yet read."
+  - id: BB-SUBC-20250219
+    category: LOCAL_POLICY
+    title_he: "ועדת משנה בני ברק — ישיבה 20250219 (17/06/2025), החלטה בבקשה 202401320 (דירת נכה, מצב קיים)"
+    url: https://bnei-brak.ladpc.co.il/Service/engineering/Pages/request.aspx#request/202401320
+    edition: "החלטה: לסרב — לא ניתן לדון בבקשה עד לקבלת אישור ועדת נכים; השלמת חתימות כנדרש"
+    verification: VERIFIED_READ
+    notes: "Committee practice in a decided case (read 2026-11-18 via the public Complot portal). It shows what the committee requires, not the statutory source of the requirement — confirm the legal basis with the licensing department before approving the derived rule."
+  - id: BB-SUBC-20250226
+    category: LOCAL_POLICY
+    title_he: "ועדת משנה בני ברק — ישיבה 20250226 (26/11/2025), דיון חוזר בבקשה 202401320 לאחר קבלת דו\"ח פיקוח עדכני"
+    url: https://bnei-brak.ladpc.co.il/Service/engineering/Pages/request.aspx#request/202401320
+    edition: "החלטה: לאשר בהערות מהנדס העיר ומח׳ רישוי, לאחר קבלת דו\"ח פיקוח עדכני"
+    verification: VERIFIED_READ
+  - id: BB-SUBC-20250218
+    category: LOCAL_POLICY
+    title_he: "ועדת משנה בני ברק — פרוטוקול ישיבה 20250218 (04/06/2025), בקשה 202500019: הערות מח׳ רישוי (חתימות 13/16, דו\"ח פיקוח)"
+    url: https://archive.gis-net.co.il/bneybrak/Pirsumim/778/1cf85f4e-01f7-4aea-9208-40765e42f683.pdf
+    edition: "פרוטוקול מיום 18/06/2025, עמ׳ 16"
+    verification: VERIFIED_READ
+    notes: "Licensing-department notes list owner signatures as 'X of Y = %' and cite the inspection report date; the stated percentage (81.12%) does not match 13/16 = 81.25%."
   - id: GOV-LIC-STEPS
     category: GOV_GUIDANCE
     title_he: "מינהל התכנון — שלבי רישוי: היתר בנייה מלא / בקשה למידע להיתר"
