@@ -328,3 +328,5 @@ a.btn { text-decoration: none; }
 .workspace > * { min-width: 0; }
 .workspace > .card { overflow-x: auto; }
 .app-body > *, .field-grid > * { min-width: 0; }
+
+tr.selected td { background: #eef4ff; }

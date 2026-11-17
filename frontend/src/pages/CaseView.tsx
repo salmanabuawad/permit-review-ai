@@ -93,7 +93,7 @@ export default function CaseView() {
         <span className="spacer" />
         {c.is_demo && <span className="chip demo">הדגמה</span>}
         <span className="chip outline">{meta.case_statuses[c.status] ?? c.status}</span>
-        {can('case.run') && <button className="primary" onClick={run} disabled={busy || locked || !hasFiles}>{busy ? 'מריץ…' : 'הרצת בדיקה'}</button>}
+        {can('case.run') && <button className="primary" onClick={run} disabled={busy || locked || !hasFiles}>{busy ? 'מריץ…' : c.last_run ? 'בדיקה חוזרת' : 'הרצת בדיקה'}</button>}
       </div>
 
       <ol className="stepper" aria-label="שלבי הטיפול בתיק">

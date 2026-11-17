@@ -14,6 +14,7 @@
 | 05 | [תכנית עבודה, Backlog ובדיקות](docs/05_workplan_backlog.md) |
 | 06 | [IP Inventory לנספח ה5](docs/06_ip_inventory.md) — **לבדיקת עו"ד** |
 | 07 | [קליטת מסמכים — צנרת, מודל נתונים, בעיות פתוחות](docs/07_document_intake.md) |
+| 08 | [סריקת מקורות לכללים ובדיקה חוזרת](docs/08_source_monitor.md) |
 
 ## הפעלה מקומית (Windows, ללא Docker)
 ```bash
@@ -49,11 +50,15 @@ Ubuntu: [deploy/README.md](deploy/README.md).
 מסך "תיקי בקשות" ← **קליטת מסמכים**: גרירת קבצים או חבילת ZIP (PDF, DXF/DWG, Excel ו־index.csv/json). המערכת מסווגת כל מסמך לפי תוכנו (טופס בקשה, פרוטוקול ועדה, מסמך תכנוני, שרטוט, מסמך נלווה, אינדקס), מפצלת פרוטוקול לבקשות, מחלצת את הנתונים — כולל הערות גורמי המקצוע והחלטת הוועדה — עם מקור (קובץ, עמוד, עמוד בפרוטוקול המקורי) וודאות לכל ערך, ומציגה תצוגה מקדימה לעריכה. קובצי אינדקס אינם יוצרים בקשות. ייבוא חוזר אינו יוצר כפילויות.
 פירוט: [docs/07_document_intake.md](docs/07_document_intake.md) · דוח בדיקה על 31 בקשות אמיתיות: [docs/reports/import_test_report.md](docs/reports/import_test_report.md).
 
+## סריקת מקורות ובדיקה חוזרת
+**מאגר כללים ← סריקת מקורות**: שליפת המסמכים הרשמיים מרשם המקורות (כולל המסמכים המקושרים מעמוד המדיניות של בני ברק), שמירת כל גרסה, סימון מסמכים חדשים ושינויים, והצעות לסעיפי כלל עם עמוד וציטוט — לאישור כותב כללים; שום כלל אינו משתנה אוטומטית. אתרים שחוסמים שליפה (gov.il) — העלאה ידנית.
+**תיקי בקשות ← בדיקה חוזרת**: הרצה מחדש של בדיקת הכללים על תיקים נבחרים או על כולם. פירוט: [docs/08_source_monitor.md](docs/08_source_monitor.md).
+
 ## מבנה
 ```
-backend/app/        FastAPI: ingest, intake (document import), geometry, rules engine, AI gateway, reports, audit, RBAC
-backend/migrations/ Alembic migrations (0001 baseline, 0002 intake entities)
-backend/tests/      112 בדיקות pytest (SQLite ו־PostgreSQL)
+backend/app/        FastAPI: ingest, intake (document import), source_monitor (rule-source crawl), geometry, rules engine, AI gateway, reports, audit, RBAC
+backend/migrations/ Alembic migrations (0001 baseline, 0002 intake entities, 0003 source monitor)
+backend/tests/      122 בדיקות pytest (SQLite ו־PostgreSQL)
 frontend/src/       React + TypeScript, RTL
 knowledge/          תוכן פרויקט: כללים, מקורות, בסיס ידע, מוסכמת שכבות, מדיניות AI, ממשקים
 fixtures/demo/      קבצי הדגמה שנוצרו ע"י scripts/make_fixtures.py

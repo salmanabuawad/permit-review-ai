@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useMemo, useState } from 'react'
 import { OP_HE, REVIEW_STATE_HE, VERIFICATION_HE, api } from '../api'
+import { useNavigate } from 'react-router-dom'
 import { useApp } from '../App'
 
 const LEVEL_HE: Record<string, string> = {
@@ -14,8 +15,13 @@ export default function Rules() {
   const [rules, setRules] = useState<any[]>([])
   const [open, setOpen] = useState<string | null>(null)
   const [q, setQ] = useState('')
+  const [drafts, setDrafts] = useState(0)
+  const nav = useNavigate()
   const load = () => api.get<any[]>('/api/rules').then(setRules)
-  useEffect(() => { load() }, [])
+  useEffect(() => {
+    load()
+    api.get<any>('/api/source-monitor').then(d => setDrafts(d.drafts?.open ?? 0)).catch(() => { /* optional */ })
+  }, [])
   const shown = useMemo(() => rules.filter(r => !q || (r.id + r.title_he).includes(q)), [rules, q])
   const approve = async (id: string) => {
     const note = window.prompt('נימוק לאישור הכלל (סעיף/עמוד שנבדק):')
@@ -28,6 +34,7 @@ export default function Rules() {
       <div className="page-head">
         <div><h1>מאגר כללים</h1><p>כל כלל מקושר למקור, סעיף ועמוד. כלל שלא אושר מקצועית אינו יכול להוביל לפסילה אוטומטית.</p></div>
         <span className="spacer" /><input placeholder="חיפוש כלל" value={q} onChange={e => setQ(e.target.value)} />
+        <button onClick={() => nav('/rules/sources')}>סריקת מקורות{drafts ? ` (${drafts} הצעות ממתינות)` : ''}</button>
       </div>
       <div className="notice info small" style={{ marginBottom: 14 }}>
         היררכיית מקורות: חוק ← תקנות ← תכנית סטטוטורית ← הנחיות מרחביות ← מדיניות ← החלטות ועדה. כשכללים חלים סותרים זה את זה, המערכת מציגה "סתירת מקורות" ואינה מכריעה.

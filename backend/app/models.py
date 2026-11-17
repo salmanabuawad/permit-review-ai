@@ -351,3 +351,85 @@ class CommitteeDecision(Base):
     text: Mapped[str] = mapped_column(Text)
     conditions: Mapped[list] = mapped_column(JSON, default=list)
     source_ref_id: Mapped[int | None] = mapped_column(ForeignKey("source_references.id"))
+
+
+# ------------------------------------------------------------------ source monitor (crawl official rule sources)
+
+class SourceCrawl(Base):
+    """One crawl of the official rule sources (manual button, CLI or timer)."""
+    __tablename__ = "source_crawls"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_id)
+    tenant_id: Mapped[str] = mapped_column(ForeignKey("municipalities.id"), index=True)
+    triggered_by: Mapped[str] = mapped_column(String(40))
+    started_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), default=_now)
+    finished_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime())
+    status: Mapped[str] = mapped_column(String(20), default="running")     # running | done | failed
+    summary: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
+class SourceDocument(Base):
+    """A page or document at an official URL (from the source register, or linked from a register page)."""
+    __tablename__ = "source_documents"
+    __table_args__ = (UniqueConstraint("tenant_id", "url", name="uq_source_documents_tenant_url"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    tenant_id: Mapped[str] = mapped_column(ForeignKey("municipalities.id"), index=True)
+    url: Mapped[str] = mapped_column(String(1000))
+    kind: Mapped[str] = mapped_column(String(20))                    # page | document | manual
+    source_id: Mapped[str | None] = mapped_column(String(60))        # register id (knowledge/sources.yaml)
+    title: Mapped[str | None] = mapped_column(String(400))
+    discovered_from: Mapped[str | None] = mapped_column(String(1000))
+    first_seen: Mapped[dt.datetime] = mapped_column(UTCDateTime(), default=_now)
+    last_checked: Mapped[dt.datetime | None] = mapped_column(UTCDateTime())
+    fetch_status: Mapped[str | None] = mapped_column(String(20))     # ok | not_modified | blocked | unreachable | error | too_large | bad_type | manual
+    http_status: Mapped[int | None] = mapped_column(Integer)
+    message: Mapped[str | None] = mapped_column(Text)
+    change_state: Mapped[str | None] = mapped_column(String(20))     # new | changed | unchanged
+    changed_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime())
+    acknowledged: Mapped[bool] = mapped_column(Boolean, default=False)
+    acknowledged_by: Mapped[str | None] = mapped_column(String(40))
+    sha256: Mapped[str | None] = mapped_column(String(64))
+    content_type: Mapped[str | None] = mapped_column(String(120))
+    size: Mapped[int | None] = mapped_column(Integer)
+    page_count: Mapped[int | None] = mapped_column(Integer)
+    storage_path: Mapped[str | None] = mapped_column(String(600))
+    etag: Mapped[str | None] = mapped_column(String(200))
+    last_modified: Mapped[str | None] = mapped_column(String(100))
+    links: Mapped[list] = mapped_column(JSON, default=list)           # pages: document links found
+
+
+class SourceSnapshot(Base):
+    """Each distinct version (by SHA-256) of a source document that was fetched or uploaded."""
+    __tablename__ = "source_snapshots"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    tenant_id: Mapped[str] = mapped_column(String(40), index=True)
+    document_id: Mapped[int] = mapped_column(ForeignKey("source_documents.id", ondelete="CASCADE"), index=True)
+    crawl_id: Mapped[str | None] = mapped_column(String(32))
+    sha256: Mapped[str] = mapped_column(String(64))
+    size: Mapped[int] = mapped_column(Integer)
+    storage_path: Mapped[str | None] = mapped_column(String(600))
+    origin: Mapped[str] = mapped_column(String(20))                  # crawl | upload
+    uploaded_by: Mapped[str | None] = mapped_column(String(40))
+    fetched_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), default=_now)
+    text_chars: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class RuleDraft(Base):
+    """A candidate rule clause found in a source document — a suggestion for a rule author, never an active rule."""
+    __tablename__ = "rule_drafts"
+    __table_args__ = (UniqueConstraint("tenant_id", "document_id", "key", name="uq_rule_drafts_doc_key"),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    tenant_id: Mapped[str] = mapped_column(String(40), index=True)
+    document_id: Mapped[int] = mapped_column(ForeignKey("source_documents.id", ondelete="CASCADE"), index=True)
+    snapshot_id: Mapped[int | None] = mapped_column(ForeignKey("source_snapshots.id"))
+    key: Mapped[str] = mapped_column(String(40))                     # sha1 of the normalised clause text
+    page: Mapped[int] = mapped_column(Integer)
+    section: Mapped[str | None] = mapped_column(String(20))
+    kind: Mapped[str] = mapped_column(String(30))                    # numeric_limit | required_document | prohibition
+    topics: Mapped[list] = mapped_column(JSON, default=list)
+    text_he: Mapped[str] = mapped_column(Text)
+    values: Mapped[list] = mapped_column(JSON, default=list)          # [{value, unit, op}]
+    status: Mapped[str] = mapped_column(String(20), default="open")  # open | for_authoring | dismissed | superseded
+    note: Mapped[str | None] = mapped_column(Text)
+    decided_by: Mapped[str | None] = mapped_column(String(40))
+    decided_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime())
+    created_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), default=_now)

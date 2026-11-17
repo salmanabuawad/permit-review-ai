@@ -1,0 +1,16 @@
+# Source monitor — crawling the official sources that rules are written from.
+# Targets: every http(s) URL in sources.yaml (url, url_2, index_url, document_url). Register pages are
+# scanned for linked documents on the same site; relevant ones are fetched and versioned by SHA-256.
+# Fetched documents never change a rule by themselves: they produce DRAFT clause suggestions that a
+# rule author must turn into a rule and a city engineer / department manager must approve.
+user_agent: "Mozilla/5.0 (compatible; permit-review-ai source monitor)"
+timeout_s: 30
+max_bytes: 41943040             # 40 MB per document
+max_documents_per_crawl: 60
+delay_between_requests_s: 1.0   # be polite to municipal / government sites
+extra_hosts: []                 # hosts allowed besides those that appear in the register
+document_extensions: [pdf, doc, docx, xls, xlsx]
+discover_links_from_pages: true
+# a linked document is followed only if its link text or file name contains one of these
+relevance_keywords: [תכנון, תכנית, תוכנית, הנחיות, מדיניות, היתר, רישוי, בנייה, בניה, מרחביות, "תב\"ע", תיקון, ועדה, אכיפה, תקנות, שטחי, תוספת]
+max_drafts_per_document: 300
