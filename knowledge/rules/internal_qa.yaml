@@ -142,3 +142,48 @@ rules:
       - {source_id: GOV-LIC-STEPS, section: "מידע להיתר — תנאי סף: מפת מדידה שאינה ישנה מ־6 חודשים"}
     notes: "The 6-month limit was read on gov.il for the permit-INFORMATION stage. Its application to the permit request itself must be verified against the 2016 licensing regulations. Survey date comes from declared.survey_map_date (not yet extracted from the PDF)."
     fix_hint_he: "לצרף מפת מדידה עדכנית (עד 6 חודשים)."
+
+  - id: QA-OWNER-SIGNATURE-PCT
+    version: "0.1"
+    title_he: "אחוז החתימות שנכתב בתיק תואם את מספר החותמים ומספר הבעלים"
+    legal_level: INTERNAL_QA
+    report: reviewer
+    severity: low
+    review_state: DESIGN_ASSUMPTION
+    stages: [permit_request]
+    applicability:
+      all:
+        - {fact: facts_derived.owner_signatures_pct, op: exists, label_he: "הוזן מספר חותמים ומספר בעלים"}
+        - {fact: declared.owner_signatures_pct_stated, op: exists, label_he: "אחוז חתימות שנכתב בטופס/בהערות"}
+    check:
+      kind: consistency
+      operand_a: declared.owner_signatures_pct_stated
+      operand_b: facts_derived.owner_signatures_pct
+      a_label_he: "אחוז שנכתב"
+      b_label_he: "אחוז מחושב"
+      max_rel_diff: 0.001
+    sources: [{source_id: BB-SUBC-20250218, page: 16, section: "\"13 חתימות בעלים מתוך 16 שהם 81.12%\" — בפועל 81.25%"}]
+    fix_hint_he: "לתקן את האחוז שנכתב לפי מספר החותמים ומספר הבעלים בנסח."
+
+  - id: QA-PLOT-AREA-VS-CADASTRE
+    version: "0.1"
+    title_he: "שטח המגרש בטופס תואם את שטח החלקה הרשום (פרצלציה/הפקעה)"
+    legal_level: INTERNAL_QA
+    report: rights
+    severity: medium
+    review_state: DESIGN_ASSUMPTION
+    stages: [permit_request]
+    applicability:
+      all:
+        - {fact: declared.plot_area_m2, op: exists, label_he: "שטח מגרש בטופס הבקשה"}
+        - {fact: declared.parcel_registered_area_m2, op: exists, label_he: "שטח החלקה ברשומת החלקה / בנסח"}
+    check:
+      kind: consistency
+      operand_a: declared.plot_area_m2
+      operand_b: declared.parcel_registered_area_m2
+      a_label_he: "שטח מגרש בטופס"
+      b_label_he: "שטח חלקה רשום"
+      max_rel_diff: 0.01
+    sources: [{source_id: TENDER-7-26, page: 26, section: "מסמך ב׳ §7.1.2"}]
+    fix_hint_he: "לבדוק אם החלקה עברה פרצלציה או הפקעה, ועל איזה שטח יש לחשב את אחוזי הבנייה לפי התכנית החלה."
+    notes: "Blind test 202401320: the form used 578 m² (parcel 56 before subdivision); the current parcel 6187/2202 is 502 m² (76 m² to a road) — 102.6% vs 118.2% of the plot. Which area governs is a reviewer decision."

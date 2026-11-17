@@ -61,3 +61,17 @@
 - שני מקורות עם 2.5 ו־3.0 → CONFLICT.
 
 **תצוגה:** בממשק ובדוח הסימן נשמר לוגית כ־"≥"; בהקשר RTL הדפדפן ו־python-bidi מציגים את הגליף המשוקף לפי Unicode (Bidi_Mirrored), כך שהקריאה מימין לשמאל נשארת "נסיגה ≥ 2.5". נבדק ב־`test_numbers_and_symbols_survive_bidi`.
+
+## כללי שלמות — לקחים מבדיקה עיוורת (בקשה 202401320)
+הוועדה סירבה לבקשה ב־17/06/2025 מטעמי שלמות מסמכים, לא תכנון ("לא ניתן לדון בבקשה עד לקבלת אישור וועדת נכים; השלמת חתימות כנדרש"), ואישרה אותה ללא שינוי ב־26/11/2025 אחרי דו"ח פיקוח עדכני. הכללים האלה הופכים את הדרישות למפורשות.
+
+| מזהה | כלל | בדיקה | מצב |
+|---|---|---|---|
+| BB-COMP-DISABLED-UNIT-APPROVAL | בקשה לדירת נכה — אישור ועדת נכים לפני דיון | מסמך `disabled_committee_approval`; תחולה: `facts_derived.disabled_unit_requested` (מוצהר או "דירת נכה" במהות) | SOURCE_LOCATED — נוהג ועדה; בסיס סטטוטורי לאימות |
+| BB-COMP-OWNER-SIGNATURES | חתימות כל בעלי הזכויות | `owners_signed / owners_total` ≥ 100% | SOURCE_LOCATED — פחות מ־100% אינו סירוב אוטומטי |
+| BB-COMP-REG36-NOTICE | הודעה לבעלים שלא חתמו / המצאה חלופית | מסמך `reg36_notice_proof` כשחסרות חתימות | SOURCE_LOCATED |
+| BB-COMP-LEGALIZATION-INSPECTION | הכשרת מצב קיים — דו"ח פיקוח עדכני | מסמך `inspection_report`; תחולה: "מצב קיים"/"הכשרת" במהות או מוצהר | SOURCE_LOCATED — ללא סף גיל לדו"ח |
+| QA-OWNER-SIGNATURE-PCT | האחוז שנכתב תואם לחותמים/בעלים | consistency, סטייה ≤ 0.1% (מקרה 202500019: 81.12% מול 81.25%) | DESIGN_ASSUMPTION |
+| QA-PLOT-AREA-VS-CADASTRE | שטח מגרש בטופס מול שטח החלקה הרשום | consistency, סטייה ≤ 1% (מקרה 202401320: 578 מול 502 מ"ר) | DESIGN_ASSUMPTION |
+
+עובדות נגזרות: `backend/app/rules/derived.py` (ערך מוצהר גובר על הסקה מטקסט; בלי טקסט ובלי הצהרה — לא נקבע). סוגי מסמכים חדשים ב־`DOC_TYPES_HE` ורמזי שם קובץ ב־`batch_import.guess_doc_type`. בדיקות: `backend/tests/test_completeness_rules.py`.
