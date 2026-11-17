@@ -1,0 +1,10 @@
+[Unit]
+Description=Permit Review AI — crawl official rule sources
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=permit
+EnvironmentFile=/opt/permit-review-ai/.env
+WorkingDirectory=/opt/permit-review-ai/app/backend
+ExecStart=/opt/permit-review-ai/app/.venv/bin/python -m app.source_monitor --tenant bnei-brak

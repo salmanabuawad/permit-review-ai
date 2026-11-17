@@ -330,6 +330,7 @@ a.btn { text-decoration: none; }
 .workspace > .card { overflow-x: auto; }
 .app-body > *, .field-grid > * { min-width: 0; }
 
+tr.selected td { background: #eef4ff; }
 /* rule editor */
 .form-grid > * { min-width: 0; }
 .drawer input, .drawer select, .drawer textarea { max-width: 100%; box-sizing: border-box; }

@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useMemo, useState } from 'react'
 import { OP_HE, REVIEW_STATE_HE, VERIFICATION_HE, api } from '../api'
+import { useNavigate } from 'react-router-dom'
 import { useApp } from '../App'
 import RuleEditor, { KIND_HE, LEVEL_HE } from '../components/RuleEditor'
 
@@ -11,6 +12,8 @@ export default function Rules() {
   const [rules, setRules] = useState<any[]>([])
   const [open, setOpen] = useState<string | null>(null)
   const [q, setQ] = useState('')
+  const [drafts, setDrafts] = useState(0)
+  const nav = useNavigate()
   const [meta, setMeta] = useState<any>(null)
   const [showDeleted, setShowDeleted] = useState(false)
   const [editing, setEditing] = useState<any | null | undefined>(undefined)   // undefined = closed, null = new rule
@@ -31,6 +34,9 @@ export default function Rules() {
     try { await api.post(`/api/rules/${encodeURIComponent(r.id)}/restore`, { rule: {}, note }); toast('הכלל שוחזר'); load() }
     catch (e: any) { toast(e.message, true) }
   }
+  useEffect(() => {
+    api.get<any>('/api/source-monitor').then(d => setDrafts(d.drafts?.open ?? 0)).catch(() => { /* optional */ })
+  }, [])
   const shown = useMemo(() => rules.filter(r => !q || (r.id + r.title_he).includes(q)), [rules, q])
   const approve = async (id: string) => {
     const note = window.prompt('נימוק לאישור הכלל (סעיף/עמוד שנבדק):')
@@ -46,6 +52,7 @@ export default function Rules() {
         <label className="small" style={{ display: 'flex', gap: 4, alignItems: 'center' }}><input type="checkbox" checked={showDeleted} onChange={e => setShowDeleted(e.target.checked)} />הצגת כללים שנמחקו</label>
         <input placeholder="חיפוש כלל" value={q} onChange={e => setQ(e.target.value)} />
         {canEdit && meta && <button className="primary" onClick={() => setEditing(null)}>כלל חדש</button>}
+        <button onClick={() => nav('/rules/sources')}>סריקת מקורות{drafts ? ` (${drafts} הצעות ממתינות)` : ''}</button>
       </div>
       <div className="notice info small" style={{ marginBottom: 14 }}>
         היררכיית מקורות: חוק ← תקנות ← תכנית סטטוטורית ← הנחיות מרחביות ← מדיניות ← החלטות ועדה. כשכללים חלים סותרים זה את זה, המערכת מציגה "סתירת מקורות" ואינה מכריעה.

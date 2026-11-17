@@ -1,7 +1,7 @@
 """rule definitions (rules created/edited in the rules screen)
 
 Revision ID: 0004
-Revises: 0002
+Revises: 0003
 Create Date: 2026-11-17
 
 """
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 from app import models  # noqa: F401 — custom column types (models.UTCDateTime)
 
 revision: str = '0004'
-down_revision: Union[str, None] = '0002'   # TODO on merge with the source-monitor work: '0003'
+down_revision: Union[str, None] = '0003'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
