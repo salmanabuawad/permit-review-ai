@@ -5,7 +5,8 @@ from pathlib import Path
 
 # isolated DB + storage for the whole test session — must be set before importing app.*
 _tmp = Path(tempfile.mkdtemp(prefix="bbp_test_"))
-os.environ["BBP_DATABASE_URL"] = f"sqlite:///{(_tmp / 'test.sqlite3').as_posix()}"
+# BBP_TEST_DATABASE_URL lets the same suite run on PostgreSQL (e.g. an embedded pgserver instance)
+os.environ["BBP_DATABASE_URL"] = os.environ.get("BBP_TEST_DATABASE_URL") or f"sqlite:///{(_tmp / 'test.sqlite3').as_posix()}"
 os.environ["BBP_STORAGE_DIR"] = str(_tmp / "storage")
 os.environ["BBP_ENV"] = "test"
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))

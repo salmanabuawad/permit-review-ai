@@ -26,7 +26,7 @@ export default function CaseView() {
   const [geo, setGeo] = useState<any>(null)
   const [sel, setSel] = useState<string | null>(null)
   const [cite, setCite] = useState<Citation | null>(null)
-  const [tab, setTab] = useState<'findings' | 'files' | 'data' | 'history'>('findings')
+  const [tab, setTab] = useState<'findings' | 'files' | 'data' | 'extracted' | 'history'>('findings')
   const [filter, setFilter] = useState<'open' | 'all'>('open')
   const [busy, setBusy] = useState(false)
   const [runs, setRuns] = useState<any[]>([])
@@ -141,6 +141,7 @@ export default function CaseView() {
             <button className={tab === 'findings' ? 'active' : ''} onClick={() => setTab('findings')}>ממצאים <span className="count num">{findings.length}</span></button>
             <button className={tab === 'files' ? 'active' : ''} onClick={() => setTab('files')}>קבצים <span className="count num">{c.files?.length ?? 0}</span></button>
             <button className={tab === 'data' ? 'active' : ''} onClick={() => setTab('data')}>נתוני התיק</button>
+            <button className={tab === 'extracted' ? 'active' : ''} onClick={() => setTab('extracted')}>נתונים מחולצים</button>
             <button className={tab === 'history' ? 'active' : ''} onClick={() => setTab('history')}>גרסאות</button>
           </div>
 
@@ -168,6 +169,7 @@ export default function CaseView() {
           )}
           {tab === 'files' && <Files c={c} onChange={load} locked={locked} />}
           {tab === 'data' && <CaseData c={c} onChange={load} locked={locked} />}
+          {tab === 'extracted' && <Extracted caseId={c.id} />}
           {tab === 'history' && (
             <table>
               <thead><tr><th>גרסה</th><th>מועד</th><th>תוצאות</th><th>Ruleset</th></tr></thead>
@@ -314,6 +316,66 @@ function CaseData({ c, onChange, locked }: { c: Case; onChange: () => Promise<vo
       <label className="field" style={{ marginTop: 12 }}>נתונים מוצהרים מהבקשה (JSON)
         <textarea dir="ltr" rows={10} value={declared} disabled={!editable} onChange={e => setDeclared(e.target.value)} className="mono" /></label>
       {editable && <button className="primary" style={{ marginTop: 10 }} onClick={save}>שמירה</button>}
+    </>
+  )
+}
+
+
+const FIELD_HE: Record<string, string> = {
+  application_number: 'מספר בקשה', building_file_number: 'תיק בניין', address: 'כתובת', gush: 'גוש', helka: 'חלקה',
+  zone: 'יעוד', plot_area_m2: 'שטח מגרש (מ״ר)', application_type: 'סוג בקשה (כנוסחו)', permit_type: 'סוג בקשה (סיווג)',
+  description: 'מהות הבקשה', applicable_plans: 'תוכניות חלות', deviations: 'הקלות שפורסמו',
+}
+const OUTCOME_HE2: Record<string, string> = {
+  approved: 'אושר', approved_with_conditions: 'אושר בתנאים / בהערות', renewed: 'חידוש אישור',
+  objection_partially_accepted: 'התנגדות התקבלה בחלקה — אושר בתנאים', objection_rejected: 'התנגדות נדחתה — אושר',
+  deferred: 'הדיון נדחה', rejected: 'נדחה', other: 'אחר — נדרש עיון',
+}
+
+function Extracted({ caseId }: { caseId: string }) {
+  const { meta } = useApp()
+  const [d, setD] = useState<any>(null)
+  useEffect(() => { api.get(`/api/cases/${caseId}/extracted`).then(setD) }, [caseId])
+  if (!d) return <div className="empty">טוען…</div>
+  if (!d.fields.length && !d.comments.length && !d.decisions.length)
+    return <div className="empty">לתיק זה אין נתונים מחולצים (התיק לא נקלט מקבצים).</div>
+  const src = (s: any) => s ? (
+    <button className="link-btn" title={`${s.method} · ${s.quote ?? ''}`}
+      onClick={() => s.file_id && s.page && openBlob(`/api/files/${s.file_id}/page/${s.page}.png`)}>
+      {s.file} · עמ׳ {s.page ?? '—'}{s.original_page ? ` (מקור ${s.original_page})` : ''}
+    </button>) : <span className="muted">—</span>
+  const byDept: Record<string, any[]> = {}
+  d.comments.forEach((x: any) => { (byDept[x.department_he] ??= []).push(x) })
+  return (
+    <>
+      <p className="small muted" style={{ marginTop: 0 }}>ערכים שחולצו אוטומטית מהמסמכים — לכל ערך מקור (קובץ ועמוד). ערכים בוודאות נמוכה מסומנים "נדרש אימות".</p>
+      <div className="table-wrap"><table className="compact">
+        <thead><tr><th>שדה</th><th>ערך</th><th>ודאות</th><th>מקור</th></tr></thead>
+        <tbody>{d.fields.map((f: any, i: number) => (
+          <tr key={i}><td className="small">{FIELD_HE[f.field] ?? f.field}</td>
+            <td>{f.field === 'permit_type' ? (meta.permit_types[f.value] ?? f.value) : String(f.value)}
+              {f.status === 'edited' && <div className="small muted">נערך ידנית · במקור: {String(f.original_value ?? '—')}</div>}</td>
+            <td><span className={'chip ' + (f.confidence >= 0.8 ? 'ok' : 'warn')}>{f.confidence >= 0.8 ? `${Math.round(f.confidence * 100)}%` : 'נדרש אימות'}</span></td>
+            <td className="small">{src(f.source)}</td></tr>))}</tbody>
+      </table></div>
+      {d.areas.length > 0 && (<>
+        <h3 style={{ marginTop: 14 }}>שטחים <span className="chip warn">נדרש אימות</span></h3>
+        <table className="compact"><thead><tr><th>קומה</th><th>מצב</th><th>שימוש</th><th>מ״ר</th></tr></thead>
+          <tbody>{d.areas.slice(0, 60).map((a: any, i: number) => <tr key={i}><td>{a.value.floor ?? '—'}</td><td>{a.value.status === 'existing' ? 'קיים' : a.value.status === 'proposed' ? 'מוצע' : '—'}</td><td>{a.value.label}</td><td className="num">{a.value.value_m2}</td></tr>)}</tbody></table>
+      </>)}
+      {d.comments.length > 0 && (<>
+        <h3 style={{ marginTop: 14 }}>הערות הוועדה וגורמי המקצוע</h3>
+        {Object.entries(byDept).map(([dept, list]) => (
+          <div className="dept" key={dept}><div className="dept-head">{dept} <span className="small muted">({list.length})</span> {src(list[0].source)}</div>
+            <ol className="comments">{list.map((x, i) => <li key={i}>{x.item_no && <span className="num item-no">{x.item_no}.</span>} {x.text}</li>)}</ol></div>))}
+      </>)}
+      {d.decisions.map((x: any, i: number) => (
+        <section key={i} className="decision-box" style={{ marginTop: 14 }}>
+          <h3>החלטת הוועדה <span className="chip outline">{OUTCOME_HE2[x.outcome] ?? x.outcome}</span></h3>
+          <p>{x.text}</p>
+          {x.conditions.length > 0 && <ol>{x.conditions.map((c: string, j: number) => <li key={j}>{c}</li>)}</ol>}
+          <div className="small muted">ישיבה <span className="num">{x.meeting_number ?? '—'}</span> · {x.meeting_date ?? '—'} · {src(x.source)}</div>
+        </section>))}
     </>
   )
 }

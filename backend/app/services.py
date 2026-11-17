@@ -35,6 +35,8 @@ DOC_TYPES_HE = {
     "ownership_docs": "מסמכי בעלות",
     "consents": "הסכמות בעלי זכויות",
     "sections_elevations": "חתכים וחזיתות",
+    "committee_protocol": "פרוטוקול ועדה",
+    "planning_regulation": "מסמך תכנוני (תכנית/תקנון)",
     "other": "אחר",
 }
 
@@ -50,7 +52,8 @@ def gateway_logger(s: Session, tenant: str, case_id: str | None, user: str | Non
 # ------------------------------------------------------------------ ingest
 
 def ingest_file(s: Session, case: PermitCase, filename: str, data: bytes, doc_type: str, user: str,
-                declared_units_m: float | None = None, gateway: AIGateway | None = None) -> CaseFile:
+                declared_units_m: float | None = None, gateway: AIGateway | None = None,
+                extract_tables: bool = True) -> CaseFile:
     intake = files.store(case.tenant_id, case.id, filename, data)
     dup = s.scalars(select(CaseFile).where(CaseFile.case_id == case.id, CaseFile.sha256 == intake.sha256)).first()
     if dup:
@@ -71,7 +74,7 @@ def ingest_file(s: Session, case: PermitCase, filename: str, data: bytes, doc_ty
     if intake.av_status == "INFECTED":
         cf.ingest_status, report = "QUARANTINED", {"warnings": ["הקובץ סומן נגוע ע\"י סורק האנטי-וירוס"]}
     elif cf.kind == "pdf":
-        r = pdf.parse_pdf(path)
+        r = pdf.parse_pdf(path, extract_tables=extract_tables)
         cf.ingest_status, report = r.status, r.report()
         cf.signature_status = "FIELD_PRESENT_NOT_VALIDATED" if r.is_signed else "NO_SIGNATURE_FIELD"
         gw = gateway or AIGateway()

@@ -73,6 +73,24 @@ export const api = {
   },
 }
 
+/** multipart upload with progress (fetch has no upload progress) */
+export function uploadWithProgress<T>(path: string, fd: FormData, onProgress: (pct: number) => void): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest()
+    xhr.open('POST', path)
+    xhr.setRequestHeader('X-User', currentUser)
+    xhr.upload.onprogress = e => { if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100)) }
+    xhr.onload = () => {
+      let body: any = null
+      try { body = JSON.parse(xhr.responseText) } catch { /* */ }
+      if (xhr.status >= 200 && xhr.status < 300) resolve(body as T)
+      else reject(new ApiError(xhr.status, typeof body?.detail === 'string' ? body.detail : xhr.statusText))
+    }
+    xhr.onerror = () => reject(new ApiError(0, 'שגיאת רשת'))
+    xhr.send(fd)
+  })
+}
+
 export async function openBlob(path: string, filename?: string) {
   const b = await api.blob(path)
   const url = URL.createObjectURL(b)

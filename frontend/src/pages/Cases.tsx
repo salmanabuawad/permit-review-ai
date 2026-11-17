@@ -23,7 +23,7 @@ export default function Cases() {
         <div><h1>תיקי בקשות</h1><p>בקשות לתוספות בנייה בפיילוט: הרחבת דירה/אגף, מרפסת, מרפסת סוכה, חדרי גג (תכנית תוספת זכויות)</p></div>
         <span className="spacer" />
         <input placeholder="חיפוש תיק / כתובת" value={q} onChange={e => setQ(e.target.value)} aria-label="חיפוש" />
-        {can('case.create') && <button onClick={() => nav('/cases/import')}>ייבוא בקשות מקבצים</button>}
+        {can('case.create') && <button onClick={() => nav('/cases/import')}>קליטת מסמכים</button>}
         {can('case.create') && <button className="primary" onClick={() => setShowNew(!showNew)}>תיק חדש</button>}
       </div>
       {showNew && <NewCase onDone={(id) => { setShowNew(false); nav('/cases/' + id) }} />}

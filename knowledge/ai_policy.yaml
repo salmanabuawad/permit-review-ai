@@ -30,11 +30,19 @@ providers:
     model_version: "bm25-1.0"
     approved: true
     cost_per_unit_ils: 0.0
+  local_rules:
+    label_he: "מחלץ מבני מקומי (כללים) — פרוטוקולים וטפסים"
+    kind: LOCAL
+    location: ON_PREM
+    tasks: [Extraction]
+    model_version: "protocol-rules-1.0"
+    approved: true
+    cost_per_unit_ils: 0.0
   local_ollama:
     label_he: "מודל שפה מקומי (Ollama)"
     kind: LOCAL
     location: ON_PREM
-    tasks: [Classification, ReportDraft]
+    tasks: [Classification, ReportDraft, Extraction]
     model_version: "qwen2.5:7b-instruct"     # pinned tag; change only via canary
     approved: true
     enabled: false                            # enable after local benchmark passes
@@ -52,7 +60,7 @@ providers:
     label_he: "ספק ענן מאושר (אזור ישראל) — ממתין לאישור"
     kind: CLOUD
     location: IL_REGION
-    tasks: [Classification, ReportDraft, Vision, OCR]
+    tasks: [Classification, ReportDraft, Vision, OCR, Extraction]
     model_version: "TBD-pinned"
     approved: false                           # requires written approval of the authority (tender sec. on data/cloud)
     enabled: false
@@ -68,3 +76,7 @@ policies:   # (task, data_class) -> mode + provider order
   - {task: Retrieval,      data_class: PUBLIC_REGULATION, mode: LOCAL, providers: [local_bm25]}
   - {task: OCR,            data_class: CASE_DOCUMENT, mode: HYBRID, providers: [local_tesseract, cloud_llm_il]}
   - {task: Vision,         data_class: CASE_DOCUMENT, mode: HYBRID, providers: [cloud_llm_il]}
+  # structured extraction: deterministic rules first; an LLM only if an admin moves it first.
+  # Every provider's output is schema-validated and grounding-checked (no invented values).
+  - {task: Extraction,     data_class: CASE_DOCUMENT, mode: LOCAL,  providers: [local_rules, local_ollama]}
+  - {task: Extraction,     data_class: PUBLIC_REGULATION, mode: HYBRID, providers: [local_rules, cloud_llm_il]}

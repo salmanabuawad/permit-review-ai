@@ -19,7 +19,7 @@ import yaml
 
 from ..config import settings
 
-TASKS = ["OCR", "Layout", "Vision", "Parsing", "Retrieval", "Classification", "ReportDraft"]
+TASKS = ["OCR", "Layout", "Vision", "Parsing", "Retrieval", "Classification", "ReportDraft", "Extraction"]
 
 
 @dataclass
@@ -105,11 +105,71 @@ def _bm25(payload: dict) -> dict:
     return {"hits": search(payload["query"], k=payload.get("k", 5))}
 
 
+def _rules_extract(payload: dict) -> dict:
+    from ..intake.pipeline import rules_extract
+    return rules_extract(payload)
+
+
+EXTRACTION_PROMPT = (
+    "חלץ מהטקסט הבא (פריט בקשה להיתר מתוך פרוטוקול ועדה או טופס בקשה) JSON בלבד לפי המפתחות: "
+    "application_number, building_file_number, address, gush, helka, zone, application_type, description, "
+    "applicable_plans, deviations, comments:[{department_he,item_no,text}], decision:{text}. "
+    "לכל שדה החזר {\"value\":..., \"page\":מספר עמוד, \"quote\":ציטוט מדויק}. אסור להמציא: שדה שאינו "
+    "מופיע בטקסט — null. אל תחלץ שם מבקש, עורך או מספר זהות.\n"
+)
+
+
+def _ollama_extract(model: str, payload: dict) -> dict:
+    """LLM extraction via a local Ollama model. Output is mapped to ApplicationExtraction; the
+    pipeline then validates it with Pydantic and drops anything not grounded in the text."""
+    text = "\n".join(f"[עמוד {p}]\n{t}" for p, t in payload["pages"])[:12000]
+    body = json.dumps({"model": model, "prompt": EXTRACTION_PROMPT + text, "stream": False, "format": "json"}).encode()
+    req = urllib.request.Request(settings.ollama_url + "/api/generate", data=body, headers={"Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=120) as r:
+            raw = json.loads(json.loads(r.read())["response"])
+    except Exception as exc:  # noqa: BLE001
+        raise ProviderError(f"ollama extraction: {exc}") from exc
+    return llm_to_extraction(raw, payload, f"ollama:{model}")
+
+
+def llm_to_extraction(raw: dict, payload: dict, provider: str) -> dict:
+    out: dict = {"pages": [p for p, _ in payload["pages"]], "comments": [], "areas": [], "warnings": []}
+
+    def src(item):
+        return {"file": payload["file"], "file_sha256": payload.get("sha"), "page": (item or {}).get("page"),
+                "quote": (item or {}).get("quote"), "method": "חילוץ AI — נדרש אימות", "confidence": 0.6,
+                "provider": provider}
+    for k in ("application_number", "building_file_number", "address", "gush", "helka", "zone", "application_type",
+              "description", "applicable_plans", "deviations"):
+        item = raw.get(k)
+        val = item.get("value") if isinstance(item, dict) else item
+        if val not in (None, "", []):
+            out[k] = {"value": str(val), "source": src(item if isinstance(item, dict) else None)}
+    for c in raw.get("comments") or []:
+        if isinstance(c, dict) and c.get("text"):
+            out["comments"].append({"department": "other", "department_he": c.get("department_he") or "לא צוין",
+                                    "item_no": c.get("item_no"), "text": c["text"], "source": src(c)})
+    dec = raw.get("decision")
+    if isinstance(dec, dict) and dec.get("text"):
+        from ..intake.protocol import classify_decision
+        out["decision"] = {"outcome": classify_decision(dec["text"]), "text": dec["text"], "conditions": [],
+                           "source": src(dec)}
+    return out
+
+
+def _ollama_dispatch(task: str, cfg: dict, payload: dict) -> dict:
+    if task == "Extraction":
+        return _ollama_extract(cfg["model_version"], payload)
+    return _ollama(task, cfg["model_version"], payload)
+
+
 IMPLEMENTATIONS: dict[str, Callable[[str, dict, dict], dict]] = {
+    "local_rules": lambda task, p, cfg: _rules_extract(p),
     "local_keyword": lambda task, p, cfg: _kw_classify(p),
     "local_template": lambda task, p, cfg: _template_report(p),
     "local_bm25": lambda task, p, cfg: _bm25(p),
-    "local_ollama": lambda task, p, cfg: _ollama(task, cfg["model_version"], p),
+    "local_ollama": lambda task, p, cfg: _ollama_dispatch(task, cfg, p),
 }
 
 

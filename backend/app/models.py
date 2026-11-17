@@ -60,6 +60,7 @@ class User(Base):
 
 class PermitCase(Base):
     __tablename__ = "permit_cases"
+    __table_args__ = (UniqueConstraint("tenant_id", "case_number", name="uq_case_number_per_tenant"),)
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_id)
     tenant_id: Mapped[str] = mapped_column(ForeignKey("municipalities.id"), index=True)
     case_number: Mapped[str] = mapped_column(String(60))
@@ -76,6 +77,10 @@ class PermitCase(Base):
     zone: Mapped[str | None] = mapped_column(String(40))         # e.g. "residential_B"
     applicable_plans: Mapped[list] = mapped_column(JSON, default=list)
     declared: Mapped[dict] = mapped_column(JSON, default=dict)    # applicant-declared facts (forms)
+    building_file_number: Mapped[str | None] = mapped_column(String(40))
+    application_type: Mapped[str | None] = mapped_column(String(120))   # as written in the source document
+    source: Mapped[str] = mapped_column(String(20), default="manual")   # manual | import
+    import_batch_id: Mapped[str | None] = mapped_column(String(32), index=True)
     status: Mapped[str] = mapped_column(String(40), default="INTAKE")
     assigned_to: Mapped[str | None] = mapped_column(ForeignKey("users.id"))
     sla_due: Mapped[dt.datetime | None] = mapped_column(UTCDateTime())
@@ -107,6 +112,8 @@ class CaseFile(Base):
     ingest_status: Mapped[str] = mapped_column(String(40), default="PENDING")  # OK | NEEDS_OCR | NEEDS_CONVERSION | ERROR
     # Document life cycle (tender spec §12.3): ACTIVE | ARCHIVED (kept, excluded from checks) | DELETED (bytes purged)
     lifecycle: Mapped[str] = mapped_column(String(12), default="ACTIVE")
+    doc_class: Mapped[str | None] = mapped_column(String(40))           # committee_protocol | permit_application | ...
+    origin: Mapped[dict | None] = mapped_column(JSON)                   # {file, sha256, pages} when cut from a larger document
     ingest_report: Mapped[dict] = mapped_column(JSON, default=dict)
     av_status: Mapped[str] = mapped_column(String(30), default="NOT_SCANNED")   # NOT_SCANNED | CLEAN | INFECTED
     signature_status: Mapped[str] = mapped_column(String(30), default="NOT_CHECKED")
@@ -208,6 +215,8 @@ class InferenceCost(Base):
     latency_ms: Mapped[int] = mapped_column(Integer, default=0)
     units: Mapped[float] = mapped_column(Float, default=0)       # pages / tokens / calls
     cost_ils: Mapped[float] = mapped_column(Float, default=0.0)
+    job_id: Mapped[int | None] = mapped_column(Integer, index=True)    # processing job, for intake executions
+    input_sha256: Mapped[str | None] = mapped_column(String(64))
     at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), default=_now)
 
 
@@ -236,3 +245,109 @@ class AIPolicyRow(Base):
     provider_order: Mapped[list] = mapped_column(JSON, default=list)
     approved_by: Mapped[str | None] = mapped_column(String(40))
     approved_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime())
+
+
+# ------------------------------------------------------------------ document intake (import)
+
+class ImportBatch(Base):
+    """One upload analysed (and possibly committed). Original files are kept under storage_path."""
+    __tablename__ = "import_batches"
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_id)
+    tenant_id: Mapped[str] = mapped_column(ForeignKey("municipalities.id"), index=True)
+    token: Mapped[str] = mapped_column(String(64), unique=True)
+    created_by: Mapped[str] = mapped_column(String(40))
+    created_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), default=_now)
+    committed_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime())
+    status: Mapped[str] = mapped_column(String(20), default="analyzed")   # analyzed | committed | partial | failed
+    source_files: Mapped[list] = mapped_column(JSON, default=list)        # [{name, sha256, size}]
+    summary: Mapped[dict] = mapped_column(JSON, default=dict)
+    storage_path: Mapped[str] = mapped_column(String(600))
+
+
+class ProcessingJob(Base):
+    """Per-document processing record of a batch (classification, extraction, import outcome)."""
+    __tablename__ = "processing_jobs"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    tenant_id: Mapped[str] = mapped_column(String(40), index=True)
+    batch_id: Mapped[str] = mapped_column(ForeignKey("import_batches.id"), index=True)
+    file_name: Mapped[str] = mapped_column(String(400))
+    sha256: Mapped[str | None] = mapped_column(String(64))
+    doc_class: Mapped[str | None] = mapped_column(String(40))
+    stage: Mapped[str] = mapped_column(String(30))     # analyzed | committed
+    status: Mapped[str] = mapped_column(String(20))    # created | updated | duplicate | metadata | skipped | unassigned | failed
+    message: Mapped[str | None] = mapped_column(Text)
+    application_numbers: Mapped[list] = mapped_column(JSON, default=list)
+    case_id: Mapped[str | None] = mapped_column(String(32))
+    created_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), default=_now)
+
+
+class DocumentClassification(Base):
+    __tablename__ = "document_classifications"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    tenant_id: Mapped[str] = mapped_column(String(40), index=True)
+    file_id: Mapped[str | None] = mapped_column(ForeignKey("case_files.id", ondelete="CASCADE"), index=True)
+    job_id: Mapped[int | None] = mapped_column(ForeignKey("processing_jobs.id"), index=True)
+    doc_class: Mapped[str] = mapped_column(String(40))
+    confidence: Mapped[float] = mapped_column(Float)
+    method: Mapped[str] = mapped_column(String(200))
+    signals: Mapped[list] = mapped_column(JSON, default=list)
+    provider_id: Mapped[str] = mapped_column(String(60), default="local_rules")
+    model_version: Mapped[str] = mapped_column(String(60), default="rules-1.0")
+    at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), default=_now)
+
+
+class SourceReference(Base):
+    """Exact provenance of an extracted value: file, page, page in the original protocol, quote."""
+    __tablename__ = "source_references"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    tenant_id: Mapped[str] = mapped_column(String(40), index=True)
+    file_id: Mapped[str | None] = mapped_column(ForeignKey("case_files.id", ondelete="SET NULL"), index=True)
+    file_name: Mapped[str] = mapped_column(String(400))
+    file_sha256: Mapped[str | None] = mapped_column(String(64))
+    page: Mapped[int | None] = mapped_column(Integer)
+    original_page: Mapped[int | None] = mapped_column(Integer)
+    quote: Mapped[str | None] = mapped_column(Text)
+    method: Mapped[str] = mapped_column(String(300))
+    confidence: Mapped[float] = mapped_column(Float)
+    provider_id: Mapped[str] = mapped_column(String(60), default="local_rules")
+
+
+class ExtractedField(Base):
+    __tablename__ = "extracted_fields"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    tenant_id: Mapped[str] = mapped_column(String(40), index=True)
+    case_id: Mapped[str] = mapped_column(ForeignKey("permit_cases.id", ondelete="CASCADE"), index=True)
+    field: Mapped[str] = mapped_column(String(60))
+    value: Mapped[dict] = mapped_column(JSON)                     # {"v": value}
+    original_value: Mapped[dict | None] = mapped_column(JSON)     # as extracted, when a person edited it
+    confidence: Mapped[float] = mapped_column(Float)
+    status: Mapped[str] = mapped_column(String(20))               # auto | edited | confirmed
+    source_ref_id: Mapped[int | None] = mapped_column(ForeignKey("source_references.id"))
+    batch_id: Mapped[str | None] = mapped_column(String(32))
+    created_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), default=_now)
+
+
+class PlanningComment(Base):
+    __tablename__ = "planning_comments"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    tenant_id: Mapped[str] = mapped_column(String(40), index=True)
+    case_id: Mapped[str] = mapped_column(ForeignKey("permit_cases.id", ondelete="CASCADE"), index=True)
+    department: Mapped[str] = mapped_column(String(60))
+    department_he: Mapped[str] = mapped_column(String(120))
+    item_no: Mapped[str | None] = mapped_column(String(10))
+    text: Mapped[str] = mapped_column(Text)
+    source_ref_id: Mapped[int | None] = mapped_column(ForeignKey("source_references.id"))
+
+
+class CommitteeDecision(Base):
+    __tablename__ = "committee_decisions"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    tenant_id: Mapped[str] = mapped_column(String(40), index=True)
+    case_id: Mapped[str] = mapped_column(ForeignKey("permit_cases.id", ondelete="CASCADE"), index=True)
+    meeting_number: Mapped[str | None] = mapped_column(String(20))
+    meeting_date: Mapped[str | None] = mapped_column(String(10))
+    item_number: Mapped[str | None] = mapped_column(String(10))
+    outcome: Mapped[str] = mapped_column(String(40))
+    text: Mapped[str] = mapped_column(Text)
+    conditions: Mapped[list] = mapped_column(JSON, default=list)
+    source_ref_id: Mapped[int | None] = mapped_column(ForeignKey("source_references.id"))

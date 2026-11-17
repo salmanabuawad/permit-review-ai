@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 
 from . import audit, services
 from .config import ROOT, settings
-from .db import Base, engine
+from .db import Base, drop_everything, engine, run_migrations
 from .models import Municipality, PermitCase, User
 
 FIX = ROOT / "fixtures" / "demo"
@@ -78,7 +78,7 @@ PILOT_USERS = [
 def seed_empty() -> None:
     """Clean pilot install: Bnei Brak tenant with role users only — no sample cases, no files,
     and no demo tenant (so the fictitious DEMO/1 rules never run)."""
-    Base.metadata.create_all(engine)
+    run_migrations()
     with Session(engine) as s:
         if s.get(Municipality, "bnei-brak"):
             print("already seeded (use --reset)")
@@ -92,14 +92,14 @@ def seed_empty() -> None:
 
 def seed(reset: bool = False, samples: bool = True) -> None:
     if reset:
-        Base.metadata.drop_all(engine)
+        drop_everything()
         if settings.storage_dir.exists():
             shutil.rmtree(settings.storage_dir)
         settings.storage_dir.mkdir(parents=True, exist_ok=True)
     if not samples:
         seed_empty()
         return
-    Base.metadata.create_all(engine)
+    run_migrations()
     if not FIX.exists():
         raise SystemExit("fixtures missing — run: python scripts/make_fixtures.py")
     with Session(engine) as s:

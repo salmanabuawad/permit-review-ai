@@ -1,4 +1,8 @@
-"""Batch intake: find one or more permit requests inside uploaded files and pre-fill cases.
+"""Shared intake helpers: ZIP unpacking with safety limits, application-form field extraction,
+multi-request PDF splitting. The import pipeline itself lives in app.intake.pipeline.
+
+(Original description of the first version follows.)
+Batch intake: find one or more permit requests inside uploaded files and pre-fill cases.
 
 Supported inputs (any mix, in one upload):
   * ZIP — one folder per request (all files in the folder belong to it). Files at the ZIP root
@@ -36,20 +40,7 @@ PERMIT_TYPE_HINTS = [   # first match wins — most specific first
     ("addition_balcony", r"מרפס(?:ת|ות)"),
     ("addition_extension", r"הרחב(?:ה|ת)|תוספת|אגף"),
 ]
-PERMIT_TYPE_WORDS = {"הרחבה": "addition_extension", "הרחבת דירה": "addition_extension", "תוספת בנייה": "addition_extension",
-                     "מרפסת": "addition_balcony", "סוכה": "addition_sukkah", "מרפסת סוכה": "addition_sukkah",
-                     "חדר גג": "roof_room_addition", "חדר יציאה לגג": "roof_room_addition"}
 
-MANIFEST_COLUMNS = {
-    "case_number": [r"מס(?:פר|['׳])?\s*(?:בקשה|תיק)", r"case.?number", r"request.?id"],
-    "title": [r"נושא", r"מהות", r"תיאור", r"title"],
-    "permit_type": [r"סוג\s*(?:ה)?בקשה", r"permit.?type"],
-    "gush": [r"^גוש", r"gush", r"block"],
-    "helka": [r"^חלקה", r"helka", r"parcel"],
-    "address": [r"כתובת", r"address"],
-    "applicable_plans": [r"תכני(?:ת|ות)", r"plans?"],
-    "folder": [r"תיקי(?:ה|יה)", r"folder", r"קבצים"],
-}
 
 FIELD_PATTERNS = {   # value patterns for "label: value" pairs on one line
     "gush": (r"גוש", r"\d{3,6}"),
@@ -71,26 +62,6 @@ class Source:
     page: int | None = None
     method: str = ""
     confidence: float = 1.0
-
-
-@dataclass
-class DraftFile:
-    ref: str                  # staging key
-    name: str
-    kind: str
-    size: int
-    doc_type: str
-    doc_type_source: str
-
-
-@dataclass
-class Draft:
-    key: str
-    origin: str               # e.g. "zip:folder/A", "pdf-split:forms.pdf p.1-2", "manifest row 3"
-    fields: dict = field(default_factory=dict)
-    sources: dict = field(default_factory=dict)
-    files: list = field(default_factory=list)
-    warnings: list = field(default_factory=list)
 
 
 # ------------------------------------------------------------------ text extraction helpers
@@ -203,59 +174,6 @@ def pdf_subset(data: bytes, first: int, last: int) -> bytes:
         src.close()
 
 
-# ------------------------------------------------------------------ request lists
-
-def _norm_permit_type(v: str | None) -> str | None:
-    if not v:
-        return None
-    v = str(v).strip()
-    if v in PERMIT_TYPE_WORDS.values():
-        return v
-    return PERMIT_TYPE_WORDS.get(v) or infer_permit_type(v)
-
-
-def parse_manifest(name: str, data: bytes) -> list[dict] | None:
-    """Rows of a request list, or None when the table is not a request list (e.g. an area table)."""
-    rows: list[list] = []
-    if name.lower().endswith(".csv"):
-        text = data.decode("utf-8-sig", errors="replace")
-        rows = [r for r in csv.reader(io.StringIO(text))]
-    else:
-        try:
-            wb = load_workbook(io.BytesIO(data), read_only=True, data_only=True)
-        except Exception:  # noqa: BLE001
-            return None
-        try:
-            rows = [list(r) for r in wb.worksheets[0].iter_rows(values_only=True)]
-        finally:
-            wb.close()
-    for hi, header in enumerate(rows[:10]):
-        cols = {}
-        for j, cell in enumerate(header):
-            if cell is None:
-                continue
-            for key, pats in MANIFEST_COLUMNS.items():
-                if key not in cols and any(re.search(p, str(cell), re.IGNORECASE) for p in pats):
-                    cols[key] = j
-                    break
-        if ("gush" in cols or "case_number" in cols) and len(cols) >= 2:
-            out = []
-            for ri, row in enumerate(rows[hi + 1:], start=hi + 2):
-                rec = {k: row[j] for k, j in cols.items() if j < len(row) and row[j] not in (None, "")}
-                if not rec:
-                    continue
-                rec = {k: (str(v).strip() if not isinstance(v, float) else str(int(v)) if v.is_integer() else str(v))
-                       for k, v in rec.items()}
-                if "applicable_plans" in rec:
-                    rec["applicable_plans"] = [p.strip() for p in re.split(r"[,;،]", rec["applicable_plans"]) if p.strip()]
-                if "permit_type" in rec:
-                    rec["permit_type"] = _norm_permit_type(rec["permit_type"])
-                rec["_row"] = ri
-                out.append(rec)
-            return out
-    return None
-
-
 # ------------------------------------------------------------------ main entry
 
 def guess_doc_type(name: str, kind: str, text: str, classify) -> tuple[str, str]:
@@ -310,116 +228,3 @@ def unpack(files: list[tuple[str, bytes]]) -> tuple[list[tuple[str, str, bytes]]
         else:
             out.append(("", _safe_name(name), data))
     return out, warnings
-
-
-def analyze(files: list[tuple[str, bytes]], classify=None) -> tuple[list[Draft], dict[str, bytes], list[str]]:
-    """Return (drafts, staged_blobs, global_warnings). Pure function — no database access."""
-    items, warnings = unpack(files)
-    blobs: dict[str, bytes] = {}
-    groups: dict[str, list[tuple[str, bytes]]] = {}
-    manifests: list[tuple[str, list[dict]]] = []
-    for group, name, data in items:
-        ext = PurePosixPath(name).suffix.lower()
-        if ext not in SUPPORTED:
-            warnings.append(f"סוג קובץ לא נתמך דולג: {name}")
-            continue
-        if ext in (".xlsx", ".xlsm", ".csv"):
-            rows = parse_manifest(name, data)
-            if rows is not None:
-                manifests.append((name, rows))
-                continue
-            if ext == ".csv":
-                warnings.append(f"CSV שאינו רשימת בקשות דולג: {name}")
-                continue
-        groups.setdefault(group, []).append((name, data))
-
-    drafts: list[Draft] = []
-    by_folder: dict[str, Draft] = {}
-
-    def stage(name: str, data: bytes) -> str:
-        ref = uuid.uuid4().hex[:12]
-        blobs[ref] = data
-        return ref
-
-    def add_file(d: Draft, name: str, data: bytes, doc_type: str | None = None, source: str | None = None, text: str = ""):
-        kind = SUPPORTED[PurePosixPath(name).suffix.lower()]
-        if doc_type is None:
-            doc_type, source = guess_doc_type(name, kind, text, classify)
-        d.files.append(asdict(DraftFile(stage(name, data), name, kind, len(data), doc_type, source)))
-
-    def merge(d: Draft, fields: dict, sources: dict):
-        for k, v in fields.items():
-            if k not in d.fields or (sources[k].confidence > d.sources.get(k, {}).get("confidence", 0)):
-                d.fields[k] = v
-                d.sources[k] = asdict(sources[k])
-
-    for group, flist in groups.items():
-        split_done = False
-        if group == "" and len(flist) == 1 and flist[0][0].lower().endswith(".pdf"):
-            name, data = flist[0]
-            ranges = split_multi_request_pdf(data)
-            if ranges:      # one PDF holding several application forms
-                texts = pdf_pages_text(data)
-                for first, last in ranges:
-                    d = Draft(key=uuid.uuid4().hex[:8], origin=f"{name} · עמ׳ {first + 1}–{last + 1}")
-                    for p in range(first, last + 1):
-                        merge(d, *extract_fields(texts[p], name, p + 1))
-                    add_file(d, f"{PurePosixPath(name).stem}_p{first + 1}-{last + 1}.pdf", pdf_subset(data, first, last),
-                             "application_form", "פוצל מ־PDF מרובה בקשות")
-                    drafts.append(d)
-                split_done = True
-        if split_done:
-            continue
-        d = Draft(key=uuid.uuid4().hex[:8], origin=f"תיקייה: {group}" if group else "קבצים בודדים / שורש ה־ZIP")
-        for name, data in flist:
-            text = ""
-            if name.lower().endswith(".pdf"):
-                try:
-                    pages = pdf_pages_text(data)
-                except Exception:  # noqa: BLE001
-                    pages = []
-                    d.warnings.append(f"לא ניתן לקרוא את {name}")
-                text = "\n".join(pages)
-                for i, ptxt in enumerate(pages):
-                    merge(d, *extract_fields(ptxt, name, i + 1))
-                if pages and not any(p.strip() for p in pages):
-                    d.warnings.append(f"{name}: ללא שכבת טקסט (סרוק) — השדות לא חולצו ממנו")
-            add_file(d, name, data, text=text)
-        if group and "title" not in d.fields:
-            d.fields["title"] = group
-            d.sources["title"] = asdict(Source(group, None, "שם התיקייה", 0.5))
-        if "permit_type" not in d.fields:
-            pt = infer_permit_type(group, *(f["name"] for f in d.files))
-            if pt:
-                d.fields["permit_type"] = pt
-                d.sources["permit_type"] = asdict(Source(group or d.files[0]["name"], None, "מילות מפתח בשמות התיקייה/הקבצים", 0.5))
-        drafts.append(d)
-        if group:
-            by_folder[group] = d
-
-    for mname, rows in manifests:     # request list rows win over text extraction (explicit data)
-        for rec in rows:
-            folder = rec.pop("folder", None)
-            row = rec.pop("_row")
-            target = by_folder.get(folder or "") or by_folder.get(rec.get("case_number", ""))
-            if target is None:
-                target = Draft(key=uuid.uuid4().hex[:8], origin=f"{mname} · שורה {row}")
-                drafts.append(target)
-                if folder:
-                    target.warnings.append(f"התיקייה '{folder}' שצוינה ברשימה לא נמצאה ב־ZIP")
-            for k, v in rec.items():
-                if v in (None, "", []):
-                    continue
-                target.fields[k] = v
-                target.sources[k] = asdict(Source(mname, None, f"רשימת בקשות, שורה {row}", 1.0))
-    # drop the empty "root" draft when a request list consumed everything else
-    drafts = [d for d in drafts if d.files or d.fields]
-    for d in drafts:
-        for req in ("permit_type", "case_number", "title"):
-            if not d.fields.get(req):
-                d.warnings.append({"permit_type": "סוג הבקשה לא זוהה — יש לבחור",
-                                   "case_number": "מספר בקשה לא נמצא — יוקצה מספר זמני",
-                                   "title": "נושא לא נמצא"}[req])
-        if any(f["doc_type"] == "other" for f in d.files):
-            d.warnings.append("חלק מהקבצים לא סווגו — יש לבחור סוג מסמך")
-    return drafts, blobs, warnings

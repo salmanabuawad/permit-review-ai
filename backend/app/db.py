@@ -32,6 +32,46 @@ engine = make_engine()
 SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
 
 
+BASELINE_REVISION = "0001"
+
+
+def run_migrations(eng=None) -> None:
+    """Bring the schema to the latest Alembic revision.
+
+    A database created before migrations existed (tables present, no alembic_version) is stamped
+    at the baseline first, so its data is kept and only the new changes are applied."""
+    from pathlib import Path
+
+    from alembic import command
+    from alembic.config import Config
+    from sqlalchemy import inspect
+
+    eng = eng or engine
+    here = Path(__file__).resolve().parents[1]
+    cfg = Config(str(here / "alembic.ini"))
+    cfg.set_main_option("script_location", str(here / "migrations"))
+    cfg.attributes["configure_logger"] = False
+    with eng.connect() as conn:
+        if eng.dialect.name == "sqlite":          # batch ALTERs rebuild tables; FK checks must be off meanwhile
+            conn.exec_driver_sql("PRAGMA foreign_keys=OFF")
+        cfg.attributes["connection"] = conn
+        tables = set(inspect(conn).get_table_names())
+        if "alembic_version" not in tables and "permit_cases" in tables:
+            command.stamp(cfg, BASELINE_REVISION)
+        command.upgrade(cfg, "head")
+        conn.commit()
+        if eng.dialect.name == "sqlite":
+            conn.exec_driver_sql("PRAGMA foreign_keys=ON")
+
+
+def drop_everything(eng=None) -> None:
+    from sqlalchemy import text
+    eng = eng or engine
+    Base.metadata.drop_all(eng)
+    with eng.begin() as conn:
+        conn.execute(text("DROP TABLE IF EXISTS alembic_version"))
+
+
 def get_session() -> Iterator[Session]:
     s = SessionLocal()
     try:

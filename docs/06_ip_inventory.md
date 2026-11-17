@@ -31,6 +31,7 @@
 | AI Gateway | ניתוב ספקים לפי מדיניות | כנ"ל | קנייני | — | `AIGateway.route()` |
 | Audit | hash chain | כנ"ל | קנייני | — | `record()`, `verify_chain()` |
 | Reports | PDF עברי RTL | כנ"ל | קנייני | reportlab (BSD), python-bidi (LGPL-3.0) | `render_pdf()` |
+| Document intake | סיווג לפי תוכן, פענוח פרוטוקולי ועדה, חילוץ מובנה עם עיגון, ייבוא אידמפוטנטי | 17.11.2026 | קנייני (הספק) | PyMuPDF, Pydantic, Alembic (MIT) | `/api/import/*` |
 | Web UI | React RTL | כנ"ל | קנייני | React (MIT), react-router (MIT), Vite (MIT) | — |
 | API | FastAPI | כנ"ל | קנייני | FastAPI (MIT), SQLAlchemy (MIT), Uvicorn (BSD) | OpenAPI |
 

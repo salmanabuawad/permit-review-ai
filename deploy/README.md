@@ -21,4 +21,8 @@ sudo nginx -t && sudo systemctl reload nginx
 
 אופציונלי: ODA File Converter (DWG→DXF) — הגדרת `BBP_ODA_CONVERTER`; Tesseract (`tesseract-ocr-heb`); Ollama להפעלת `local_ollama` (לאחר benchmark).
 
+**מיגרציות:** סכמת המסד מנוהלת ב־Alembic ורצה אוטומטית בעליית השירות (`backend/migrations`). מסד קיים שנוצר לפני המיגרציות מסומן בגרסת הבסיס ומשודרג — הנתונים נשמרים. הרצה ידנית: `cd backend && ../.venv/bin/alembic upgrade head`.
+
+**PostgreSQL:** `BBP_DATABASE_URL=postgresql+psycopg://user:pass@host/db` — המיגרציות והבדיקות נבדקו על PostgreSQL 16.
+
 **הערה:** `BBP_ENV=production` חוסם את התחברות ההדגמה (X-User) — יש לחבר SSO לפני עלייה לייצור.

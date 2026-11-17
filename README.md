@@ -13,6 +13,7 @@
 | 04 | [מאגר כללים ובדיקות גבול](docs/04_rules_catalog.md) |
 | 05 | [תכנית עבודה, Backlog ובדיקות](docs/05_workplan_backlog.md) |
 | 06 | [IP Inventory לנספח ה5](docs/06_ip_inventory.md) — **לבדיקת עו"ד** |
+| 07 | [קליטת מסמכים — צנרת, מודל נתונים, בעיות פתוחות](docs/07_document_intake.md) |
 
 ## הפעלה מקומית (Windows, ללא Docker)
 ```bash
@@ -44,15 +45,15 @@ Ubuntu: [deploy/README.md](deploy/README.md).
 | DEMO-0003 | חדר גג לפי מדיניות 13.1.2026, נסיגה **2.49 מ׳** → תוצאה מחושבת "לא עומד" אך **מוצגת "דורש בדיקה"** כי הכלל טרם אושר. החליפו למשתמש "מהנדס העיר", אשרו את הכלל `BB-POL26-RR-SETBACK` במאגר הכללים, הריצו שוב → "לא עומד" בגרסה חדשה |
 | DEMO-0004 | מרפסת סוכה 1.2 מ׳ מגבול המגרש (כלל הדגמה ≥ 1.5) |
 
-## ייבוא בקשות מקבצים
-מסך "תיקי בקשות" ← **ייבוא בקשות מקבצים**. נתמכים: ZIP עם תיקייה לכל בקשה (ואופציונלית רשימת בקשות Excel/CSV בשורש), רשימת בקשות בלבד, PDF עם כמה טפסי בקשה (מפוצל אוטומטית), או קבצים בודדים לבקשה אחת.
-המערכת מציגה תצוגה מקדימה לעריכה — לכל שדה מקור (קובץ, עמוד, שיטה, ודאות) — והתיקים נוצרים רק לאחר אישור. פרטי מבקש (שם, ת.ז.) אינם מחולצים. מקור כל שדה נשמר ביומן הביקורת.
-דוגמאות לבדיקה: `fixtures/import/two_requests.zip`, `fixtures/import/two_requests.pdf`.
+## קליטת מסמכים
+מסך "תיקי בקשות" ← **קליטת מסמכים**: גרירת קבצים או חבילת ZIP (PDF, DXF/DWG, Excel ו־index.csv/json). המערכת מסווגת כל מסמך לפי תוכנו (טופס בקשה, פרוטוקול ועדה, מסמך תכנוני, שרטוט, מסמך נלווה, אינדקס), מפצלת פרוטוקול לבקשות, מחלצת את הנתונים — כולל הערות גורמי המקצוע והחלטת הוועדה — עם מקור (קובץ, עמוד, עמוד בפרוטוקול המקורי) וודאות לכל ערך, ומציגה תצוגה מקדימה לעריכה. קובצי אינדקס אינם יוצרים בקשות. ייבוא חוזר אינו יוצר כפילויות.
+פירוט: [docs/07_document_intake.md](docs/07_document_intake.md) · דוח בדיקה על 31 בקשות אמיתיות: [docs/reports/import_test_report.md](docs/reports/import_test_report.md).
 
 ## מבנה
 ```
-backend/app/        FastAPI: ingest, geometry, rules engine, AI gateway, reports, audit, RBAC
-backend/tests/      83 בדיקות pytest
+backend/app/        FastAPI: ingest, intake (document import), geometry, rules engine, AI gateway, reports, audit, RBAC
+backend/migrations/ Alembic migrations (0001 baseline, 0002 intake entities)
+backend/tests/      112 בדיקות pytest (SQLite ו־PostgreSQL)
 frontend/src/       React + TypeScript, RTL
 knowledge/          תוכן פרויקט: כללים, מקורות, בסיס ידע, מוסכמת שכבות, מדיניות AI, ממשקים
 fixtures/demo/      קבצי הדגמה שנוצרו ע"י scripts/make_fixtures.py
