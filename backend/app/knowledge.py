@@ -34,8 +34,18 @@ def tokenize(text: str) -> list[str]:
 
 @lru_cache(maxsize=1)
 def load_sources() -> dict:
-    data = yaml.safe_load((settings.knowledge_dir / "sources.yaml").read_text(encoding="utf-8"))
-    return {s["id"]: s for s in data["sources"]}
+    """sources.yaml plus generated registers in sources.d/*.yaml (e.g. imported plan packages).
+
+    An id defined twice is an error rather than a silent override, so an import can never replace
+    a hand-curated source entry."""
+    files = [settings.knowledge_dir / "sources.yaml", *sorted((settings.knowledge_dir / "sources.d").glob("*.yaml"))]
+    out: dict = {}
+    for f in files:
+        for s in (yaml.safe_load(f.read_text(encoding="utf-8")) or {}).get("sources", []):
+            if s["id"] in out:
+                raise ValueError(f"duplicate source id {s['id']} in {f.name}")
+            out[s["id"]] = s
+    return out
 
 
 @lru_cache(maxsize=1)

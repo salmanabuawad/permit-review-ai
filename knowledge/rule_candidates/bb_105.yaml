@@ -1,0 +1,287 @@
+# Rule candidates from the Bnei Brak 105 package — NOT rules. The rule engine never loads this
+# directory. A candidate becomes a rule only after a reviewer verifies wording, source,
+# applicability, validity and plan hierarchy, and it is then written to knowledge/rules by hand.
+candidates:
+- id: BB-105-CAND-R001
+  enforcement_enabled: false
+  verification_status: CANDIDATE_UNVERIFIED
+  legal_effect: NOT_DETERMINED
+  status: CANDIDATE
+  reconciliation: NEW
+  plan_number_candidate: בב/105/צ/1
+  scope: public_building
+  parameter: floor_coverage_percent
+  candidate_value: 40
+  unit: percent
+  source:
+    source_id: BB-105-DOC-998367C7
+    page: 1
+    ocr_evidence_he: 'חלופה א: 40% בקומה, 4 קומות מלאות'
+  related_existing: null
+  review_notes_he: חלופה, תחולה וחישוב זכויות טעונים אימות
+  notes: null
+- id: BB-105-CAND-R002
+  enforcement_enabled: false
+  verification_status: CANDIDATE_UNVERIFIED
+  legal_effect: NOT_DETERMINED
+  status: CANDIDATE
+  reconciliation: NEW
+  plan_number_candidate: בב/105/צ/1
+  scope: public_building
+  parameter: full_floors
+  candidate_value: 4
+  unit: floors
+  source:
+    source_id: BB-105-DOC-998367C7
+    page: 1
+    ocr_evidence_he: 'חלופה א: 4 קומות מלאות'
+  related_existing: null
+  review_notes_he: כפוף לחלופה ולהתאמה לתשריט
+  notes: null
+- id: BB-105-CAND-R003
+  enforcement_enabled: false
+  verification_status: CANDIDATE_UNVERIFIED
+  legal_effect: NOT_DETERMINED
+  status: CANDIDATE
+  reconciliation: NEW
+  plan_number_candidate: בב/105/צ/1
+  scope: public_building
+  parameter: floor_coverage_percent
+  candidate_value: 50
+  unit: percent
+  source:
+    source_id: BB-105-DOC-998367C7
+    page: 1
+    ocr_evidence_he: 'חלופה ב: 50% לקומה'
+  related_existing: null
+  review_notes_he: כולל תנאי קומות/עמודים - אימות
+  notes: null
+- id: BB-105-CAND-R004
+  enforcement_enabled: false
+  verification_status: CANDIDATE_UNVERIFIED
+  legal_effect: NOT_DETERMINED
+  status: CANDIDATE
+  reconciliation: RELATED
+  plan_number_candidate: בב/105/צ/1
+  scope: public_building
+  parameter: side_setback
+  candidate_value: 4
+  unit: m
+  source:
+    source_id: BB-105-DOC-998367C7
+    page: 2
+    ocr_evidence_he: קו בנין צדדי 4 מ׳
+  related_existing:
+  - BB-B105-BUILDING-LINES
+  review_notes_he: לבדוק גוש חלקה ותוכנית גוברת
+  notes: Existing rule is a value-less placeholder for housing.
+- id: BB-105-CAND-R005
+  enforcement_enabled: false
+  verification_status: CANDIDATE_UNVERIFIED
+  legal_effect: NOT_DETERMINED
+  status: CANDIDATE
+  reconciliation: RELATED
+  plan_number_candidate: בב/105/צ/1
+  scope: public_building
+  parameter: rear_setback
+  candidate_value: 5
+  unit: m
+  source:
+    source_id: BB-105-DOC-998367C7
+    page: 2
+    ocr_evidence_he: קו בנין אחורי 5 מ׳
+  related_existing:
+  - BB-B105-BUILDING-LINES
+  review_notes_he: קו קדמי לפי תב״ע
+  notes: Existing rule is a value-less placeholder for housing.
+- id: BB-105-CAND-R006
+  enforcement_enabled: false
+  verification_status: CANDIDATE_UNVERIFIED
+  legal_effect: NOT_DETERMINED
+  status: CANDIDATE
+  reconciliation: RELATED
+  plan_number_candidate: בב/105/ס/2 או ט/2 - טעון אימות
+  scope: sukkah
+  parameter: max_total_sukkah_area
+  candidate_value: 8
+  unit: sqm
+  source:
+    source_id: BB-105-DOC-BAD26F4E
+    page: 2
+    ocr_evidence_he: שטח הסוכה הכולל לכל דירה לא יעלה על 8 מ״ר
+  related_existing:
+  - 'server rule_draft: guidelines doc 13 §16 (sukkah minimum 5 m²)'
+  review_notes_he: דורש בדיקת תוכניות מעודכנות
+  notes: Minimum (new buildings) vs this maximum — not a direct conflict. Check against בב/מק/105/ס/1.
+- id: BB-105-CAND-R007
+  enforcement_enabled: false
+  verification_status: CANDIDATE_UNVERIFIED
+  legal_effect: NOT_DETERMINED
+  status: CANDIDATE
+  reconciliation: NEW
+  plan_number_candidate: בב/105/ס/2 או ט/2 - טעון אימות
+  scope: sukkah
+  parameter: overlap_cover_max
+  candidate_value: 2
+  unit: sqm
+  source:
+    source_id: BB-105-DOC-BAD26F4E
+    page: 2
+    ocr_evidence_he: קירוי של עד 2 מ״ר לצורך חפיפה בין סוכות
+  related_existing: null
+  review_notes_he: יש לבדוק האם נכלל בשטח הכולל והסכמות
+  notes: null
+- id: BB-105-CAND-R008
+  enforcement_enabled: false
+  verification_status: CANDIDATE_UNVERIFIED
+  legal_effect: NOT_DETERMINED
+  status: NEEDS_REVIEW
+  reconciliation: NEEDS_REVIEW
+  plan_number_candidate: בב/105/ד/2
+  scope: roof_rooms_existing
+  parameter: max_roof_room_area
+  candidate_value: 40
+  unit: sqm
+  source:
+    source_id: BB-105-DOC-FA425451
+    page: 3
+    ocr_evidence_he: 'בבניינים קיימים: חדרי גג עד 40 מ״ר לדירה עליונה'
+  related_existing:
+  - PLAN-501-0873794
+  review_notes_he: דרוש אימות בניין קיים והגדרות
+  notes: 105/ד/2 may be superseded by the 2023 roof plan (docs/00 S5).
+- id: BB-105-CAND-R009
+  enforcement_enabled: false
+  verification_status: CANDIDATE_UNVERIFIED
+  legal_effect: NOT_DETERMINED
+  status: NEEDS_REVIEW
+  reconciliation: NEEDS_REVIEW
+  plan_number_candidate: בב/105/ד/2
+  scope: roof_rooms_new
+  parameter: max_roof_room_area
+  candidate_value: 40
+  unit: sqm
+  source:
+    source_id: BB-105-DOC-FA425451
+    page: 4
+    ocr_evidence_he: 'בבניינים חדשים: עד 40 מ״ר או 50% משטח הדירה לפי הקטן'
+  related_existing:
+  - PLAN-501-0873794
+  review_notes_he: חריג מינימום עד 23 מ״ר; אינו כלל יחיד
+  notes: 105/ד/2 may be superseded by the 2023 roof plan (docs/00 S5).
+- id: BB-105-CAND-R010
+  enforcement_enabled: false
+  verification_status: CANDIDATE_UNVERIFIED
+  legal_effect: NOT_DETERMINED
+  status: NEEDS_REVIEW
+  reconciliation: NEEDS_REVIEW
+  plan_number_candidate: בב/105/ד/2
+  scope: roof_rooms
+  parameter: min_internal_stair_area
+  candidate_value: 5
+  unit: sqm
+  source:
+    source_id: BB-105-DOC-FA425451
+    page: 4
+    ocr_evidence_he: שטח גרם מדרגות פנימי לא יפחת מ-5 מ״ר
+  related_existing:
+  - PLAN-501-0873794
+  review_notes_he: מנוסח בתוך שטח חדרי הגג
+  notes: 105/ד/2 may be superseded by the 2023 roof plan (docs/00 S5).
+- id: BB-105-CAND-R011
+  enforcement_enabled: false
+  verification_status: CANDIDATE_UNVERIFIED
+  legal_effect: NOT_DETERMINED
+  status: NEEDS_REVIEW
+  reconciliation: CONFLICT
+  plan_number_candidate: בב/105/ד/2
+  scope: roof_rooms
+  parameter: min_roof_edge_setback
+  candidate_value: 1.2
+  unit: m
+  source:
+    source_id: BB-105-DOC-FA425451
+    page: 4
+    ocr_evidence_he: מרווח מחדרי גג ומצללות לקו מתווה הבניין 1.2 מ׳
+  related_existing:
+  - BB-POL26-RR-SETBACK
+  - PLAN-501-0873794
+  review_notes_he: יש חריג קיר משותף קו 0
+  notes: 1.2 m here vs 2.5 m from the facade in the 2026 policy (in addition to the roof-plan setback); בב/מק/105/ד/2/א changed
+    the setback distance. Keep both sources; no automatic precedence.
+- id: BB-105-CAND-R012
+  enforcement_enabled: false
+  verification_status: CANDIDATE_UNVERIFIED
+  legal_effect: NOT_DETERMINED
+  status: NEEDS_REVIEW
+  reconciliation: NEEDS_REVIEW
+  plan_number_candidate: בב/105/ד/2
+  scope: roof_terrace
+  parameter: min_terrace_width_one_side
+  candidate_value: 2.0
+  unit: m
+  source:
+    source_id: BB-105-DOC-FA425451
+    page: 4
+    ocr_evidence_he: באחד הצדדים לפחות רוחב מרפסת גג לא יפחת מ-2 מטר
+  related_existing:
+  - PLAN-501-0873794
+  review_notes_he: להצליב עם שאר הוראות
+  notes: 105/ד/2 may be superseded by the 2023 roof plan (docs/00 S5).
+- id: BB-105-CAND-R013
+  enforcement_enabled: false
+  verification_status: CANDIDATE_UNVERIFIED
+  legal_effect: NOT_DETERMINED
+  status: NEEDS_REVIEW
+  reconciliation: NEEDS_REVIEW
+  plan_number_candidate: בב/105/ד/2
+  scope: roof_rooms
+  parameter: max_internal_height
+  candidate_value: 2.7
+  unit: m
+  source:
+    source_id: BB-105-DOC-FA425451
+    page: 5
+    ocr_evidence_he: גובה פנימי של חדרי גג לא יעלה על 2.7 מטר
+  related_existing:
+  - PLAN-501-0873794
+  review_notes_he: בדיקת נוסח ותוקף
+  notes: 105/ד/2 may be superseded by the 2023 roof plan (docs/00 S5).
+- id: BB-105-CAND-R014
+  enforcement_enabled: false
+  verification_status: CANDIDATE_UNVERIFIED
+  legal_effect: NOT_DETERMINED
+  status: CANDIDATE
+  reconciliation: RELATED
+  plan_number_candidate: בב/105/ד/2
+  scope: pergola
+  parameter: max_pergola_area
+  candidate_value: 15
+  unit: sqm
+  source:
+    source_id: BB-105-DOC-FA425451
+    page: 6
+    ocr_evidence_he: שטח מצללה לא יעלה על 15 מ״ר לדירה
+  related_existing:
+  - 'server rule_drafts: guidelines doc 6 §22.2, §32.1–32.2 (pergola)'
+  review_notes_he: וגם לא יותר משליש מרפסת הגג
+  notes: Existing drafts limit beam width and covering, not area. Depends on 105/ד/2 validity.
+- id: BB-105-CAND-R015
+  enforcement_enabled: false
+  verification_status: CANDIDATE_UNVERIFIED
+  legal_effect: NOT_DETERMINED
+  status: CANDIDATE
+  reconciliation: RELATED
+  plan_number_candidate: בב/105/מצ/2 - זיהוי טעון אימות
+  scope: public_basement
+  parameter: max_basement_ceiling_above_yard
+  candidate_value: 1.2
+  unit: m
+  source:
+    source_id: BB-105-DOC-317148C2
+    page: 6
+    ocr_evidence_he: הפרש תקרת מרתף מפני חצר לכל היותר 1.2 מטר או דין מחמיר
+  related_existing:
+  - 'server rule_drafts: guidelines doc 6 §10.1, §10.2.2, §42.3.1 (housing basements)'
+  review_notes_he: הנמוך מביניהם, תחולה ואימות
+  notes: Different scope (public buildings vs housing) and parameter.
