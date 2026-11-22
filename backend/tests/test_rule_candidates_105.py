@@ -10,12 +10,18 @@ import yaml
 
 from app import knowledge
 from app.config import settings
-from app.services import file_rules_for_tenant
+from app.rules.engine import load_rules
+from app.services import RULE_FILES_BY_TENANT
 
 ROOT = Path(__file__).resolve().parents[2]
 KN = ROOT / "knowledge"
 CANDIDATES = yaml.safe_load((KN / "rule_candidates" / "bb_105.yaml").read_text(encoding="utf-8"))["candidates"]
 SOURCES_105 = yaml.safe_load((KN / "sources.d" / "bb_105.yaml").read_text(encoding="utf-8"))["sources"]
+
+
+def _tenant_rule_ids(tenant: str) -> set[str]:
+    """Ids of the file rules a tenant's checks evaluate (the same list services uses)."""
+    return {r.id for r in load_rules([KN / "rules" / n for n in RULE_FILES_BY_TENANT[tenant]])}
 
 
 def _importer():
@@ -46,7 +52,7 @@ def test_every_ocr_page_listed_by_a_source_exists():
 
 
 def test_candidates_are_never_enforced():
-    rule_ids = {r.id for t in ("bnei-brak", "demo") for r in file_rules_for_tenant(t)}
+    rule_ids = _tenant_rule_ids("bnei-brak") | _tenant_rule_ids("demo")
     in_rule_files = "\n".join(p.read_text(encoding="utf-8") for p in (KN / "rules").glob("*.yaml"))
     assert len(CANDIDATES) == 15
     for c in CANDIDATES:
@@ -69,7 +75,7 @@ def test_conflicting_roof_setback_keeps_both_sources():
     r011 = next(c for c in CANDIDATES if c["id"] == "BB-105-CAND-R011")
     assert r011["status"] == "NEEDS_REVIEW" and r011["reconciliation"] == "CONFLICT"
     assert "BB-POL26-RR-SETBACK" in r011["related_existing"]
-    assert "BB-POL26-RR-SETBACK" in {r.id for r in file_rules_for_tenant("bnei-brak")}
+    assert "BB-POL26-RR-SETBACK" in _tenant_rule_ids("bnei-brak")
     assert all(c["status"] == "NEEDS_REVIEW" for c in CANDIDATES if c["reconciliation"] in ("CONFLICT", "NEEDS_REVIEW"))
 
 
