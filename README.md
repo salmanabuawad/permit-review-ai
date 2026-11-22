@@ -14,7 +14,7 @@
 | 05 | [תכנית עבודה, Backlog ובדיקות](docs/05_workplan_backlog.md) |
 | 06 | [IP Inventory לנספח ה5](docs/06_ip_inventory.md) — **לבדיקת עו"ד** |
 | 07 | [קליטת מסמכים — צנרת, מודל נתונים, בעיות פתוחות](docs/07_document_intake.md) |
-| 08 | [סריקת מקורות לכללים ובדיקה חוזרת](docs/08_source_monitor.md) |
+| 08 | [ניהול כללים דרך API ובדיקה חוזרת](docs/08_source_monitor.md) |
 
 ## הפעלה מקומית (Windows, ללא Docker)
 ```bash
@@ -50,14 +50,14 @@ Ubuntu: [deploy/README.md](deploy/README.md).
 מסך "תיקי בקשות" ← **קליטת מסמכים**: גרירת קבצים או חבילת ZIP (PDF, DXF/DWG, Excel ו־index.csv/json). המערכת מסווגת כל מסמך לפי תוכנו (טופס בקשה, פרוטוקול ועדה, מסמך תכנוני, שרטוט, מסמך נלווה, אינדקס), מפצלת פרוטוקול לבקשות, מחלצת את הנתונים — כולל הערות גורמי המקצוע והחלטת הוועדה — עם מקור (קובץ, עמוד, עמוד בפרוטוקול המקורי) וודאות לכל ערך, ומציגה תצוגה מקדימה לעריכה. קובצי אינדקס אינם יוצרים בקשות. ייבוא חוזר אינו יוצר כפילויות.
 פירוט: [docs/07_document_intake.md](docs/07_document_intake.md) · דוח בדיקה על 31 בקשות אמיתיות: [docs/reports/import_test_report.md](docs/reports/import_test_report.md).
 
-## סריקת מקורות ובדיקה חוזרת
-**מאגר כללים ← סריקת מקורות**: שליפת המסמכים הרשמיים מרשם המקורות (כולל המסמכים המקושרים מעמוד המדיניות של בני ברק), שמירת כל גרסה, סימון מסמכים חדשים ושינויים, והצעות לסעיפי כלל עם עמוד וציטוט — לאישור כותב כללים; שום כלל אינו משתנה אוטומטית. אתרים שחוסמים שליפה (gov.il) — העלאה ידנית.
+## ניהול כללים ובדיקה חוזרת
+**מאגר כללים (API `/api/rules/*`)**: יצירה, החלפה, עדכון חלקי ומחיקה של כללים דרך HTTP (JSON או YAML). כלל שנכתב דרך ה־API דורס את כלל הקובץ בעל אותו מזהה, כל שינוי יוצר גרסה חדשה (אישור קודם אינו חל עליה), וה־API לעולם אינו מסמן כלל כ"מאושר מקצועית" — אישור רק דרך מהנדס העיר / מנהל אגף. כל פעולה נשמרת ב־`rule_revisions` וביומן הביקורת.
 **תיקי בקשות ← בדיקה חוזרת**: הרצה מחדש של בדיקת הכללים על תיקים נבחרים או על כולם. פירוט: [docs/08_source_monitor.md](docs/08_source_monitor.md).
 
 ## מבנה
 ```
-backend/app/        FastAPI: ingest, intake (document import), source_monitor (rule-source crawl), geometry, rules engine, AI gateway, reports, audit, RBAC
-backend/migrations/ Alembic migrations (0001 baseline, 0002 intake entities, 0003 source monitor)
+backend/app/        FastAPI: ingest, intake (document import), rules_api (manage rules over HTTP), geometry, rules engine, AI gateway, reports, audit, RBAC
+backend/migrations/ Alembic migrations (0001 baseline, 0002 intake entities, 0003 source monitor, 0004 managed rules)
 backend/tests/      122 בדיקות pytest (SQLite ו־PostgreSQL)
 frontend/src/       React + TypeScript, RTL
 knowledge/          תוכן פרויקט: כללים, מקורות, בסיס ידע, מוסכמת שכבות, מדיניות AI, ממשקים

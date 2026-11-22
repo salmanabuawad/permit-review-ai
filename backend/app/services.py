@@ -181,9 +181,15 @@ def build_facts(s: Session, case: PermitCase) -> tuple[dict, dict]:
 
 # ------------------------------------------------------------------ rules
 
-def rules_for_tenant(s: Session, tenant_id: str) -> list[Rule]:
+def file_rules_for_tenant(tenant_id: str) -> list[Rule]:
     names = RULE_FILES_BY_TENANT.get(tenant_id, ["internal_qa.yaml"])
-    rules = load_rules([settings.knowledge_dir / "rules" / n for n in names])
+    return load_rules([settings.knowledge_dir / "rules" / n for n in names])
+
+
+def rules_for_tenant(s: Session, tenant_id: str) -> list[Rule]:
+    """File rules (knowledge/rules) overlaid with the rules created/changed/deleted through the rules API."""
+    from .rules_api import apply_managed
+    rules = apply_managed(s, tenant_id, file_rules_for_tenant(tenant_id))
     approvals = {}
     for a in s.scalars(select(RuleApproval).where(RuleApproval.tenant_id == tenant_id).order_by(RuleApproval.id)):
         approvals[(a.rule_id, a.rule_version)] = a

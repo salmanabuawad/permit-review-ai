@@ -4,7 +4,6 @@ import { api, getUser, setUser } from './api'
 import Dashboard from './pages/Dashboard'
 import Cases from './pages/Cases'
 import CaseView from './pages/CaseView'
-import SourceMonitor from './pages/SourceMonitor'
 import Rules from './pages/Rules'
 import Sources from './pages/Sources'
 import AISettings from './pages/AISettings'
@@ -20,8 +19,7 @@ export const useApp = () => useContext(AppCtx)
 const NAV = [
   { to: '/', label: 'לוח בקרה', icon: 'dashboard', end: true },
   { to: '/cases', label: 'תיקי בקשות', icon: 'files' },
-  { to: '/rules', label: 'מאגר כללים', icon: 'rules', end: true },
-  { to: '/rules/sources', label: 'סריקת מקורות', icon: 'radar' },
+  { to: '/rules', label: 'מאגר כללים', icon: 'rules' },
   { to: '/sources', label: 'מקורות ובסיס ידע', icon: 'database' },
   { to: '/ai', label: 'הגדרות AI', icon: 'brain' },
   { to: '/integrations', label: 'ממשקים', icon: 'links', tag: 'מתוכנן' },
@@ -32,7 +30,6 @@ const ICON_PATHS: Record<string, string> = {
   dashboard: 'M3 3h8v8H3z M13 3h8v5h-8z M13 10h8v11h-8z M3 13h8v8H3z',
   files: 'M5 3h9l5 5v13H5z M14 3v6h5 M8 13h8 M8 17h8',
   rules: 'M5 4h14v16H5z M9 9h6 M9 13h6 M9 17h4',
-  radar: 'M12 12m-9 0a9 9 0 1 0 18 0a9 9 0 1 0 -18 0 M12 12m-5 0a5 5 0 1 0 10 0a5 5 0 1 0 -10 0 M12 12l6-6',
   database: 'M4 6c0-4 16-4 16 0s-16 4-16 0 M4 6v12c0 4 16 4 16 0V6 M4 12c0 4 16 4 16 0',
   brain: 'M12 3a4 4 0 0 0-7 3 4 4 0 0 0-1 7 4 4 0 0 0 3 7 4 4 0 0 0 5-2 M12 3a4 4 0 0 1 7 3 4 4 0 0 1 1 7 4 4 0 0 1-3 7 4 4 0 0 1-5-2 M12 3v16',
   links: 'M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-2 2 M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l2-2',
@@ -110,7 +107,6 @@ export default function App() {
                 <Route path="/cases/import" element={<ImportCases />} />
                 <Route path="/cases/:id" element={<CaseView />} />
                 <Route path="/rules" element={<Rules />} />
-                <Route path="/rules/sources" element={<SourceMonitor />} />
                 <Route path="/sources" element={<Sources />} />
                 <Route path="/ai" element={<AISettings />} />
                 <Route path="/integrations" element={<Integrations />} />

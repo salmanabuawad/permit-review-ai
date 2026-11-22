@@ -18,21 +18,22 @@ from sqlalchemy.orm import Session
 from . import __version__, audit, batch_import, metrics, services
 from .ai.gateway import AIGateway
 from .config import settings
-from .db import Base, SessionLocal, engine, get_session, run_migrations
+from .db import Base, engine, get_session, run_migrations
 from .ingest.files import IntakeError
 from .ingest.pdf import render_page_png
 from .knowledge import load_sources, search
 from .models import (AIPolicyRow, AuditEvent, CadEntity, CaseFile, CheckRun, CommitteeDecision, ExtractedField,
                      Finding, ImportBatch, InferenceCost, Municipality, PlanningComment, SourceReference,
-                     PermitCase, RuleApproval, RuleDraft, SourceCrawl, SourceDocument, User)
+                     PermitCase, RuleApproval, User)
 from .reports import build_report, render_pdf
-from .source_monitor import service as source_service
+from .rules_api import router as rules_router
 from .security import PERMISSIONS, ROLES, Principal, current_user, require
 
 app = FastAPI(title="Bnei Brak Permit Review AI — POC", version=__version__,
               docs_url="/api/docs", openapi_url="/api/openapi.json")
 app.add_middleware(CORSMiddleware, allow_origins=list(settings.cors_origins), allow_methods=["*"],
                    allow_headers=["*"])
+app.include_router(rules_router)
 
 
 @app.on_event("startup")
@@ -633,185 +634,6 @@ def kb_search(q: str, p: Principal = Depends(require("case.read")), s: Session =
     return {"outcome": res.outcome, "provider": res.provider_id,
             "hits": (res.output or {}).get("hits", []),
             "note_he": "אחזור לקסיקלי (BM25). רכיב הווקטורים מושבת עד לבדיקת מודל embedding מקומי."}
-
-
-# ------------------------------------------------------------------ source monitor (crawl official rule sources)
-
-def _src_doc(s: Session, p: Principal, doc_id: int) -> SourceDocument:
-    d = s.get(SourceDocument, doc_id)
-    if not d or d.tenant_id != p.tenant_id:
-        raise HTTPException(404, "מסמך מקור לא נמצא")
-    return d
-
-
-def _src_doc_dict(d: SourceDocument, drafts: dict) -> dict:
-    return {"id": d.id, "url": d.url, "kind": d.kind, "source_id": d.source_id, "title": d.title,
-            "discovered_from": d.discovered_from, "first_seen": d.first_seen.isoformat(),
-            "last_checked": d.last_checked.isoformat() if d.last_checked else None,
-            "fetch_status": d.fetch_status, "http_status": d.http_status, "message": d.message,
-            "change_state": d.change_state, "changed_at": d.changed_at.isoformat() if d.changed_at else None,
-            "acknowledged": d.acknowledged, "sha256": d.sha256, "content_type": d.content_type, "size": d.size,
-            "page_count": d.page_count, "has_file": bool(d.storage_path), "links": len(d.links or []),
-            "drafts": drafts.get(d.id, {})}
-
-
-def _crawl_dict(c: SourceCrawl | None) -> dict | None:
-    if not c:
-        return None
-    return {"id": c.id, "status": c.status, "triggered_by": c.triggered_by, "started_at": c.started_at.isoformat(),
-            "finished_at": c.finished_at.isoformat() if c.finished_at else None, "summary": c.summary or {}}
-
-
-@app.get("/api/source-monitor")
-def source_monitor(p: Principal = Depends(require("case.read")), s: Session = Depends(get_session)):
-    docs = list(s.scalars(select(SourceDocument).where(SourceDocument.tenant_id == p.tenant_id)))
-    drafts: dict[int, dict] = {}
-    for doc_id, status, n in s.execute(select(RuleDraft.document_id, RuleDraft.status, func.count())
-                                       .where(RuleDraft.tenant_id == p.tenant_id)
-                                       .group_by(RuleDraft.document_id, RuleDraft.status)):
-        drafts.setdefault(doc_id, {})[status] = n
-    last = s.scalars(select(SourceCrawl).where(SourceCrawl.tenant_id == p.tenant_id)
-                     .order_by(SourceCrawl.started_at.desc()).limit(1)).first()
-    order = {"page": 0, "document": 1, "manual": 2}
-    docs.sort(key=lambda d: (order.get(d.kind, 3), d.discovered_from or "", d.title or d.url))
-    totals = {k: sum(v.get(k, 0) for v in drafts.values()) for k in ("open", "for_authoring", "dismissed", "superseded")}
-    return {"last_crawl": _crawl_dict(last), "documents": [_src_doc_dict(d, drafts) for d in docs],
-            "drafts": totals, "hosts": sorted(source_service.allowed_hosts()),
-            "attention": sum(1 for d in docs if d.change_state in ("new", "changed") and not d.acknowledged)}
-
-
-@app.post("/api/source-monitor/crawl")
-def source_crawl(wait: bool = False, p: Principal = Depends(require("source.crawl"))):
-    try:
-        cid = source_service.start_crawl(SessionLocal, p.tenant_id, p.id, wait=wait)
-    except RuntimeError as e:
-        raise HTTPException(409, str(e)) from e
-    with SessionLocal() as s:
-        return _crawl_dict(s.get(SourceCrawl, cid))
-
-
-@app.get("/api/source-monitor/crawls/{crawl_id}")
-def source_crawl_status(crawl_id: str, p: Principal = Depends(require("case.read")), s: Session = Depends(get_session)):
-    c = s.get(SourceCrawl, crawl_id)
-    if not c or c.tenant_id != p.tenant_id:
-        raise HTTPException(404)
-    return _crawl_dict(c)
-
-
-@app.post("/api/source-monitor/upload")
-async def source_upload(file: UploadFile = File(...), document_id: int | None = Form(None), source_id: str | None = Form(None),
-                        p: Principal = Depends(require("source.crawl")), s: Session = Depends(get_session)):
-    body = await file.read()
-    if len(body) > source_service.load_config()["max_bytes"]:
-        raise HTTPException(413, "הקובץ גדול מדי")
-    try:
-        d = source_service.ingest_upload(s, p.tenant_id, p.id, file.filename or "upload", body, file.content_type,
-                                         document_id=document_id, source_id=source_id)
-    except LookupError as e:
-        raise HTTPException(404, str(e)) from e
-    except ValueError as e:
-        raise HTTPException(422, str(e)) from e
-    s.commit()
-    return _src_doc_dict(d, {})
-
-
-@app.get("/api/source-monitor/documents/{doc_id}/file")
-def source_file(doc_id: int, p: Principal = Depends(require("case.read")), s: Session = Depends(get_session)):
-    d = _src_doc(s, p, doc_id)
-    if not d.storage_path or not Path(d.storage_path).exists():
-        raise HTTPException(404, "אין עותק שמור של המסמך")
-    return FileResponse(d.storage_path, media_type=d.content_type or "application/octet-stream")
-
-
-@app.get("/api/source-monitor/documents/{doc_id}/page/{n}.png")
-def source_page(doc_id: int, n: int, p: Principal = Depends(require("case.read")), s: Session = Depends(get_session)):
-    d = _src_doc(s, p, doc_id)
-    if not d.storage_path or not d.page_count or not 1 <= n <= d.page_count:
-        raise HTTPException(404)
-    return Response(render_page_png(Path(d.storage_path), n, zoom=1.3), media_type="image/png")
-
-
-@app.post("/api/source-monitor/documents/{doc_id}/acknowledge")
-def source_ack(doc_id: int, p: Principal = Depends(require("source.crawl")), s: Session = Depends(get_session)):
-    d = _src_doc(s, p, doc_id)
-    d.acknowledged, d.acknowledged_by = True, p.id
-    audit.record(s, p.tenant_id, p.id, "source.acknowledge", "source_document", str(d.id),
-                 {"sha256": d.sha256, "change_state": d.change_state})
-    s.commit()
-    return {"ok": True}
-
-
-@app.get("/api/source-monitor/documents/{doc_id}/drafts")
-def source_drafts(doc_id: int, p: Principal = Depends(require("case.read")), s: Session = Depends(get_session)):
-    d = _src_doc(s, p, doc_id)
-    rows = s.scalars(select(RuleDraft).where(RuleDraft.document_id == d.id).order_by(RuleDraft.page, RuleDraft.id))
-    return [{"id": r.id, "page": r.page, "section": r.section, "kind": r.kind, "topics": r.topics, "text_he": r.text_he,
-             "values": r.values, "status": r.status, "note": r.note, "decided_by": r.decided_by} for r in rows]
-
-
-class DraftDecisionIn(BaseModel):
-    status: str            # open | for_authoring | dismissed
-    note: str | None = None
-
-
-@app.post("/api/source-monitor/drafts/{draft_id}")
-def source_draft_decide(draft_id: int, body: DraftDecisionIn, p: Principal = Depends(require("source.crawl")),
-                        s: Session = Depends(get_session)):
-    r = s.get(RuleDraft, draft_id)
-    if not r or r.tenant_id != p.tenant_id:
-        raise HTTPException(404)
-    if body.status not in ("open", "for_authoring", "dismissed"):
-        raise HTTPException(422, "מצב לא חוקי")
-    r.status, r.note, r.decided_by, r.decided_at = body.status, body.note, p.id, dt.datetime.now(dt.timezone.utc)
-    audit.record(s, p.tenant_id, p.id, f"rule_draft.{body.status}", "rule_draft", str(r.id),
-                 {"document_id": r.document_id, "page": r.page, "note": body.note})
-    s.commit()
-    return {"ok": True}
-
-
-LEVEL_BY_CATEGORY = {"LAW": "STATUTE", "REGULATION": "REGULATION", "STATUTORY_PLAN": "STATUTORY_PLAN",
-                     "LOCAL_POLICY": "MUNICIPAL_POLICY", "GOV_GUIDANCE": "REGULATION"}
-
-
-@app.get("/api/source-monitor/drafts.yaml")
-def source_drafts_yaml(status: str = "for_authoring", p: Principal = Depends(require("case.read")),
-                       s: Session = Depends(get_session)):
-    """Rule skeletons for the drafts marked for authoring — a starting point for knowledge/rules, never loaded as-is."""
-    sources = load_sources()
-    rows = s.execute(select(RuleDraft, SourceDocument).join(SourceDocument, RuleDraft.document_id == SourceDocument.id)
-                     .where(RuleDraft.tenant_id == p.tenant_id, RuleDraft.status == status)
-                     .order_by(SourceDocument.id, RuleDraft.page, RuleDraft.id)).all()
-    rules = []
-    for r, d in rows:
-        src = sources.get(d.source_id or "", {})
-        v = (r.values or [None])[0]
-        if r.kind == "numeric_limit" and v:
-            check = {"kind": "compare", "operand": "TODO", "operator": v.get("op") or "TODO",
-                     "threshold": v["value"], "units": v["unit"]}
-        else:
-            check = {"kind": "doc_required" if r.kind == "required_document" else "qualitative"}
-        rules.append({
-            "id": f"DRAFT-{d.source_id or 'SRC' + str(d.id)}-{r.id}",
-            "version": "0.0",
-            "title_he": r.text_he[:90],
-            "legal_level": LEVEL_BY_CATEGORY.get(src.get("category"), "MUNICIPAL_POLICY"),
-            "report": "completeness" if r.kind == "required_document" else "reviewer",
-            "severity": "medium",
-            "review_state": "DRAFT",
-            "permit_types": [],
-            "stages": ["plan_review"],
-            "check": check,
-            "sources": [{"source_id": d.source_id or "TODO-register-this-document", "section": r.section,
-                         "page": r.page, "quote_he": r.text_he}],
-            "exact_clause_he": None,
-            "notes": f"Drafted automatically from {d.url} (page {r.page}). Verify the clause against the PDF, "
-                     f"complete applicability and check, then move to knowledge/rules. Topics: {', '.join(r.topics)}",
-        })
-    header = ("# Rule drafts exported from the source monitor — NOT loaded by the rule engine.\n"
-              "# Every value was found by a text heuristic; verify against the source PDF before use.\n")
-    text = header + yaml.safe_dump({"rules": rules}, allow_unicode=True, sort_keys=False, width=120)
-    return Response(text, media_type="text/yaml; charset=utf-8",
-                    headers={"Content-Disposition": 'attachment; filename="rule_drafts.yaml"'})
 
 
 # ------------------------------------------------------------------ AI settings
