@@ -24,6 +24,7 @@ export default function CaseView() {
   const [report, setReport] = useState<Report | null>(null)
   const [kind, setKind] = useState('reviewer')
   const [geo, setGeo] = useState<any>(null)
+  const [geoLoading, setGeoLoading] = useState(true)
   const [sel, setSel] = useState<string | null>(null)
   const [cite, setCite] = useState<Citation | null>(null)
   const [tab, setTab] = useState<'findings' | 'files' | 'data' | 'extracted' | 'history'>('findings')
@@ -31,15 +32,23 @@ export default function CaseView() {
   const [busy, setBusy] = useState(false)
   const [runs, setRuns] = useState<any[]>([])
 
+  // The drawing geometry can be large (a 31 MB school plan: ~40k entities, 11.7 MB, 16 s), so it loads on its own
+  // and only when the files change; the case, runs and report never wait for it.
+  const loadGeo = useCallback(async () => {
+    setGeoLoading(true)
+    try { setGeo(await api.get(`/api/cases/${id}/geometry`)) } finally { setGeoLoading(false) }
+  }, [id])
+  useEffect(() => { loadGeo().catch(e => toast(e.message, true)) }, [loadGeo, toast])
+
   const load = useCallback(async () => {
-    const cc = await api.get<Case>(`/api/cases/${id}`)
+    const [cc, rs] = await Promise.all([api.get<Case>(`/api/cases/${id}`), api.get<any[]>(`/api/cases/${id}/runs`)])
     setC(cc)
-    setGeo(await api.get(`/api/cases/${id}/geometry`))
-    setRuns(await api.get<any[]>(`/api/cases/${id}/runs`))
+    setRuns(rs)
     if (cc.last_run) setReport(await api.get<Report>(`/api/runs/${cc.last_run.id}/report/${kind}`))
     else setReport(null)
   }, [id, kind])
   useEffect(() => { load().catch(e => toast(e.message, true)) }, [load, toast])
+  const reloadFiles = useCallback(async () => { await load(); loadGeo().catch(e => toast(e.message, true)) }, [load, loadGeo, toast])
 
   const run = async () => {
     setBusy(true)
@@ -132,7 +141,7 @@ export default function CaseView() {
       <div className="workspace">
         <section className="card" aria-label="תשריט">
           <div className="card-head"><h3>תצוגת תשריט ושכבות</h3><span className="spacer" /><span className="small muted">לחיצה על סימון אדום/צהוב מציגה את הממצא</span></div>
-          <CadViewer geo={geo} findings={report?.findings ?? []} selected={sel} onSelect={id => { setSel(id); setTab('findings') }} />
+          <CadViewer geo={geo} loading={geoLoading} findings={report?.findings ?? []} selected={sel} onSelect={id => { setSel(id); setTab('findings') }} />
           {report && <Measurements m={report.measurements} />}
         </section>
 
@@ -167,7 +176,7 @@ export default function CaseView() {
               </div>
             </>
           )}
-          {tab === 'files' && <Files c={c} onChange={load} locked={locked} />}
+          {tab === 'files' && <Files c={c} onChange={reloadFiles} locked={locked} />}
           {tab === 'data' && <CaseData c={c} onChange={load} locked={locked} />}
           {tab === 'extracted' && <Extracted caseId={c.id} />}
           {tab === 'history' && (
