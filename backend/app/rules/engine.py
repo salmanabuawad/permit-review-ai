@@ -338,6 +338,18 @@ def evaluate_rule(rule: Rule, facts: dict, sources: dict, tenant_is_demo: bool) 
             ok = bool(v) == bool(chk.get("expected", True))
             computed = "PASS" if ok else "FAIL"
             expl = f"{chk.get('fact_label_he', chk['fact'])}: {'כן' if v else 'לא'}"
+    elif kind == "list_empty":
+        items = get_fact(facts, chk["fact"])
+        if items is UNKNOWN:
+            computed, expl = "UNCERTAIN", f"לא ניתן לבדוק: {chk.get('fact_label_he', chk['fact'])}"
+            flags.append("INCOMPLETE")
+        elif not items:
+            computed, expl = "PASS", chk.get("pass_he", "לא נמצאו פריטים")
+        else:
+            shown = "; ".join(str(i) for i in items[:10]) + (f" (ועוד {len(items) - 10})" if len(items) > 10 else "")
+            computed = "FAIL"
+            expl = f"{chk.get('items_label_he', 'נמצאו')} ({len(items)}): {shown}"
+            extra.update(measured_value=len(items))
     elif kind == "consistency":
         a, ua, ma = _operand(facts, chk["operand_a"])
         b, _, _ = _operand(facts, chk["operand_b"])
@@ -412,6 +424,7 @@ CHECK_FIELDS = {          # required fields per check kind (see evaluate_rule)
     "cad_roles": (),
     "any_present": ("items",),
     "declared_bool": ("fact",),
+    "list_empty": ("fact",),
     "consistency": ("operand_a", "operand_b", "max_rel_diff"),
     "qualitative": (),
     "condition": (),

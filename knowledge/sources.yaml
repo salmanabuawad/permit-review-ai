@@ -135,6 +135,32 @@ sources:
     url: https://mavat.iplan.gov.il/
     edition: "אושרה 23/01/2023"
     verification: LISTING_ONLY
+  - id: BS-PRECOND-10000197313
+    category: LOCAL_POLICY
+    title_he: "ועדה מקומית בית שמש — תנאים מוקדמים לבקשה 10000197313 (בית ספר לבנים, מגרש 201, גוש 34581 חלקה 21)"
+    url: null
+    edition: "מסמך Word ללא תאריך, צורף לחבילת הבקשה (הוגשה 31/08/2022); 10 תנאים"
+    verification: VERIFIED_READ
+    notes: "Committee practice in one case: signatures/forms from Rishuy Zamin; IAA approval (signature on plan) and not a payment demand; traffic; survey from the last year; managing company; infrastructure; accessibility; electric company; city architect; green building. Read 2026-11-24. Review: reports/10000197313_review_report.md."
+  - id: BS-GUIDE-CITIZEN
+    category: LOCAL_POLICY
+    title_he: "ועדה מקומית בית שמש — \"רוצה לבנות? מה לעשות — רישוי בנייה ב־5 צעדים\" (מדריך לאזרח)"
+    url: https://www.handasabs.org.il/wp-content/uploads/2025/08/guide_construction2021.pdf
+    edition: "מטא־דאטה 09/01/2018; האתר מציין שהמידע \"אינו רשמי אינו מחייב\""
+    verification: VERIFIED_READ
+    notes: "p.3: threshold check before intake — the request must include all documents and approvals required in the permit information; p.2: information is valid for two years."
+  - id: LAW-ANTIQUITIES-1978
+    category: LAW
+    title_he: "חוק העתיקות, התשל\"ח-1978 — סעיף 29"
+    url: null
+    verification: FOUND_NOT_READ
+    notes: "Section 29 as quoted in an IAA letter of 25/10/2021 (ref. 499764). The statute text itself has not been read."
+  - id: LAW-ENG-ARCH-1958
+    category: LAW
+    title_he: "חוק המהנדסים והאדריכלים, התשי\"ח-1958 — סעיף 11 (רישיון)"
+    url: null
+    verification: FOUND_NOT_READ
+    notes: "Cited on the licence cards in application 10000197313 ('רישיון זה בר תוקף לאחר התשלום'). The statute text itself has not been read."
   - id: INTERNAL-QA
     category: INTERNAL
     title_he: "בקרת עקביות פנימית בין מסמכי הבקשה (אינה הוראת דין)"
