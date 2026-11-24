@@ -82,7 +82,12 @@ def ingest_file(s: Session, case: PermitCase, filename: str, data: bytes, doc_ty
             raise files.IntakeError(f"קובץ זהה ({dup.filename}) נמחק בעבר מהתיק במחיקה מבוקרת; לא ניתן לקלוט אותו מחדש")
         where = " (בארכיון — ניתן לשחזר)" if dup.lifecycle == "ARCHIVED" else ""
         raise files.IntakeError(f"קובץ זהה כבר קיים בתיק ({dup.filename}, גרסה {dup.version}){where}")
-    prev = s.scalars(select(CaseFile).where(CaseFile.case_id == case.id, CaseFile.doc_type == doc_type)
+    # A new version replaces an earlier file only when type AND filename match. Rishuy Zamin allows several files
+    # per requirement (e.g. two letters under "electric company approval"); a differently named file of the same
+    # type is a separate document, so content rules see both (application 10000197313: a scanned Bezeq letter
+    # had silently superseded the HOT letter for another plot).
+    prev = s.scalars(select(CaseFile).where(CaseFile.case_id == case.id, CaseFile.doc_type == doc_type,
+                                            CaseFile.filename == filename)
                      .order_by(CaseFile.version.desc())).first()
     cf = CaseFile(tenant_id=case.tenant_id, case_id=case.id, doc_type=doc_type, filename=filename, kind=intake.kind,
                   sha256=intake.sha256, size_bytes=intake.size, storage_path=str(intake.stored_path),
@@ -149,9 +154,10 @@ class _Ent:
 
 
 def latest_files(s: Session, case: PermitCase) -> list[CaseFile]:
-    out: dict[str, CaseFile] = {}
+    """The newest ACTIVE version of each document, a document being (doc_type, filename)."""
+    out: dict[tuple[str, str], CaseFile] = {}
     for f in sorted((f for f in case.files if f.lifecycle == "ACTIVE"), key=lambda f: f.version):
-        out[f.doc_type + ":" + f.kind] = f
+        out[(f.doc_type, f.filename)] = f
     return list(out.values())
 
 

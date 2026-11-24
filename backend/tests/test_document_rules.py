@@ -228,9 +228,20 @@ def test_upload_and_run_flags_package(tmp_path):
         for name, dt_, data in uploads:
             up = c.post(f"/api/cases/{cid}/files", headers=H, files={"file": (name, data)}, data={"doc_type": dt_})
             assert up.status_code == 200, up.text
+        # A second, differently named file under the same requirement is a separate document (version 1), so the
+        # HOT letter is still checked; the same name again is version 2 of that file.
+        bezeq = "אישור היתר בניה בזק-207.pdf"
+        for body in ("<p>scan</p>", "<p>v2</p>"):
+            up = c.post(f"/api/cases/{cid}/files", headers=H, data={"doc_type": "electric_company_approval"},
+                        files={"file": (bezeq, _pdf(body))})
+            assert up.status_code == 200, up.text
+        files_ = up.json()["files"]
         run_ = c.post(f"/api/cases/{cid}/run", headers={"X-User": "u-reviewer"}).json()
         rep = c.get(f"/api/runs/{run_['run_id']}/report/completeness", headers={"X-User": "u-reviewer"}).json()
+    assert sorted(f["version"] for f in files_ if f["filename"] == bezeq) == [1, 2]
+    assert [f["version"] for f in files_ if f["filename"] == "256502-text.pdf"] == [1]
     by = {x["rule_id"]: x for x in rep["findings"]}
+    assert "256502-text.pdf" in by["QA-APPROVAL-PARCEL-MISMATCH"]["explanation_he"]   # not hidden by the later scan
     assert by["QA-DOC-PLACEHOLDER"]["status"] == "FAIL"
     assert by["QA-REQ-SURVEY"]["computed_result"] == "FAIL"      # the placeholder does not count as a survey map
     assert by["QA-APPROVAL-PARCEL-MISMATCH"]["status"] == "FAIL"
