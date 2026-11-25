@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { Case, Citation, Finding, Report, api, fmt, fmtDate, openBlob } from '../api'
+import { Case, Citation, Report, api, fmt, fmtDate, openBlob } from '../api'
 import { useApp } from '../App'
 import CadViewer from '../components/CadViewer'
 import SheetViewer from '../components/SheetViewer'
-import FindingCard, { StatusChip } from '../components/FindingCard'
+import { StatusChip } from '../components/FindingCard'
+import FindingsPanel from '../components/FindingsPanel'
 import SourceDrawer from '../components/SourceDrawer'
 
 const REPORTS = [
@@ -29,7 +30,6 @@ export default function CaseView() {
   const [sel, setSel] = useState<string | null>(null)
   const [cite, setCite] = useState<Citation | null>(null)
   const [tab, setTab] = useState<'findings' | 'files' | 'data' | 'extracted' | 'history'>('findings')
-  const [filter, setFilter] = useState<'open' | 'all'>('open')
   const [busy, setBusy] = useState(false)
   const [runs, setRuns] = useState<any[]>([])
 
@@ -68,8 +68,7 @@ export default function CaseView() {
     catch (e: any) { toast(e.message, true) }
   }
 
-  const findings = useMemo(() => (report?.findings ?? []).filter(f =>
-    filter === 'all' ? true : f.status !== 'NA'), [report, filter])
+  const findings = useMemo(() => (report?.findings ?? []).filter(f => f.status !== 'NA'), [report])
   const counts = useMemo(() => {
     const o: Record<string, number> = { PASS: 0, FAIL: 0, UNCERTAIN: 0, NA: 0 }
     report?.findings.forEach(f => { o[f.status]++ })
@@ -169,26 +168,8 @@ export default function CaseView() {
           </div>
 
           {tab === 'findings' && (
-            <>
-              <div className="card-head">
-                <select value={kind} onChange={e => setKind(e.target.value)} aria-label="סוג דוח">
-                  {REPORTS.map(r => <option key={r.key} value={r.key}>{r.label}</option>)}
-                </select>
-                <select value={filter} onChange={e => setFilter(e.target.value as any)} aria-label="סינון">
-                  <option value="open">ללא "לא חל"</option><option value="all">הכל</option>
-                </select>
-                <span className="spacer" />
-                {pending > 0 && <span className="chip warn">{pending} ממתינים להחלטה</span>}
-              </div>
-              {!report && <div className="empty">טרם הורצה בדיקה</div>}
-              {report && <p className="small muted" style={{ marginTop: 0 }}>{report.disclaimer_he}</p>}
-              <div className="findings-scroll">
-                {findings.map((f: Finding) => (
-                  <FindingCard key={f.id} f={f} selected={sel === f.id} onSelect={() => setSel(f.id)} onCite={setCite}
-                    canDecide={can('finding.decide')} locked={locked} onDecide={(d, n) => decide(f.id, d, n)} />
-                ))}
-              </div>
-            </>
+            <FindingsPanel c={c} report={report} kind={kind} setKind={setKind} reports={REPORTS} sel={sel} setSel={setSel}
+              onCite={setCite} canDecide={can('finding.decide')} locked={locked} onDecide={decide} />
           )}
           {tab === 'files' && <Files c={c} onChange={reloadFiles} locked={locked} />}
           {tab === 'data' && <CaseData c={c} onChange={load} locked={locked} />}

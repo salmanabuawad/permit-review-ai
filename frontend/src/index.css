@@ -340,3 +340,91 @@ tr.selected td { background: #eef4ff; }
 .src-row .src-quote { grid-column: 1 / 3; }
 .row-actions { display: flex; flex-direction: column; gap: 4px; align-items: stretch; }
 @media (max-width: 760px) { .src-row { grid-template-columns: 1fr; } .src-row .src-quote { grid-column: auto; } }
+
+/* findings panel: counts as filters, filter row, compact rows that open into the full card */
+.fp-tiles { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 10px; align-items: stretch; }
+.fp-tile { display: flex; flex-direction: column; align-items: center; min-width: 74px; padding: 4px 10px; border-radius: 8px;
+  border: 2px solid transparent; opacity: .45; cursor: pointer; line-height: 1.25; font-size: .8rem; font-weight: 700; }
+.fp-tile .n { font-size: 1.25rem; }
+.fp-tile.on { opacity: 1; border-color: currentColor; }
+.fp-tile.dec { background: var(--surface-2); color: var(--ink-2); }
+.fp-sep { width: 1px; background: var(--line); margin: 0 4px; }
+.fp-filters { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 6px; }
+.fp-filters input[type=search] { flex: 1 1 220px; min-width: 0; }
+.fp-filters select { max-width: 100%; }
+.fp-source { max-width: 260px; }
+.fp-check { display: inline-flex; gap: 4px; align-items: center; font-size: .85rem; white-space: nowrap; }
+.fp-count { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 6px; }
+.fp-group + .fp-group { margin-top: 10px; }
+.fp-group-head { margin: 0 0 4px; font-size: .9rem; color: var(--ink-2); position: sticky; top: 0; background: var(--surface); padding: 4px 0; z-index: 1; }
+.fp-group-head .count { background: var(--surface-2); border-radius: 99px; padding: 0 7px; font-size: .75rem; }
+.fp-row { display: grid; grid-template-columns: auto 1fr auto auto auto; gap: 8px; align-items: center; width: 100%;
+  text-align: start; background: #fff; border: 1px solid var(--line); border-inline-start: 4px solid var(--na);
+  border-radius: 8px; padding: 6px 10px; cursor: pointer; font: inherit; color: inherit; }
+.fp-row + .fp-row, .fp-open + .fp-row, .fp-row + .fp-open, .fp-open + .fp-open { margin-top: 5px; }
+.fp-row:hover { background: var(--surface-2); }
+.fp-row.FAIL { border-inline-start-color: var(--fail); }
+.fp-row.UNCERTAIN { border-inline-start-color: #d79a00; }
+.fp-row.PASS { border-inline-start-color: var(--pass); }
+.fp-row.selected { outline: 2px solid var(--brand-2); }
+.fp-title { font-weight: 600; min-width: 0; }
+.fp-sub { display: block; font-weight: 400; font-size: .78rem; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fp-val { font-size: .82rem; color: var(--ink-2); white-space: nowrap; }
+.fp-dec { display: flex; gap: 4px; }
+.chip.sev-high { color: var(--fail); border-color: var(--fail-bg); }
+.fp-open { position: relative; }
+.fp-close { position: absolute; inset-inline-start: 8px; top: -2px; z-index: 1; }
+@media (max-width: 640px) {
+  .fp-row { grid-template-columns: auto 1fr; }
+  .fp-val, .fp-row > .chip.outline { display: none; }
+  .fp-dec { grid-column: 2; }
+}
+
+/* defects report (findings tab, "דוח ליקויים") — screen and print */
+.defects { max-height: 760px; overflow-y: auto; padding-inline-end: 6px; line-height: 1.65; }
+.defects h2 { margin: 2px 0 4px; font-size: 1.25rem; }
+.defects h3 { margin: 18px 0 6px; font-size: 1.02rem; color: var(--brand); border-bottom: 1px solid var(--line); padding-bottom: 3px; }
+.dr-actions { display: flex; justify-content: flex-end; }
+.dr-kicker { color: var(--muted); font-size: .85rem; }
+.dr-meta { color: var(--ink-2); font-size: .88rem; }
+.dr-status { padding: 6px 10px; border-radius: 8px; margin: 6px 0; }
+.dr-status.bad { background: var(--fail-bg); color: var(--fail); }
+.dr-status.warn { background: var(--unc-bg); color: var(--unc); }
+.dr-status.ok { background: var(--pass-bg); color: var(--pass); }
+.dr-none { background: var(--pass-bg); color: var(--pass); padding: 6px 10px; border-radius: 8px; }
+.dr-table { width: 100%; border-collapse: collapse; font-size: .88rem; margin: 4px 0 8px; }
+.dr-table th { background: var(--brand); color: #fff; text-align: start; padding: 5px 8px; font-weight: 600; }
+.dr-table td { border-bottom: 1px solid var(--line); padding: 5px 8px; vertical-align: top; }
+.dr-table tbody tr:nth-child(even) td { background: var(--surface-2); }
+.dr-table td:first-child { font-weight: 600; }
+.dr-params { width: auto; min-width: 50%; }
+.dr-click { cursor: pointer; }
+.dr-click:hover td { background: #e9f1fb !important; }
+.dr-letters { list-style: hebrew; padding-inline-start: 24px; }
+.dr-letters li { margin: 2px 0; }
+.dr-ai, .dr-pass { margin: 6px 0; font-size: .9rem; }
+.dr-ai summary, .dr-pass summary { cursor: pointer; color: var(--ink-2); font-weight: 600; }
+.dr-pass summary { font-size: 1.02rem; color: var(--brand); }
+.dr-sources { padding-inline-start: 18px; }
+.defects .cite { font-size: .82rem; text-align: start; }
+@media print {
+  body * { visibility: hidden; }
+  .defects, .defects * { visibility: visible; }
+  .defects { position: absolute; inset-inline: 0; top: 0; max-height: none; overflow: visible; padding: 0 8mm; }
+  .defects .no-print { display: none !important; }
+  .dr-table th { background: #183b61 !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .dr-table tr, .dr-finding { break-inside: avoid; }
+  .defects details { display: block; }
+  .defects details > summary { list-style: none; }
+}
+.dr-actions { gap: 6px; }
+.fpanel { container-type: inline-size; }
+.fpanel.full { position: fixed; inset: 0; z-index: 60; background: var(--surface); padding: 16px max(20px, 8vw); overflow-y: auto; }
+.fpanel.full .defects, .fpanel.full .findings-scroll { max-height: none; overflow: visible; }
+@container (max-width: 560px) {
+  .fp-row { grid-template-columns: auto 1fr; row-gap: 2px; }
+  .fp-row .fp-val { grid-column: 2; white-space: normal; }
+  .fp-row > .chip.outline { grid-column: 1; grid-row: 2; justify-self: start; }
+  .fp-dec { grid-column: 2; grid-row: 2; }
+  .fp-source { max-width: 100%; }
+}
