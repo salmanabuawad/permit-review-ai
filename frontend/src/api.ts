@@ -16,7 +16,7 @@ export interface Finding {
 }
 export interface Report {
   kind: string; title_he: string; disclaimer_he: string; case: any
-  run: { version: number; at: string; ruleset_hash: string; inputs: any[]; duration_ms: number; locked: boolean; ai_summary: string | null }
+  run: { version: number; at: string; ruleset_hash: string; inputs: any[]; duration_ms: number; locked: boolean; ai_summary: string | null; kb_passages?: KbPassage[] }
   findings: Finding[]; measurements: Record<string, any>
 }
 export interface CaseFile {
@@ -114,6 +114,7 @@ export const REVIEW_STATE_HE: Record<string, string> = {
   DRAFT: 'טיוטה', SOURCE_MISSING: 'מקור חסר', SOURCE_LOCATED: 'מקור אותר', SOURCE_VERIFIED: 'מקור נקרא ואומת',
   PROFESSIONALLY_APPROVED: 'אושר מקצועית', DESIGN_ASSUMPTION: 'הנחת תכנון', DEMO_FIXTURE: 'הדגמה', RETIRED: 'בוטל',
 }
+export interface KbPassage { id: string; source_id: string; source_title_he: string; page: number | null; section: string; url: string | null; verification: string; score: number; cited: boolean }
 export const VERIFICATION_HE: Record<string, string> = {
   VERIFIED_READ: 'נקרא ואומת', FOUND_NOT_READ: 'אותר — לא נקרא', LISTING_ONLY: 'ברשימה רשמית בלבד',
   NOT_FOUND: 'לא נמצא', DESIGN_ASSUMPTION: 'הנחת תכנון', DEMO: 'הדגמה', UNKNOWN: 'לא ידוע',

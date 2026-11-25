@@ -73,7 +73,7 @@ def build_report(s: Session, case: PermitCase, run: CheckRun, kind: str) -> dict
                  "track": case.track, "zone": case.zone, "plans": case.applicable_plans, "is_demo": case.is_demo},
         "run": {"version": run.version, "at": run.started_at.isoformat(), "ruleset_hash": run.ruleset_hash,
                 "inputs": run.input_hashes, "duration_ms": run.duration_ms, "locked": run.locked,
-                "ai_summary": run.summary.get("ai_summary")},
+                "ai_summary": run.summary.get("ai_summary"), "kb_passages": run.summary.get("kb_passages") or []},
         "findings": [{
             "id": f.id, "rule_id": f.rule_id, "rule_version": f.rule_version, "report": f.report,
             "status": f.status, "computed_result": f.computed_result, "severity": f.severity,
@@ -211,7 +211,12 @@ def render_pdf(s: Session, case: PermitCase, report: dict) -> bytes:
         if dr:
             story += [he("תשריט מנותח עם סימון ממצאים (אדום = אי-התאמה/דורש בדיקה)", W, 9, True), dr, Spacer(1, 6)]
         if report["run"].get("ai_summary"):
-            story += [he(report["run"]["ai_summary"], W, 8.5), Spacer(1, 6)]
+            story += [he(report["run"]["ai_summary"], W, 8.5), Spacer(1, 3)]
+            cited = [k for k in report["run"].get("kb_passages") or [] if k.get("cited")]
+            for k in cited:   # the sources behind the bracketed ids in the summary
+                story += [he(f"[{k['id']}] {k.get('section') or ''} — {k.get('source_title_he') or ''}"
+                             f"{', עמ׳ ' + str(k['page']) if k.get('page') else ''}", W, 7.5)]
+            story += [Spacer(1, 6)]
 
     cols = [("#", 10), ("ממצא / כלל", 50), ("סטטוס", 20), ("חומרה", 21), ("נמדד", 22), ("סף", 22),
             ("הסבר", 62), ("מקור (מסמך/סעיף/עמוד)", 52), ("הנחיית תיקון", 42), ("ודאות", 20), ("החלטת בודק", 20)]

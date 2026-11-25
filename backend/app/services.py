@@ -286,6 +286,29 @@ def rules_for_tenant(s: Session, tenant_id: str, include_deleted: bool = False) 
     return rules
 
 
+KB_PASSAGES_MAX = 6
+KB_MIN_SCORE = 4.0       # BM25: below this a "hit" shares only common words with the finding
+
+
+def case_passages(case: PermitCase, results: list) -> list[dict]:
+    """Knowledge passages for the summary: for each open finding (FAIL first, then UNCERTAIN), the best passage of the
+    case's own municipality or national sources. A passage is never a finding: it is context the reviewer can open."""
+    from .knowledge import search
+    order = {"FAIL": 0, "UNCERTAIN": 1}
+    open_ = sorted((r.as_dict() for r in results if r.status in order), key=lambda f: order[f["status"]])
+    picked: dict[str, dict] = {}
+    for f in open_:
+        q = " ".join(x for x in (f.get("title_he"), f.get("explanation_he")) if x)
+        for h in search(q, k=2, tenant_id=case.tenant_id):
+            if h["score"] >= KB_MIN_SCORE and h["id"] not in picked:
+                picked[h["id"]] = {k: h.get(k) for k in ("id", "source_id", "source_title_he", "page", "section",
+                                                         "text_he", "url", "verification", "score")}
+                break
+        if len(picked) >= KB_PASSAGES_MAX:
+            break
+    return list(picked.values())
+
+
 def run_checks(s: Session, case: PermitCase, user: str, gateway: AIGateway | None = None) -> CheckRun:
     if case.locked_version is not None:
         raise PermissionError("התיק נעול לאחר אישור; לא ניתן להריץ בדיקה חדשה על הגרסה הנעולה")
@@ -309,12 +332,18 @@ def run_checks(s: Session, case: PermitCase, user: str, gateway: AIGateway | Non
         counts.setdefault(r.report, {}).setdefault(r.status, 0)
         counts[r.report][r.status] += 1
     gw = gateway or gateway_for(s, case.tenant_id)
-    draft = gw.route("ReportDraft", "CASE_DOCUMENT", {"findings": [r.as_dict() for r in results]},
+    passages = case_passages(case, results)
+    draft = gw.route("ReportDraft", "CASE_DOCUMENT", {"findings": [r.as_dict() for r in results], "passages": passages},
                      log=gateway_logger(s, case.tenant_id, case.id, user))
+    ok = draft.outcome in ("OK", "FALLBACK")
+    cited = set((draft.output or {}).get("citations") or []) if ok else set()
     run.duration_ms = int((time.perf_counter() - t0) * 1000)
     run.summary = {"counts": counts, "facts": {k: v for k, v in facts.items() if k != "measure"},
                    "ai_summary": (draft.output or {}).get("text") if draft.outcome in ("OK", "FALLBACK") else None,
-                   "ai_summary_outcome": draft.outcome, "ai_provider": draft.provider_id}
+                   "ai_summary_outcome": draft.outcome, "ai_provider": draft.provider_id,
+                   # passages given to the summary; `cited` = the summary refers to it by its id
+                   "kb_passages": [{**{k: v for k, v in p.items() if k != "text_he"}, "cited": p["id"] in cited}
+                                   for p in passages]}
     if case.status in ("INTAKE", "RETURNED_FOR_COMPLETION"):
         case.status = "IN_REVIEW"
     audit.record(s, case.tenant_id, user, "check.run", "check_run", run.id,

@@ -500,6 +500,10 @@ async def import_analyze(files: list[UploadFile] = File(...), p: Principal = Dep
         if total > settings.max_upload_mb * 1024 * 1024:
             raise HTTPException(413, f"סך הקבצים גדול מ־{settings.max_upload_mb}MB")
         uploads.append((f.filename or "upload", data))
+    linked = None
+    if settings.follow_request_links:          # download every attachment the request form links to
+        from .intake.attachments import expand
+        uploads, linked = expand(uploads)
     gw = _gateway_for(s, p.tenant_id)
     log = services.gateway_logger(s, p.tenant_id, None, p.id)
     route = lambda task, dc, payload: gw.route(task, dc, payload, log=log)  # noqa: E731
@@ -511,6 +515,11 @@ async def import_analyze(files: list[UploadFile] = File(...), p: Principal = Dep
         preview, blobs = analyze_package(uploads, route, existing_numbers, existing_hashes)
     except batch_import.ImportError_ as e:
         raise HTTPException(422, str(e)) from e
+    if linked is not None:
+        from .intake.attachments import group_linked
+        group_linked(preview, [n for n, _ in uploads if n not in {d["name"] for d in linked.downloaded}], linked)
+        preview["warnings"] = linked.warnings_he() + list(preview.get("warnings") or [])
+        preview["linked_files"] = linked.as_dict()
     token = dt.datetime.now().strftime("%Y%m%d%H%M%S") + "-" + uuid.uuid4().hex[:8]
     d = _import_dir(p.tenant_id, token)
     (d / "blobs").mkdir(parents=True, exist_ok=True)
@@ -524,7 +533,8 @@ async def import_analyze(files: list[UploadFile] = File(...), p: Principal = Dep
     s.add(batch)
     s.flush()
     audit.record(s, p.tenant_id, p.id, "import.analyze", "import_batch", batch.id,
-                 {"files": [n for n, _ in uploads], "counts": preview["counts"]})
+                 {"files": [n for n, _ in uploads], "counts": preview["counts"],
+                  "linked_files": linked.as_dict() if linked else None})
     s.commit()
     return {"token": token, "batch_id": batch.id, **preview}
 
@@ -816,7 +826,7 @@ def sources(p: Principal = Depends(current_user), s: Session = Depends(get_sessi
 
 @app.get("/api/kb/search")
 def kb_search(q: str, p: Principal = Depends(require("case.read")), s: Session = Depends(get_session)):
-    res = _gateway_for(s, p.tenant_id).route("Retrieval", "PUBLIC_REGULATION", {"query": q, "k": 6},
+    res = _gateway_for(s, p.tenant_id).route("Retrieval", "PUBLIC_REGULATION", {"query": q, "k": 6, "tenant_id": p.tenant_id},
                             log=services.gateway_logger(s, p.tenant_id, None, p.id))
     s.commit()
     return {"outcome": res.outcome, "provider": res.provider_id,

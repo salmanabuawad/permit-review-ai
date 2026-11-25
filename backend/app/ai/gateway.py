@@ -73,8 +73,12 @@ def _template_report(payload: dict) -> dict:
     fails = [x for x in f if x["status"] == "FAIL"]
     if fails:
         lines.append("אי-התאמות עיקריות: " + "; ".join(x["title_he"] for x in fails[:5]) + ".")
+    passages = payload.get("passages") or []
+    if passages:   # no model: list the passages retrieved for the open findings, without paraphrasing them
+        lines.append("קטעי ידע רלוונטיים לבדיקה: " + "; ".join(
+            f"{p.get('section')} ({p.get('source_title_he')}) [{p['id']}]" for p in passages[:4]) + ".")
     lines.append("כל ממצא מבוסס על מנוע הכללים ואסמכתאות; ההחלטה בסמכות הבודק המוסמך.")
-    return {"text": "\n".join(lines)}
+    return {"text": "\n".join(lines), "citations": [p["id"] for p in passages[:4]]}
 
 
 def llm_chat(model: str, prompt: str, json_mode: bool = False) -> str:
@@ -96,6 +100,43 @@ REPORT_PROMPT = (
     "מופיעים בממצאים. פתח במניין התוצאות, פרט את הממצאים 'לא עומד' ו'דורש בדיקה', וסיים במשפט: "
     "\"הסיכום הוא המלצה בלבד; ההחלטה בסמכות הבודק המוסמך.\" כתוב טקסט רגיל, ללא Markdown (ללא ** או #). "
     "הכללים הם 'כללים', לא 'תכניות'.\nממצאים (JSON):\n")
+
+
+KB_PROMPT = (
+    "\nקטעי ידע מהתכניות, מהחקיקה ומהנחיות הוועדה שחלים על התיק (JSON). חריג לכללים שלמעלה: מותר להוסיף עד שני "
+    "משפטים שמקשרים ממצא 'לא עומד' או 'דורש בדיקה' לקטע רלוונטי — רק במה שכתוב בקטע, כולל מספריו — ומיד אחרי "
+    "המשפט לציין את מזהה הקטע בסוגריים מרובעים, למשל [P-HA-633-5]. אל תצטט קטע שאינו קשור לממצא; אם אין קטע "
+    "רלוונטי, אל תזכיר קטעים כלל.\nקטעים (JSON):\n")
+CITATION = re.compile(r"\s*[\[(](P-[A-Za-z0-9.-]+)[\])]")    # [P-HA-633-5]; local models also write (P-HA-633-5)
+
+
+def _report_passages(payload: dict) -> list[dict]:
+    return [{"מזהה": p["id"], "מקור": p.get("source_title_he"), "עמוד": p.get("page"), "סעיף": p.get("section"),
+             "תוכן": p.get("text_he")} for p in payload.get("passages") or []]
+
+
+def report_prompt(payload: dict) -> tuple[str, str]:
+    """(prompt, grounding text): the findings, plus the case's knowledge passages when there are any. Every number
+    in the draft must appear in the grounding text."""
+    facts = json.dumps(_report_facts(payload.get("findings", [])), ensure_ascii=False)
+    passages = _report_passages(payload)
+    if not passages:
+        return REPORT_PROMPT + facts, facts
+    kb = json.dumps(passages, ensure_ascii=False)
+    return REPORT_PROMPT + facts + KB_PROMPT + kb, facts + kb
+
+
+def _keep_known_citations(text: str, payload: dict) -> tuple[str, list[str]]:
+    """Citations of passages that were given stay; any other bracketed id is removed (never shown as a source)."""
+    known = {p["id"] for p in payload.get("passages") or []}
+    used: list[str] = []
+
+    def keep(m):
+        if m.group(1) in known:
+            used.append(m.group(1)) if m.group(1) not in used else None
+            return f" [{m.group(1)}]"
+        return ""
+    return CITATION.sub(keep, text), used
 
 
 def _report_facts(findings: list[dict]) -> dict:
@@ -120,18 +161,19 @@ def _ollama(task: str, model: str, payload: dict) -> dict:
     prompt = {
         "Classification": "סווג את סוג המסמך לאחת הקטגוריות: " + ", ".join(DOC_KEYWORDS) +
                           ". החזר JSON {\"label\":...,\"confidence\":0..1}. טקסט:\n" + payload.get("text", "")[:4000],
-        "ReportDraft": REPORT_PROMPT + json.dumps(_report_facts(payload.get("findings", [])), ensure_ascii=False),
+        "ReportDraft": report_prompt(payload)[0],
     }[task]
     try:
         out = llm_chat(model, prompt, json_mode=task == "Classification")
     except Exception as exc:  # noqa: BLE001
         raise ProviderError(f"llm: {exc}") from exc
     if task == "ReportDraft":
-        facts = json.dumps(_report_facts(payload.get("findings", [])), ensure_ascii=False)
-        stray = _ungrounded_numbers(out, facts)
-        if stray:   # a number the findings do not contain = an invented fact -> the template drafts instead
-            raise ProviderError("טיוטת הדוח כללה נתונים שאינם בממצאים: " + ", ".join(stray[:5]))
-        return {"text": re.sub(r"\*\*|__|^#+\s*", "", out, flags=re.M).strip()}   # plain text: the report is not Markdown
+        grounding = report_prompt(payload)[1]
+        text, cited = _keep_known_citations(re.sub(r"\*\*|__|^#+\s*", "", out, flags=re.M).strip(), payload)
+        stray = _ungrounded_numbers(CITATION.sub("", text), grounding)
+        if stray:   # a number neither the findings nor the passages contain = an invented fact -> template instead
+            raise ProviderError("טיוטת הדוח כללה נתונים שאינם בממצאים או בקטעי הידע: " + ", ".join(stray[:5]))
+        return {"text": text, "citations": cited}   # plain text: the report is not Markdown
     if task == "Classification":
         try:
             return json.loads(out)
@@ -142,7 +184,7 @@ def _ollama(task: str, model: str, payload: dict) -> dict:
 
 def _bm25(payload: dict) -> dict:
     from ..knowledge import search
-    return {"hits": search(payload["query"], k=payload.get("k", 5))}
+    return {"hits": search(payload["query"], k=payload.get("k", 5), tenant_id=payload.get("tenant_id"))}
 
 
 def _rules_extract(payload: dict) -> dict:

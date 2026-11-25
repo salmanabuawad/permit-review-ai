@@ -43,6 +43,9 @@ class Settings:
     llm_relay_pickup_timeout_s: float = float(_env("LLM_RELAY_PICKUP_TIMEOUT", "15"))
     llm_relay_response_timeout_s: float = float(_env("LLM_RELAY_RESPONSE_TIMEOUT", "300"))
     max_upload_mb: int = int(_env("MAX_UPLOAD_MB", "200"))
+    # Request packages: files downloaded from the links inside an uploaded request form (intake/attachments.py)
+    follow_request_links: bool = _env("FOLLOW_REQUEST_LINKS", "true").lower() not in ("0", "false", "no")
+    max_package_mb: int = int(_env("MAX_PACKAGE_MB", "500"))
     # Pilot hard rule: no live external integrations.
     integrations_enabled: bool = _env("INTEGRATIONS_ENABLED", "false").lower() == "true"
     cors_origins: tuple[str, ...] = field(default_factory=lambda: tuple(

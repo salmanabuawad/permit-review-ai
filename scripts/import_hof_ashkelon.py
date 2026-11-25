@@ -29,7 +29,7 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 KNOWLEDGE = ROOT / "knowledge"
-SOURCES_FILE = KNOWLEDGE / "sources.d" / "hof_ashkelon.yaml"
+SOURCES_FILE = KNOWLEDGE / "sources.d" / "hof_ashkelon_docs.yaml"
 TEXT_DIR = KNOWLEDGE / "source_texts" / "hof_ashkelon"
 JURISDICTION = "hof-ashkelon"
 RECEIVED = "2026-11-25"

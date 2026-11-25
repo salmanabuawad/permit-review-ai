@@ -71,10 +71,22 @@ def _index():
     return docs, df, avgdl
 
 
-def search(query: str, k: int = 5) -> list[dict]:
+# Which passages a municipality's cases may draw on, by the source's `jurisdiction`. Sources without one (the hand-
+# curated sources.yaml and the 105 package) were gathered for Bnei Brak, so a Hof Ashkelon case never sees them.
+JURISDICTIONS_BY_TENANT = {"hof-ashkelon": {"hof-ashkelon", "national"}}
+DEFAULT_JURISDICTIONS = {None, "bnei-brak", "national"}
+
+
+def allowed_jurisdictions(tenant_id: str | None) -> set | None:
+    """None = no filter (no tenant given)."""
+    return None if tenant_id is None else JURISDICTIONS_BY_TENANT.get(tenant_id, DEFAULT_JURISDICTIONS)
+
+
+def search(query: str, k: int = 5, tenant_id: str | None = None) -> list[dict]:
     docs, df, avgdl = _index()
     passages = load_passages()
     sources = load_sources()
+    allowed = allowed_jurisdictions(tenant_id)
     q = tokenize(query)
     n = len(docs)
     k1, b = 1.5, 0.75
@@ -87,7 +99,7 @@ def search(query: str, k: int = 5) -> list[dict]:
                 continue
             idf = math.log(1 + (n - df[t] + 0.5) / (df[t] + 0.5))
             s += idf * f * (k1 + 1) / (f + k1 * (1 - b + b * len(d) / avgdl))
-        if s > 0:
+        if s > 0 and (allowed is None or sources[passages[i]["source_id"]].get("jurisdiction") in allowed):
             scored.append((s, i))
     scored.sort(reverse=True)
     hits = []
