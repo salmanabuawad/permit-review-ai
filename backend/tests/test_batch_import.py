@@ -95,6 +95,14 @@ def test_bad_files_do_not_stop_the_batch():
     assert res["counts"]["applications"] == 2                 # the valid PDF was still processed
 
 
+def test_nested_zip_opened_one_level():
+    """An external body's response: a ZIP of PDFs inside the attachment ZIP is opened; a third level is skipped."""
+    inner = _zip({"Response.pdf": b"%PDF-1.4 r", "deeper.zip": _zip({"x.pdf": b"%PDF-1.4"})})
+    out, warnings = bi.unpack([("response.zip", _zip({"Response_1.zip": inner}))])
+    assert [n for _, n, _ in out] == ["Response.pdf"]
+    assert any("מקונן" in w and "deeper.zip" in w for w in warnings)
+
+
 # ---------------------------------------------------------------- API
 @pytest.fixture(scope="module")
 def client():

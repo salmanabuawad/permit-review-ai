@@ -480,3 +480,12 @@ tr.selected td { background: #eef4ff; }
   .rr details { display: block; }
   .rr-item { break-inside: avoid; }
 }
+
+/* defects report view: light red = confirmed defect, light orange = documented discrepancy, neutral = internal */
+.rr-card.disc { background: #ffe8cc; color: #b45309; border-color: #f6c79a; }
+.rr-sec.disc h3 { color: #b45309; }
+.rr-item.defect { background: #fde2e2; border-inline-start: 4px solid var(--fail); }
+.rr-item.discrepancy { background: #ffe8cc; border-inline-start: 4px solid #f59e0b; }
+.rr-tag { font-size: 11px; font-weight: 500; margin-inline-start: 8px; padding: 1px 6px; border-radius: 8px; background: rgba(0,0,0,.06); }
+.rr-internal-title { margin: 22px 0 6px; font-size: 14px; color: var(--na); border-top: 1px solid var(--line, #e2e5ea); padding-top: 12px; }
+.rr-sec.internal h3 { color: var(--na); font-size: 14px; }

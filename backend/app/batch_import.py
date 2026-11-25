@@ -272,8 +272,10 @@ def _safe_name(name: str) -> str:
     return "".join(c for c in base if c not in '<>:"/\\|?*') or "file"
 
 
-def unpack(files: list[tuple[str, bytes]]) -> tuple[list[tuple[str, str, bytes]], list[str]]:
-    """Flatten uploads into (group, name, data). group = top-level ZIP folder or '' (root/loose)."""
+def unpack(files: list[tuple[str, bytes]], _depth: int = 0) -> tuple[list[tuple[str, str, bytes]], list[str]]:
+    """Flatten uploads into (group, name, data). group = top-level ZIP folder or '' (root/loose).
+    A ZIP inside a ZIP is opened one level deep (an external body's response is often a ZIP of PDFs inside the
+    attachment ZIP), with the same limits; deeper nesting is skipped."""
     out, warnings = [], []
     for name, data in files:
         if name.lower().endswith(".zip"):
@@ -292,10 +294,19 @@ def unpack(files: list[tuple[str, bytes]]) -> tuple[list[tuple[str, str, bytes]]
                 parts = [p for p in PurePosixPath(i.filename.replace("\\", "/")).parts if p not in ("", ".")]
                 if any(p == ".." for p in parts) or i.filename.startswith("/"):
                     raise ImportError_(f"נתיב לא בטוח ב־ZIP: {i.filename}")
-                if parts[-1].lower().endswith(".zip"):
-                    warnings.append(f"ZIP מקונן דולג: {i.filename}")
-                    continue
                 group = parts[0] if len(parts) > 1 else ""
+                if parts[-1].lower().endswith(".zip"):
+                    if _depth >= 1:
+                        warnings.append(f"ZIP מקונן דולג: {i.filename}")
+                        continue
+                    try:
+                        inner, w = unpack([(parts[-1], z.read(i))], _depth + 1)
+                    except ImportError_ as exc:
+                        warnings.append(f"ZIP מקונן דולג ({exc}): {i.filename}")
+                        continue
+                    warnings += w
+                    out += [(group or g, n, d) for g, n, d in inner]
+                    continue
                 out.append((group, _safe_name(parts[-1]), z.read(i)))
         else:
             out.append(("", _safe_name(name), data))

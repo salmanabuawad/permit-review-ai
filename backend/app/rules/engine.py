@@ -246,7 +246,7 @@ def _citations(rule: Rule, sources: dict) -> list[dict]:
             "url": src.get("url"), "edition": src.get("edition"),
             "page": c.get("page"), "section": c.get("section"),
             "verification": src.get("verification", "UNKNOWN"),
-            "quote_he": c.get("quote_he"),
+            "quote_he": c.get("quote_he"), "jurisdiction": src.get("jurisdiction"),
         })
     return out
 

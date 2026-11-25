@@ -439,6 +439,32 @@ def report_pdf(run_id: str, kind: str, p: Principal = Depends(require("case.read
                     headers={"Content-Disposition": f'inline; filename="{kind}_{r.case.case_number}_v{r.version}.pdf"'})
 
 
+@app.get("/api/runs/{run_id}/defects")
+def defects_report(run_id: str, p: Principal = Depends(require("case.read")), s: Session = Depends(get_session)):
+    """The external defects report's content (JSON): confirmed defects and documented discrepancies only."""
+    from .defects_report import build_defects
+    r = _run(s, p, run_id)
+    return build_defects(r.case, r)
+
+
+@app.get("/api/runs/{run_id}/defects.{fmt}")
+def defects_file(run_id: str, fmt: str, p: Principal = Depends(require("case.read")), s: Session = Depends(get_session)):
+    from urllib.parse import quote
+    from .defects_report import build_defects, render_defects_docx, render_defects_pdf
+    if fmt not in ("pdf", "docx"):
+        raise HTTPException(404)
+    r = _run(s, p, run_id)
+    rep = build_defects(r.case, r)
+    data = render_defects_pdf(rep) if fmt == "pdf" else render_defects_docx(rep)
+    audit.record(s, p.tenant_id, p.id, "report.export", "check_run", r.id, {"kind": "defects", "format": fmt,
+                                                                           "items": len(rep["items"])})
+    s.commit()
+    media = "application/pdf" if fmt == "pdf" else "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    name = f"defects_{r.case.case_number}_v{r.version}.{fmt}"
+    return Response(data, media_type=media, headers={
+        "Content-Disposition": f"{'inline' if fmt == 'pdf' else 'attachment'}; filename=\"{name}\"; filename*=UTF-8''{quote(name)}"})
+
+
 class DecisionIn(BaseModel):
     decision: str     # CONFIRMED | OVERRIDDEN
     note: str

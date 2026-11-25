@@ -203,6 +203,7 @@ rules:
 
   # ---------------------------------------------------------------- conditions for a permit (section 6.1)
   - id: HA-633-COND-BINUI-PLAN
+    licensing_stage: PERMIT_ISSUANCE
     version: "0.1"
     title_he: "תנאי להיתר: תכנית בינוי ופיתוח מאושרת ע\"י הוועדה המקומית לתא השטח (365-368)"
     legal_level: STATUTORY_PLAN
@@ -234,6 +235,7 @@ rules:
       - {source_id: HA-PLAN-633-0723718, section: "6.1 ג", page: 14, quote_he: "תוכנית פיתוח תואמת לסביבת כל מבנה מבוקש, וכן תכניות המבנה, חתכים וחזיתות בקנ\"מ 1:100"}
 
   - id: HA-633-COND-WELLS
+    licensing_stage: PERMIT_ISSUANCE
     version: "0.1"
     title_he: "תנאי להיתר ברדיוס מגן של קידוח מי שתייה (שקמה 7/8/9): אישור משרד הבריאות ומקורות"
     legal_level: STATUTORY_PLAN
@@ -248,6 +250,7 @@ rules:
       - {source_id: HA-PLAN-633-0723718, section: "6.1 ב; 6.4 ב(3)-(4)", page: 15, quote_he: "באזור מגן ב' אסורים כל בניה, התקנה או פעילות העלולים לזהם את הקידוח, כגון: מבני מגורים"}
 
   - id: HA-633-COND-DEMOLITION
+    licensing_stage: PERMIT_ISSUANCE
     version: "0.1"
     title_he: "תנאי להיתר: הריסת המבנים המסומנים להריסה בתחום התכנית"
     legal_level: STATUTORY_PLAN
@@ -262,6 +265,7 @@ rules:
       - {source_id: HA-PLAN-633-0723718, section: "6.1 ד", page: 14, quote_he: "תנאי למתן היתרי בניה יהיה הריסת מבנים המסומנים להריסה בתחום התכנית"}
 
   - id: HA-633-COND-HFC
+    licensing_stage: DESIGN_CONTROL
     version: "0.1"
     title_he: "תנאי להיתר: אישור פיקוד העורף לפתרונות המיגון במגרש"
     legal_level: STATUTORY_PLAN
@@ -290,6 +294,7 @@ rules:
       - {source_id: HA-PLAN-633-0723718, section: "6.1 ח", page: 14, quote_he: "בקשה להיתר תכלול חישוב מוערך של כמות פסולת בנין ועודפי עפר הצפויים עקב עבודות הבניה ואישור על פינוים לאתר מוסדר"}
 
   - id: HA-633-COND-ELECTRIC
+    licensing_stage: PERMIT_ISSUANCE
     version: "0.1"
     title_he: "תנאי להיתר: תיאום עם ספק החשמל (חדר שנאים/מיתוג, קווים, מרחקי בנייה)"
     legal_level: STATUTORY_PLAN
@@ -336,6 +341,7 @@ rules:
       - {source_id: NOP-34-B-4}
 
   - id: HA-633-TREES-4M
+    licensing_stage: CONSTRUCTION
     version: "0.1"
     title_he: "עבודה במרחק < 4 מ׳ מעץ לשימור — לפי הנחיות מומחה ונוהל פקיד היערות; העתקה/כריתה ברישיון פקיד היערות"
     legal_level: STATUTORY_PLAN
@@ -366,6 +372,7 @@ rules:
       - {source_id: HA-PLAN-633-0723718, section: "4.1.2 ג(3)", page: 11, quote_he: "אין לבצע כל עבודות תשתית ועבודות פיתוח במרחק הקטן מ- 5 מ' מקווי מקורות"}
 
   - id: HA-633-ANTIQUITIES
+    licensing_stage: COMMENCEMENT
     version: "0.1"
     title_he: "עבודה בשטח המוגדר כעתיקות — בתיאום ובאישור רשות העתיקות"
     legal_level: STATUTORY_PLAN
@@ -395,6 +402,7 @@ rules:
       - {source_id: HA-PLAN-633-0723718, section: "6.10 חניה", page: 18, quote_he: "מקומות חניה יסומנו בתכנית הבינוי לכל מתחם, בתחום תאי השטח למגורים ועל פי תקן חניה ארצי"}
 
   - id: HA-633-BETTERMENT-LEVY
+    licensing_stage: PERMIT_ISSUANCE
     version: "0.1"
     title_he: "חבות בהיטל השבחה (לפי תכנית החלה) — הגובה ייקבע לאחר אישור עקרוני"
     legal_level: CASE_INFO
@@ -411,6 +419,7 @@ rules:
 
   # ---------------------------------------------------------------- lot 368 ledger: the request against the register
   - id: HA-368-REGISTRY-STATUS
+    external: false          # the committee's own status: audit record only, never a basis for a finding
     version: "0.1"
     title_he: "סטטוס הבקשה במאגר הוועדה"
     legal_level: CASE_INFO
@@ -454,3 +463,64 @@ rules:
     fix_hint_he: "ליישב בין טבלת השטחים לבין הבקשות הרשומות לאותן יחידות (עיקרי/שירות) ולעדכן את המסמך השגוי."
     sources:
       - {source_id: HA-REGISTRY-LOT368, section: "שטח עיקרי / שטח שירות לבקשה"}
+
+  # ---------------------------------------------------------------- added 2026-11-25: consolidated review update
+  - id: HA-AREA-DIAGRAMS
+    version: "0.1"
+    title_he: "השטחים המוצהרים תואמים את תרשימי חישוב השטחים (מדידה גיאומטרית), ללא חפיפות או כפילויות"
+    legal_level: REGULATION
+    report: rights
+    severity: high
+    review_state: PROFESSIONALLY_APPROVED
+    reviewer: approved-by-default (system owner instruction, 2026-11-25)
+    licensing_stage: SPATIAL_REVIEW
+    check: {kind: qualitative}
+    fix_hint_he: "לתקן את טבלת השטחים או את תרשימי חישוב השטחים כך שיתאימו, ולהסיר שטחים שנספרו פעמיים."
+    sources:
+      - {source_id: HA-65B1B9A5DE, section: "חישוב שטחים ואחוזי בנייה בתכניות ובהיתרים"}
+      - {source_id: HA-ED8592A090, section: "חישוב שטחים לפי מודול אוטומטי; יש לחשב את כל השטחים המקורים", quote_he: "חישוב שטחים לפי מודול אוטומטי"}
+    notes: "Sources A (declared) vs B (diagram polygons, agent/area_geometry.py). Source C (reconstruction from the floor plans) is not implemented."
+
+  - id: HA-368-TABLE-VS-PERMITS
+    version: "0.1"
+    title_he: "טבלת הזכויות המצטברת בבקשה תואמת את טבלאות השטחים בהיתרים ההיסטוריים של המגרש"
+    legal_level: CASE_INFO
+    report: rights
+    severity: high
+    review_state: PROFESSIONALLY_APPROVED
+    reviewer: approved-by-default (system owner instruction, 2026-11-25)
+    licensing_stage: SPATIAL_REVIEW
+    spatial_scope: {plans: ["633-0723718"]}
+    check: {kind: qualitative}
+    fix_hint_he: "לעדכן את מאזן הזכויות המצטבר לשטחים שאושרו בהיתרים, או להציג אסמכתה מאוחרת."
+    sources:
+      - {source_id: HA-PERMITS-LOT368, section: "טבלאות השטחים בתכניות ההיתר 20210501, 20210495"}
+
+  - id: HA-LAND-PARCEL
+    version: "0.1"
+    title_he: "נסח המקרקעין שצורף להוכחת הבעלות הוא לחלקה המוצהרת בבקשה"
+    legal_level: REGULATION
+    report: completeness
+    severity: medium
+    review_state: PROFESSIONALLY_APPROVED
+    reviewer: approved-by-default (system owner instruction, 2026-11-25)
+    licensing_stage: PRELIMINARY_ACCEPTANCE
+    check: {kind: qualitative}
+    fix_hint_he: "לצרף נסח לחלקה המוצהרת או לתקן את פרטי המקרקעין."
+    sources:
+      - {source_id: HA-ED8592A090, section: "הנחיות לעריכת בקשה להיתר — מסמכי בעלות", quote_he: "הנחיות לעריכת בקשה להיתר"}
+
+  - id: HA-RMI-CONSENT
+    licensing_stage: PERMIT_ISSUANCE
+    version: "0.1"
+    title_he: "הסכמת רשות מקרקעי ישראל למתן ההיתר"
+    legal_level: REGULATION
+    report: completeness
+    severity: medium
+    review_state: PROFESSIONALLY_APPROVED
+    reviewer: approved-by-default (system owner instruction, 2026-11-25)
+    check: {kind: qualitative}
+    fix_hint_he: "להגיש בקשה מקוונת להסכמת רמ\"י לאחר החלטת ועדת התכנון."
+    sources:
+      - {source_id: HA-ED8592A090, section: "הסכמת בעלי הזכויות במקרקעין", quote_he: "הנחיות לעריכת בקשה להיתר"}
+

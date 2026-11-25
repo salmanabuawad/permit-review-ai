@@ -73,7 +73,8 @@ def build_report(s: Session, case: PermitCase, run: CheckRun, kind: str) -> dict
                  "track": case.track, "zone": case.zone, "plans": case.applicable_plans, "is_demo": case.is_demo},
         "run": {"version": run.version, "at": run.started_at.isoformat(), "ruleset_hash": run.ruleset_hash,
                 "inputs": run.input_hashes, "duration_ms": run.duration_ms, "locked": run.locked,
-                "ai_summary": run.summary.get("ai_summary"), "kb_passages": run.summary.get("kb_passages") or []},
+                "ai_summary": run.summary.get("ai_summary"), "kb_passages": run.summary.get("kb_passages") or [],
+                "review": run.summary.get("review")},
         "findings": [{
             "id": f.id, "rule_id": f.rule_id, "rule_version": f.rule_version, "report": f.report,
             "status": f.status, "computed_result": f.computed_result, "severity": f.severity,

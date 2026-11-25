@@ -409,6 +409,64 @@ def issue_type(rule: Rule | None, r) -> str:
     return ISSUE_BY_KIND.get(kind, "INVALID")
 
 
+# ------------------------------------------------------------------ review statuses, licensing stage, decision
+STAGES = ("PRELIMINARY_ACCEPTANCE", "SPATIAL_REVIEW", "DECISION", "DESIGN_CONTROL", "PERMIT_ISSUANCE", "COMMENCEMENT",
+          "CONSTRUCTION", "COMPLETION")
+STAGE_HE = {"PRELIMINARY_ACCEPTANCE": "קליטה מקדמית", "SPATIAL_REVIEW": "בקרה מרחבית", "DECISION": "החלטת רשות הרישוי",
+            "DESIGN_CONTROL": "בקרת תכן", "PERMIT_ISSUANCE": "הוצאת היתר", "COMMENCEMENT": "תחילת עבודות",
+            "CONSTRUCTION": "ביצוע", "COMPLETION": "תעודת גמר"}
+REGISTER_STAGE = (("בקרה מרחבית", "SPATIAL_REVIEW"), ("הגשה", "SPATIAL_REVIEW"), ("קליטה", "PRELIMINARY_ACCEPTANCE"),
+                  ("בקרת תכן", "DESIGN_CONTROL"), ("מאושר", "DESIGN_CONTROL"), ("היתר", "CONSTRUCTION"), ("גמר", "COMPLETION"))
+EXTERNAL_STATUSES = ("CONFIRMED_DEFECT", "DOCUMENTED_DISCREPANCY")
+
+
+def licensing_stage(case: PermitCase, register_status: str | None) -> tuple[str, str]:
+    """(stage, how it was set): declared on the case, else from the committee register's status, else spatial review."""
+    st = (case.declared or {}).get("licensing_stage")
+    if st in STAGES:
+        return st, "הוצהר בתיק"
+    for key, stage in REGISTER_STAGE:
+        if register_status and key in register_status:
+            return stage, f"לפי סטטוס הבקשה במאגר הוועדה: {register_status}"
+    return "SPATIAL_REVIEW", "ברירת מחדל — בקשה שהוגשה נבדקת בבקרה מרחבית"
+
+
+def review_status(rule: Rule | None, r, issue: str, stage: str) -> str:
+    """PASS | CONFIRMED_DEFECT | DOCUMENTED_DISCREPANCY | UNRESOLVED | NOT_CHECKED | NOT_APPLICABLE | FUTURE_STAGE.
+    A resolver may set it (flag REVIEW:x). A requirement of a later licensing stage is never a current defect."""
+    if issue == "OK":
+        return "PASS"
+    if issue == "NA":
+        return "NOT_APPLICABLE"
+    override = next((f.split(":", 1)[1] for f in r.flags if f.startswith("REVIEW:")), None)
+    rule_stage = (rule.raw.get("licensing_stage") if rule else None) or "SPATIAL_REVIEW"
+    if issue in ("MISSING", "CONFLICT", "INVALID") and STAGES.index(rule_stage) > STAGES.index(stage):
+        return "FUTURE_STAGE"
+    if override:
+        return override
+    if issue == "OPEN":
+        return "NOT_CHECKED" if "NEEDS_DRAWING_READ" in r.flags or not r.evidence else "UNRESOLVED"
+    return "DOCUMENTED_DISCREPANCY" if issue == "CONFLICT" else "CONFIRMED_DEFECT"
+
+
+def final_decision(results, by_id: dict) -> tuple[str, str]:
+    """NO_DEFECTS_IDENTIFIED | RETURN_FOR_CORRECTIONS | REJECT_RECOMMENDATION | INSUFFICIENT_EVIDENCE_FOR_FINAL_DECISION.
+    Rejection needs a substantive basis — a confirmed defect of a rule marked reject_basis; never missing documents,
+    an incomplete check or the official register status alone."""
+    status = {r.rule_id: next(f[7:] for f in r.flags if f.startswith("STATUS_")) for r in results}
+    external = [r for r in results if "EXTERNAL" in r.flags]
+    if any(status[r.rule_id] == "CONFIRMED_DEFECT" and (by_id.get(r.rule_id) and by_id[r.rule_id].raw.get("reject_basis"))
+           for r in external):
+        return "REJECT_RECOMMENDATION", "נמצא ליקוי מהותי שאינו ניתן לתיקון במסגרת הבקשה"
+    if external:
+        return "RETURN_FOR_CORRECTIONS", f"{len(external)} ליקויים ופערים מתועדים מחייבים תיקון או הבהרה"
+    open_ = [r for r in results if status[r.rule_id] in ("UNRESOLVED", "NOT_CHECKED")
+             and (by_id.get(r.rule_id) and by_id[r.rule_id].severity in ("high", "critical"))]
+    if open_:
+        return "INSUFFICIENT_EVIDENCE_FOR_FINAL_DECISION", f"{len(open_)} בדיקות מהותיות לא הושלמו"
+    return "NO_DEFECTS_IDENTIFIED", "לא נמצאו ליקויים בבדיקות שהושלמו"
+
+
 def run_checks(s: Session, case: PermitCase, user: str, gateway: AIGateway | None = None) -> CheckRun:
     if case.locked_version is not None:
         raise PermissionError("התיק נעול לאחר אישור; לא ניתן להריץ בדיקה חדשה על הגרסה הנעולה")
@@ -453,8 +511,23 @@ def run_checks(s: Session, case: PermitCase, user: str, gateway: AIGateway | Non
                                     f"מפת המדידה בתוקף לכל היותר עד {dt.date.fromisoformat(until).strftime('%d.%m.%Y')}, "
                                     f"והבקשה הוגשה ב־{dt.date.fromisoformat(facts['case']['reference_date']).strftime('%d.%m.%Y')}.")
     by_id = {x.id: x for x in rules}
+    from .rules.evidence import load_ledger, request_units, Context, find_cell
+    register_status = None
+    ledger = load_ledger(case.gush, find_cell(docs))
+    if ledger:
+        units = request_units(Context([], case.declared or {}, case.title or "", None, {}, []))
+        rec = next((x for x in ledger["records"] if units and tuple(sorted(x.get("units") or [])) == units), None)
+        register_status = rec and rec.get("status")
+    stage, stage_how = licensing_stage(case, register_status)
     for r in results:
-        r.flags = [f for f in r.flags if not f.startswith("ISSUE_")] + ["ISSUE_" + issue_type(by_id.get(r.rule_id), r)]
+        rule = by_id.get(r.rule_id)
+        issue = issue_type(rule, r)
+        status = review_status(rule, r, issue, stage)
+        internal = "INTERNAL" in r.flags or (rule is not None and rule.raw.get("external") is False)
+        r.flags = ([f for f in r.flags if not f.startswith(("ISSUE_", "STATUS_")) and f != "EXTERNAL"]
+                   + ["ISSUE_" + issue, "STATUS_" + status]
+                   + (["EXTERNAL"] if status in EXTERNAL_STATUSES and not internal else []))
+    decision, decision_why = final_decision(results, by_id)
     ver = (s.scalar(select(func.max(CheckRun.version)).where(CheckRun.case_id == case.id)) or 0) + 1
     run = CheckRun(tenant_id=case.tenant_id, case_id=case.id, version=ver, ruleset_hash=ruleset_hash(rules),
                    input_hashes=[{"file": f.filename, "sha256": f.sha256, "version": f.version}
@@ -476,7 +549,20 @@ def run_checks(s: Session, case: PermitCase, user: str, gateway: AIGateway | Non
     ok = draft.outcome in ("OK", "FALLBACK")
     cited = set((draft.output or {}).get("citations") or []) if ok else set()
     run.duration_ms = int((time.perf_counter() - t0) * 1000)
+    review_counts: dict = {}
+    for r in results:
+        st = next(f[7:] for f in r.flags if f.startswith("STATUS_"))
+        review_counts[st] = review_counts.get(st, 0) + 1
+    done = sum(v for k, v in review_counts.items() if k not in ("UNRESOLVED", "NOT_CHECKED", "NOT_APPLICABLE", "FUTURE_STAGE"))
+    applicable = sum(v for k, v in review_counts.items() if k not in ("NOT_APPLICABLE", "FUTURE_STAGE"))
     run.summary = {"counts": counts, "facts": {k: v for k, v in facts.items() if k != "measure"},
+                   "review": {"stage": stage, "stage_he": STAGE_HE[stage], "stage_source": stage_how,
+                              "decision": decision, "decision_why": decision_why, "counts": review_counts,
+                              "coverage": {"completed": done, "applicable": applicable},
+                              "external_findings": sum(1 for r in results if "EXTERNAL" in r.flags),
+                              "limitations_he": [
+                                  "מקור ג׳ של בדיקת השטחים (שחזור מתכניות הקומות) לא בוצע.",
+                                  "בדיקות שלא הושלמו: " + str(review_counts.get("UNRESOLVED", 0) + review_counts.get("NOT_CHECKED", 0)) + "."]},
                    "ai_summary": (draft.output or {}).get("text") if draft.outcome in ("OK", "FALLBACK") else None,
                    "ai_summary_outcome": draft.outcome, "ai_provider": draft.provider_id,
                    # passages given to the summary; `cited` = the summary refers to it by its id

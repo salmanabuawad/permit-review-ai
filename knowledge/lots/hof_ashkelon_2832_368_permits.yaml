@@ -1,0 +1,49 @@
+# Historical permit reconciliation — Zikim, block 2832 lot 368. Area tables of signed permit drawings, read from the
+# documents the committee's public register publishes for each permit (exports/lot_368_zikim, snapshot 25.11.2026).
+#
+# The drawings' area tables are drawn as vector lines (SHX font), with no text layer, so the values were transcribed
+# from the rendered table (crop saved under evidence/) and are accepted only when the table's own arithmetic closes:
+# existing + added = total primary; primary + service = building total; unit rows sum to the totals. Values that do
+# not close are kept and flagged, never corrected. These are facts about historical permits of the lot, not rules.
+source_id: HA-PERMITS-LOT368
+permits:
+  - permit: "20210501"
+    building: "112"
+    kind: addition                     # "תוספת של כ-14 מ"ר לבית מגורים קיים מהיתר מספר 20190723"
+    amends: "20190723"
+    document: "295766"
+    document_sha256: 527cd7932b78424235ff2a57d34a39314431a595c2e2259caf02ee0f6c846761
+    source_url: https://hoa.bartech-net.co.il/PermitApplicationDetails?Definement_Entity_Type=83&Entity_Type=P&Entity_Number=20210501
+    evidence_crop: evidence/20210501_295766_area_table.png
+    read_method: transcribed from the drawn table; 13.44 also in the text layer (calculation "104.61 - 91.17 = 13.44")
+    table:
+      primary_existing: "265.70"
+      primary_added: "13.44"
+      primary_total: "279.14"
+      service_total_stated: "179.35"
+      service_components_sum: "170.14"   # 20.49 + 93.62 + 34.19 + 21.84 (= existing-building column 170.14)
+      building_total: "449.28"
+    arithmetic:
+      - {check: "primary_existing + primary_added = primary_total", result: "265.70 + 13.44 = 279.14", closes: true}
+      - {check: "primary_total + service_components_sum = building_total", result: "279.14 + 170.14 = 449.28", closes: true}
+      - {check: "service_total_stated = service_components_sum", result: "179.35 ≠ 170.14 (9.21)", closes: false}
+  - permit: "20210495"
+    building: "114"
+    kind: addition                     # "שינוי חזית מהיתר מספר 20190722 ... ועדכון בחישוב שטחים"
+    amends: "20190722"
+    document: "295961"
+    document_sha256: 9673016c85c28fb30c7bf1cb707d826332d277725ccf9a27afdcd3e9570ea869
+    source_url: https://hoa.bartech-net.co.il/PermitApplicationDetails?Definement_Entity_Type=83&Entity_Type=P&Entity_Number=20210495
+    evidence_crop: evidence/20210495_295961_area_table.png
+    read_method: transcribed from the drawn table
+    table:
+      primary_existing: "273.76"
+      primary_added: "0.00"
+      primary_total: "273.76"            # unit A 129.64 + unit B 144.12
+      service_total_stated: "104.38"     # unit A 53.47 + unit B 50.91
+      service_components_sum: "103.76"   # 4.53 + 61.18 + 16.21 + 21.84
+      building_total: "378.14"           # unit A 183.11 + unit B 195.03
+    arithmetic:
+      - {check: "unit primaries sum to primary_total", result: "129.64 + 144.12 = 273.76", closes: true}
+      - {check: "primary_total + service_total_stated = building_total", result: "273.76 + 104.38 = 378.14", closes: true}
+      - {check: "service_total_stated = service_components_sum", result: "104.38 ≠ 103.76 (0.62)", closes: false}

@@ -16,8 +16,13 @@ export interface Finding {
 }
 export interface Report {
   kind: string; title_he: string; disclaimer_he: string; case: any
-  run: { version: number; at: string; ruleset_hash: string; inputs: any[]; duration_ms: number; locked: boolean; ai_summary: string | null; kb_passages?: KbPassage[] }
+  run: { version: number; at: string; ruleset_hash: string; inputs: any[]; duration_ms: number; locked: boolean; ai_summary: string | null; kb_passages?: KbPassage[]; review?: Review | null; id?: string }
   findings: Finding[]; measurements: Record<string, any>
+}
+export interface Review {
+  stage: string; stage_he: string; stage_source: string; decision: string; decision_why: string
+  counts: Record<string, number>; coverage: { completed: number; applicable: number }; external_findings: number
+  limitations_he: string[]
 }
 export interface CaseFile {
   id: string; filename: string; doc_type: string; kind: string; suggested_doc_type: string | null

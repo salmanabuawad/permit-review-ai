@@ -50,9 +50,16 @@ class Doc:
 
 @dataclass
 class Resolution:
-    status: str                            # PASS | FAIL | NA
+    status: str                            # PASS | FAIL | NA | UNCERTAIN
     explanation_he: str
     evidence: list[dict] = field(default_factory=list)
+    # review status when it is not the default for the rule (services.review_status): CONFIRMED_DEFECT,
+    # DOCUMENTED_DISCREPANCY, UNRESOLVED, NOT_CHECKED, FUTURE_STAGE
+    review: str | None = None
+    # sub-findings, each its own line in the defects report: {review, title_he, found_he, expected_he, diff,
+    # where_he, correction_he, impact_he, evidence: [...]}
+    items: list[dict] = field(default_factory=list)
+    internal: bool = False                 # kept out of the external defects report (stays in the audit record)
 
 
 def ev(doc: Doc | None, page: int | None, quote: str, source: str | None = None) -> dict:
@@ -191,9 +198,14 @@ def r_table_arithmetic(ctx):
     quote = (f"{len(rows)} שורות: עיקרי {sums['main']}, שירות {sums['service']}, סה\"כ {sums['total']}, {sums['units']} יח\"ד; "
              f"מודפס: עיקרי {printed['main']}, שירות {printed['service']}, סה\"כ {printed['total']}")
     e = [ev(where["doc"], where["page"], quote)]
-    bad = [k for k, d in diffs.items() if d > (0 if k == "units" else type(d)("0.05"))]
+    # each row is printed to 2 decimals, so the sum of n rounded rows may differ from the exact total by up to n × 0.005
+    tol = type(rows[0]["main"])("0.005") * len(rows)
+    bad = [k for k, d in diffs.items() if d > (0 if k == "units" else tol)]
     if not bad:
-        return Resolution("PASS", f"סכום {len(rows)} השורות תואם את שורת הסה\"כ ({sums['units']} יח\"ד).", e)
+        within = [k for k, d in diffs.items() if d and k != "units"]
+        note = (f" הפרשים קטנים ({', '.join(f'{k} {diffs[k]}' for k in within)}) בתוך שגיאת העיגול של {len(rows)} שורות "
+                f"ב־2 ספרות (עד {tol}).") if within else ""
+        return Resolution("PASS", f"סכום {len(rows)} השורות תואם את שורת הסה\"כ ({sums['units']} יח\"ד).{note}", e)
     he = {"main": "עיקרי", "service": "שירות", "total": "סה\"כ", "units": "יח\"ד"}
     return Resolution("FAIL", "סכום השורות בטבלת השטחים אינו תואם את הסה\"כ המודפס: " + "; ".join(
         f"{he[k]} — סכום {sums[k]} מול {printed[k]} (הפרש {diffs[k]})" for k in bad) + ".", e)
@@ -234,7 +246,12 @@ def r_table_vs_registry(ctx):
     src = ev(where["doc"], where["page"], f"השוואת {checked} מבנים חדשים בטבלת השטחים לבקשות במאגר הוועדה (צילום 25.11.2026)")
     note = f" במאגר, שדה השטח העיקרי של {', '.join(misfiled)} מכיל את סה\"כ השטח — רישום שגוי במאגר, ללא סתירה לטבלה." if misfiled else ""
     if conflicts:
-        return Resolution("FAIL", "סתירה בין טבלת השטחים לבין השטחים הרשומים במאגר הוועדה: " + "; ".join(conflicts) + "." + note, [src])
+        items = [{"review": "DOCUMENTED_DISCREPANCY", "title_he": "פער בין טבלת הזכויות המצטברת לבין מאגר הוועדה",
+                  "found_he": c, "where_he": "טבלת חישוב השטחים של מגרש 368; מאגר הבקשות של הוועדה",
+                  "impact_he": "הערך משמש במאזן הזכויות המצטבר שצורף לבקשה; לא הוכרע איזה מקור מעודכן. אין לייחס את הפער לעורך הבקשה.",
+                  "correction_he": "להציג אסמכתה לערך שבטבלה או לעדכן את הטבלה."} for c in conflicts]
+        return Resolution("FAIL", "פער בין טבלת השטחים לבין השטחים הרשומים במאגר הוועדה: " + "; ".join(conflicts) + "." + note, [src],
+                          review="DOCUMENTED_DISCREPANCY", items=items)
     return Resolution("PASS", f"שטחי {checked} המבנים החדשים בטבלה תואמים את הרשום במאגר הוועדה." + note, [src])
 
 
@@ -248,9 +265,9 @@ def r_registry_status(ctx):
     e = [{"type": "document", "file": "מאגר הוועדה", "page": None, "method": "צילום מצב של מאגר הבקשות",
           "quote": f"בקשה {rec['application_id']} (יחידות {units[0]}-{units[1]}): {rec['status']} — {rec['source_url']}"}]
     if "לא תקינה" in (rec["status"] or ""):
-        return Resolution("FAIL", f"במאגר הוועדה הבקשה ({rec['application_id']}) בסטטוס \"{rec['status']}\" — הבקרה המרחבית של הוועדה "
-                                  "קבעה שהבקשה אינה תקינה; הסיבה לא פורסמה במאגר.", e)
-    return Resolution("PASS", f"במאגר הוועדה הבקשה ({rec['application_id']}) בסטטוס \"{rec['status']}\".", e)
+        return Resolution("FAIL", internal=True, review="DOCUMENTED_DISCREPANCY", explanation_he= f"במאגר הוועדה הבקשה ({rec['application_id']}) בסטטוס \"{rec['status']}\" — הבקרה המרחבית של הוועדה "
+                                  "קבעה שהבקשה אינה תקינה; הסיבה לא פורסמה במאגר. (סטטוס רשמי — אינו ראיה עצמאית ואינו בסיס להמלצה.)", evidence=e)
+    return Resolution("PASS", f"במאגר הוועדה הבקשה ({rec['application_id']}) בסטטוס \"{rec['status']}\".", e, internal=True)
 
 
 # ------------------------------------------------------------------ facts: the survey map's date
@@ -289,6 +306,7 @@ def drawing_facts(files) -> tuple[dict, dict]:
             continue
         drawing = {"file": f.filename, "views": read.get("views") or {}, "parking": read.get("parking") or [],
                    "solar": read.get("solar") or {}, "shed": read.get("shed") or [], "height": read.get("height"),
+                   "area_geometry": read.get("area_geometry"), "screening": read.get("screening"),
                    "evidence": {}}
         facts = {}
         h = read.get("height") or {}
@@ -498,6 +516,253 @@ def r_shed(ctx):
     return None
 
 
+# ------------------------------------------------------------------ areas: declared (A) vs the submitted diagrams (B)
+
+def _fmt(x) -> str:
+    return f"{x:.2f}"
+
+
+def r_area_diagrams(ctx):
+    """Three-way area check, sources A and B: the areas declared in the request against the area-calculation diagrams
+    measured by agent/area_geometry.py (vector polygons, scale from the DWFX package). Source C — areas reconstructed
+    from the floor plans' walls — is not implemented; the result says so."""
+    g = (ctx.drawing or {}).get("area_geometry") or {}
+    t = g.get("totals")
+    main, service = ctx.declared.get("main_area_m2"), ctx.declared.get("service_area_m2")
+    if not t or main is None or service is None:
+        return None
+    diags = [d for s in g.get("sheets", []) for d in s.get("diagrams", [])]
+    sheet = next((s for s in g.get("sheets", []) if s.get("diagrams")), {})
+    measured = {"main": t["primary"], "service": t["service"], "total": t["total"]}
+    declared = {"main": float(main), "service": float(service), "total": round(float(main) + float(service), 2)}
+    # declared values are printed to 2 decimals; polygons are exact to the plot's integer units (≪ 0.01 m²)
+    tol = {k: 0.01 + 0.00005 * declared[k] for k in declared}
+    he = {"main": "עיקרי", "service": "שירות", "total": "סה\"כ"}
+    quote = (f"נמדד מ־{len(diags)} תרשימי חישוב שטחים (גיליון {sheet.get('sheet')}, יחידת מודל {sheet.get('model_unit')}): "
+             f"עיקרי {measured['main']:.3f} (כולל {t['primary_from_protected_room']:.2f} מרצפת ממ\"ד מעבר ל־9 מ\"ר נטו), "
+             f"שירות {measured['service']:.3f} (רצפת ממ\"ד {t['protected_room_floor'] - t['primary_from_protected_room']:.2f}, "
+             f"קירות ממ\"ד {t['protected_room_walls']:.3f}, סככות {t['covered_service']:.3f}), סה\"כ {measured['total']:.3f}")
+    e = [{"type": "measurement", "file": next((f for f in [ctx.drawing.get("file")] if f), None), "page": sheet.get("sheet"),
+          "method": "מדידה גיאומטרית דטרמיניסטית (Shapely) של פוליגוני התרשים; קנ\"מ מטרנספורמציית חבילת ה-DWFX",
+          "quote": quote, "algorithm": g.get("algorithm"), "file_sha256": g.get("file_sha256")}]
+    items = []
+    for k in ("main", "service", "total"):
+        d = round(measured[k] - declared[k], 3)
+        if abs(d) > tol[k]:
+            items.append({"review": "CONFIRMED_DEFECT", "title_he": f"שטח {he[k]} המוצהר אינו תואם את תרשימי חישוב השטחים",
+                          "found_he": f"שטח {he[k]} מוצהר {declared[k]:.2f} מ\"ר; נמדד בתרשימים {measured[k]:.3f} מ\"ר",
+                          "diff": f"{d:+.3f} מ\"ר", "where_he": f"תרשימי חישוב השטחים, גיליון {sheet.get('sheet')}",
+                          "correction_he": "לתקן את טבלת השטחים או את תרשימי החישוב כך שיתאימו.", "evidence": e})
+    for i, d in enumerate(diags, 1):
+        for o in d.get("overlaps", []):
+            items.append({"review": "CONFIRMED_DEFECT", "title_he": "פוליגונים חופפים בתרשים חישוב השטחים",
+                          "found_he": f"תרשים {i}: חפיפה של {o['m2']:.3f} מ\"ר בין {o['a']} ל־{o['b']} — שטח שנספר פעמיים",
+                          "where_he": f"גיליון {d['sheet']}, תרשים {i}", "correction_he": "לתקן את גבולות הפוליגונים.", "evidence": e})
+        for cat, m2 in (d.get("double_counted_m2") or {}).items():
+            items.append({"review": "CONFIRMED_DEFECT", "title_he": "שטח שנספר פעמיים בתרשים חישוב השטחים",
+                          "found_he": f"תרשים {i}: {m2:.3f} מ\"ר בקטגוריה {cat} מכוסים ביותר מפוליגון אחד",
+                          "where_he": f"גיליון {d['sheet']}, תרשים {i}", "correction_he": "להסיר את הכפילות.", "evidence": e})
+    # protected-room classification under the committee's own guideline (12.5 m² gross as service): unresolved, internal
+    gross = [round(d["area_m2"].get("protected_room_floor", 0) + d["area_m2"].get("protected_room_walls", 0), 2)
+             for d in diags if d["area_m2"].get("protected_room_floor")]
+    over = [x for x in gross if x > 12.5]
+    if over:
+        items.append({"review": "UNRESOLVED", "internal": True, "title_he": "סיווג שטח הממ\"ד",
+                      "found_he": f"ממ\"ד ברוטו {', '.join(_fmt(x) for x in gross)} מ\"ר; בהנחיות הוועדה (HA-ED8592A090) הממ\"ד נחשב "
+                                  "שירות עד 12.5 מ\"ר ברוטו, ובתרשים נחשבו כשירות 9.00 מ\"ר נטו + הקירות. מעמדה המשפטי של "
+                                  "ההנחיה ותחולתה לא אומתו — הסיווג לא הוכרע.",
+                      "where_he": "תרשימי קומת הקרקע", "evidence": e})
+    same = [i for i, d in enumerate(diags, 1) if d.get("same_as")]
+    note = (f" {len(same)} מהתרשימים חוזרים על יחידה אחרת (יחידה ראי/העתק) באותם שטחים." if same else "")
+    c_note = " מקור ג׳ — שחזור השטחים מקירות תכניות הקומות — לא בוצע; התאמה בין המוצהר לתרשימים אינה מוכיחה עמידה בזכויות."
+    if any(x["review"] == "CONFIRMED_DEFECT" for x in items):
+        return Resolution("FAIL", "תרשימי חישוב השטחים אינם תואמים את השטחים המוצהרים או מכילים כפילות: " + "; ".join(
+            x["found_he"] for x in items if x["review"] == "CONFIRMED_DEFECT") + "." + c_note, e, items=items)
+    return Resolution("PASS", f"השטחים המוצהרים תואמים את המדידה הגיאומטרית של {len(diags)} תרשימי חישוב השטחים: "
+                              + "; ".join(f"{he[k]} {declared[k]:.2f} מול {measured[k]:.3f}" for k in he)
+                              + f"; ללא חפיפות או כפילויות.{note}{c_note}", e, items=items)
+
+
+# ------------------------------------------------------------------ cumulative table vs the historical permits
+
+def load_permits(gush: str | None, cell: str | None) -> dict | None:
+    if not gush or not cell:
+        return None
+    path = Path(settings.knowledge_dir, "lots", f"hof_ashkelon_{gush}_{cell}_permits.yaml")
+    if not path.exists():
+        return None
+    import yaml
+    return yaml.safe_load(path.read_text(encoding="utf-8"))
+
+
+def r_permit_history(ctx):
+    """The request's cumulative rights table against the area tables of the lot's signed historical permits. A row that
+    equals a permit's area BEFORE its approved addition is a confirmed defect (an outdated value); any other gap is a
+    documented discrepancy (a later permit may explain it)."""
+    from decimal import Decimal as D
+    hist = load_permits(ctx.gush, ctx.cell)
+    rows, printed, where = area_table_rows(ctx.docs)
+    if not hist or not rows:
+        return None
+    by_building = {r["building"]: r for r in rows}
+    items, checked = [], 0
+    for p in hist["permits"]:
+        row = by_building.get(p["building"])
+        if not row:
+            continue
+        checked += 1
+        t = {k: D(v) for k, v in p["table"].items()}
+        e = [ev(where["doc"], where["page"], f"שורת מבנה {p['building']} בטבלה: עיקרי {row['main']}, שירות {row['service']}, סה\"כ {row['total']}"),
+             {"type": "document", "file": f"היתר {p['permit']}, מסמך {p['document']}", "page": None, "url": p["source_url"],
+              "method": "טבלת השטחים בתכנית ההיתר החתומה (תמלול מאומת בחשבון הטבלה)", "sha256": p["document_sha256"],
+              "image": p.get("evidence_crop"),
+              "quote": f"עיקרי קיים {t['primary_existing']} + תוספת {t['primary_added']} = {t['primary_total']}; "
+                       f"שירות {t['service_total_stated']} (סכום הרכיבים {t['service_components_sum']}); סה\"כ {t['building_total']}"}]
+        open_arith = [a["result"] for a in p.get("arithmetic", []) if not a["closes"]]
+        if abs(row["main"] - t["primary_total"]) <= D("0.05") and abs(row["total"] - t["building_total"]) <= D("0.05"):
+            continue
+        stale = t["primary_added"] > 0 and abs(row["main"] - t["primary_existing"]) <= D("0.05")
+        d_main = row["main"] - t["primary_total"]
+        d_total = row["total"] - t["building_total"]
+        found = (f"בטבלה המצטברת שצורפה לבקשה רשומים למבנה {p['building']} {row['main']} מ\"ר עיקרי ו־{row['service']} מ\"ר שירות "
+                 f"(סה\"כ {row['total']}); בתכנית ההיתר {p['permit']} השטח העיקרי הכולל הוא {t['primary_total']} מ\"ר "
+                 f"וסה\"כ המבנה {t['building_total']} מ\"ר.")
+        if stale:
+            found += f" הערך שבטבלה ({row['main']}) הוא השטח העיקרי שלפני התוספת שאושרה בהיתר ({t['primary_added']} מ\"ר)."
+        if open_arith:
+            found += " בתכנית ההיתר עצמה: " + "; ".join(open_arith) + " — סכום השירות שבה אינו נסגר."
+        items.append({
+            "review": "CONFIRMED_DEFECT" if stale else "DOCUMENTED_DISCREPANCY",
+            "title_he": (f"טעות בטבלת ניצול זכויות הבנייה — מבנה {p['building']}" if stale
+                         else f"פער בשטחי מבנה {p['building']} מול ההיתר האחרון שנמצא"),
+            "found_he": found, "diff": f"עיקרי {d_main:+} מ\"ר; סה\"כ {d_total:+} מ\"ר",
+            "where_he": f"טבלת חישוב השטחים של מגרש 368, שורת מבנה {p['building']}; היתר {p['permit']}, מסמך {p['document']}",
+            "impact_he": "השטח הוא חלק ממאזן הזכויות המצטבר של המגרש שצורף לבקשה זו.",
+            "correction_he": ("לעדכן את מאזן הזכויות המצטבר לשטח שאושר בהיתר, או להציג אסמכתה מאוחרת המיישבת את ההפרש."
+                              if stale else "להציג את ההיתר המאוחר שעליו מבוסס הערך שבטבלה, או לתקן את הטבלה."),
+            "evidence": e})
+    if not checked:
+        return None
+    if not items:
+        return Resolution("PASS", f"שטחי {checked} מבנים בטבלה תואמים את טבלאות ההיתרים ההיסטוריים שנבדקו.", [])
+    return Resolution("FAIL", " ".join(x["found_he"] for x in items), [x for it in items for x in it["evidence"]],
+                      review="CONFIRMED_DEFECT" if any(x["review"] == "CONFIRMED_DEFECT" for x in items) else "DOCUMENTED_DISCREPANCY",
+                      items=items)
+
+
+# ------------------------------------------------------------------ land: declared parcel vs the attached extracts
+
+def _form_section_files(doc: "Doc", heading: str) -> list[str]:
+    """File names attached under a section of the Rishui Zamin form (names are printed reversed: 'pdf.28 חלקה2832 גוש')."""
+    for t in doc.pages:
+        flat = re.sub(r"\s+", " ", t)
+        m = re.search(heading + r"(.{0,400})", flat)
+        if m:
+            tail = re.split(r"צירוף |\(\d\) קבצים מצורפים(?=.*צירוף)", m.group(1))[0]
+            return re.findall(r"pdf\.(\d+)\s*חלקה\s*(\d{4})\s*גוש", tail)
+    return []
+
+
+def r_land_parcel(ctx):
+    form = next((d for d in ctx.docs if d.doc_type == "application_form" and d.find(r"הוכחת בעלות")), None)
+    if not form:
+        return None
+    parcels = {(m[1], m[0]) for m in _form_section_files(form, r"הוכחת בעלות")}
+    flat = re.sub(r"\s+", " ", " ".join(form.pages))
+    dm = re.search(r"(\d{4}):גוש(\d+) :חלקה", flat) or re.search(r"(\d{4}) :גוש(\d+) :חלקה", flat)
+    if not dm or not parcels:
+        return None
+    gush, helka = dm.group(1), dm.group(2)
+    q = form.find(r"הוכחת בעלות")
+    e = [ev(form, q[0], q[1])]
+    if (gush, helka) in parcels:
+        return Resolution("PASS", f"נסח המקרקעין שצורף להוכחת הבעלות הוא לגוש {gush} חלקה {helka}, כמוצהר בבקשה.", e)
+    other = ", ".join(f"גוש {g} חלקה {h}" for g, h in sorted(parcels))
+    rmi = next((d for d in ctx.docs if d.find(r"אינם\s*תואמים לנתוני החוזה|אינם תואמים לנתוני החוזה")), None)
+    if rmi:
+        rq = rmi.find(r"אינם\s*תואמים")
+        e.append(ev(rmi, rq[0], rq[1]))
+    found = (f"בטופס הבקשה מוצהרים גוש {gush} חלקה {helka}, אך בסעיף \"צירוף נסח רישום מקרקעין / הוכחת בעלות\" צורף נסח של {other}."
+             + (" במכתב רמ\"י נכתב שנתוני הגושים והחלקות שהוזנו אינם תואמים לנתוני החוזה." if rmi else ""))
+    return Resolution("FAIL", found, e, review="DOCUMENTED_DISCREPANCY", items=[{
+        "review": "DOCUMENTED_DISCREPANCY", "title_he": "אי־התאמה בפרטי המקרקעין", "found_he": found,
+        "where_he": f"טופס הבקשה, עמ׳ {q[0]}" + (f"; {rmi.filename}" if rmi else ""),
+        "impact_he": "זיהוי המקרקעין שעליהם מבוקש ההיתר.",
+        "correction_he": "לצרף נסח לחלקה המוצהרת או לתקן את פרטי המקרקעין בבקשה, ולהבהיר את הקשר לחלקה שצורפה.", "evidence": e}])
+
+
+def r_rmi_consent(ctx):
+    d = next((x for x in ctx.docs if x.find(r"אינה נותנת את הסכמתה|אינה נותנת הסכמתה")), None)
+    if d:
+        q = d.find(r"אינה נותנת את הסכמתה|אינה נותנת הסכמתה")
+        later = d.find(r"לאחר קבלת החלטת ועדת התכנון")
+        e = [ev(d, q[0], q[1])] + ([ev(d, later[0], later[1])] if later else [])
+        return Resolution("FAIL", f"רמ\"י הודיעה ({d.filename}) שבשלב זה אינה נותנת הסכמה להיתר; הבקשה להסכמה תוגש לאחר החלטת "
+                                  "ועדת התכנון — דרישה לשלב מתן ההיתר, לא ליקוי בשלב הבקרה המרחבית.", e, review="FUTURE_STAGE")
+    return None
+
+
+# ------------------------------------------------------------------ Mekorot lines (5 m)
+
+def r_mekorot_lines(ctx):
+    """Mekorot's response to the infrastructure inquiry lists the network items in the request's polygon. Only
+    protection radii of wells and no pipeline -> the 5 m line restriction has nothing to apply to."""
+    d = next((x for x in ctx.docs if x.find(r"פריטי רשת המים")), None)
+    if not d:
+        return None
+    flat = re.sub(r"\s+", " ", " ".join(d.pages))
+    part = flat.split("פריטי רשת המים", 1)[1][:1500]
+    radii = re.findall(r"רדיוס מגן [א-ת]", part)
+    lines = re.findall(r"קו (?:מים|לחץ|הולכה|מקורות)|צינור", part)
+    q = d.find(r"פריטי רשת המים")
+    e = [ev(d, q[0], q[1])]
+    valid = re.search(r"בתוקף עד\s*ליום\s*(\d{2}/\d{2}/\d{4})", flat)
+    if lines:
+        return Resolution("UNCERTAIN", f"תשובת מקורות ({d.filename}) מפרטת קווי מים בתחום הבקשה; המרחק של עבודות הפיתוח מהם "
+                                       "לא נמדד בשרטוט.", e, review="UNRESOLVED")
+    return Resolution("PASS", f"תשובת מקורות ({d.filename}{', בתוקף עד ' + valid.group(1) if valid else ''}) מפרטת בתחום הבקשה "
+                              f"רק רדיוסי מגן של קידוחים ({len(radii)} פריטים) ואינה מפרטת קווי מקורות — אין קו שממנו נדרש מרחק 5 מ׳. "
+                              "(התיאום מול מקורות לעניין רדיוסי המגן נבדק בנפרד.)", e)
+
+
+# ------------------------------------------------------------------ technical systems screening (drawing read)
+
+def r_tech_screening(ctx):
+    sc = (ctx.drawing or {}).get("screening")
+    if not sc:
+        return None
+    file = ctx.drawing.get("file")
+    exposed = sc.get("exposed") or []
+    seen = sc.get("screened") or []
+    if exposed:
+        # the small image model is not reliable enough to establish a defect: what it flags goes to the audit record
+        return Resolution("UNCERTAIN", f"מודל התמונה סימן מערכות טכניות שאולי אינן מוסתרות (גיליון {_sheets(exposed)}, אושר בקריאה "
+                                       "שנייה); זיהוי של מודל תמונה אינו מספיק לקביעת ליקוי — נדרש אימות.",
+                          [_drawing_ev(ctx, exposed[0]["sheet"], f"סימון אפשרי של מערכת לא מוסתרת, גיליון {_sheets(exposed)}")],
+                          review="UNRESOLVED", internal=True)
+    text = (f"מערכות טכניות מוסתרות במסתור/מעקה (גיליון {_sheets(seen)})" if seen
+            else "לא סומנו בחזיתות ובגג מערכות טכניות חשופות")
+    roof = (ctx.drawing.get("height") or {}).get("roof_type")
+    solar = "; קולטים על גג רעפים פטורים מהסתרה לפי ההוראה" if roof == "tiled" and ctx.drawing.get("solar") else ""
+    return Resolution("PASS", f"{text}{solar} ({file}).", [_drawing_ev(ctx, (seen or [{}])[0].get("sheet"), text)])
+
+
+# ------------------------------------------------------------------ checks the submission cannot answer yet
+
+def r_fences(ctx):
+    if not ctx.drawing:
+        return None
+    return Resolution("UNCERTAIN", "קירות ההפרדה והגדרות בין היחידות לא זוהו כגאומטריה נפרדת בשרטוט (מידות משורטטות כקווים, ללא "
+                                   "שכבה ייעודית); אורך ≤ 5.0 מ׳ וגובה ≤ 1.80 מ׳ לא נמדדו.", [], review="NOT_CHECKED")
+
+
+def r_infiltration(ctx):
+    if not ctx.drawing:
+        return None
+    return Resolution("UNCERTAIN", "בבקשה לא נמצא נתון או פוליגון של שטח חדיר מים, וגבול המגרש הכולל (תא שטח 368) אינו בגיליונות "
+                                   "שנמדדו; עמידה ב־15% לא חושבה.", [], review="NOT_CHECKED")
+
+
 RESOLVERS = {
     "QA-REQ-SECTIONS": _drawing_views("חתכים", "section"), "QA-REQ-ELEVATIONS": _drawing_views("חזיתות", "elevation"),
     "HA-368-REGISTRY-STATUS": r_registry_status, "HA-368-TABLE-ARITHMETIC": r_table_arithmetic,
@@ -507,6 +772,9 @@ RESOLVERS = {
     "HA-633-COND-HFC": r_hfc, "HA-633-COND-BINUI-PLAN": r_binui_plan, "HA-633-COND-DEMOLITION": r_demolition,
     "HA-633-WASTE-ESTIMATE": r_waste, "HA-633-SEWAGE": r_sewage, "HA-633-BETTERMENT-LEVY": r_betterment,
     "HA-633-TREES-4M": r_trees, "HA-633-BUILDING-FORM": r_building_form, "HA-633-COVERAGE-CELL": r_coverage,
+    "HA-AREA-DIAGRAMS": r_area_diagrams, "HA-368-TABLE-VS-PERMITS": r_permit_history, "HA-LAND-PARCEL": r_land_parcel,
+    "HA-RMI-CONSENT": r_rmi_consent, "HA-633-MEKOROT-5M": r_mekorot_lines, "HA-633-TECH-SCREENING": r_tech_screening,
+    "HA-633-FENCES": r_fences, "HA-633-INFILTRATION": r_infiltration,
 }
 
 
@@ -530,20 +798,22 @@ def document_facts(files) -> tuple[list[Doc], dict, list[dict]]:
     return docs, facts, evidence
 
 
-def resolve(results: list, docs: list[Doc], declared: dict, title: str, facts_from_docs: dict, area_evidence: list[dict],
-            drawing: dict | None = None, gush: str | None = None) -> int:
-    """Answer open findings in place; returns how many were resolved."""
-    cell = None                     # the plan cell: "משטח מגרש 368" (also extracted as "368 משטח מגרש") or "מגרש 368 מתכנית"
+def find_cell(docs: list[Doc]) -> str | None:
+    """The plan cell of the request: "משטח מגרש 368" (also extracted as "368 משטח מגרש") or "מגרש 368 מתכנית"."""
     for d in docs:
         for t in d.pages[:3]:
             flat = re.sub(r"\s+", " ", t)
             m = (re.search(r"משטח מגרש\s*(\d{3})", flat) or re.search(r"(\d{3})\s*משטח מגרש", flat)
                  or re.search(r"מגרש\s*(\d{3})\s*מתכנית", flat))
             if m:
-                cell = m.group(1)
-                break
-        if cell:
-            break
+                return m.group(1)
+    return None
+
+
+def resolve(results: list, docs: list[Doc], declared: dict, title: str, facts_from_docs: dict, area_evidence: list[dict],
+            drawing: dict | None = None, gush: str | None = None) -> int:
+    """Answer open findings in place; returns how many were resolved."""
+    cell = find_cell(docs)
     ctx = Context(docs, declared, title, cell, facts_from_docs, area_evidence, drawing or {}, gush)
     n = 0
     for r in results:
@@ -560,13 +830,16 @@ def resolve(results: list, docs: list[Doc], declared: dict, title: str, facts_fr
             continue
         r.computed_result = res.status
         r.status = "UNCERTAIN" if res.status == "FAIL" and "RULE_NOT_APPROVED" in r.flags else res.status
+        extra = ([f"REVIEW:{res.review}"] if res.review else []) + (["INTERNAL"] if res.internal else [])
         if res.status == "UNCERTAIN":
             r.explanation_he = res.explanation_he
-            r.flags = [f for f in r.flags if f != "RESOLVED_FROM_DOCUMENTS"] + ["NEEDS_DRAWING_READ"]
+            r.evidence = list(r.evidence or []) + res.evidence
+            r.flags = ([f for f in r.flags if f != "RESOLVED_FROM_DOCUMENTS"]
+                       + (["NEEDS_DRAWING_READ"] if res.review is None else []) + extra)
             continue
         r.explanation_he = res.explanation_he
-        r.evidence = list(r.evidence or []) + res.evidence
-        r.flags = [f for f in r.flags if f not in ("REVIEW_REQUIRED", "INCOMPLETE")] + ["RESOLVED_FROM_DOCUMENTS"]
+        r.evidence = list(r.evidence or []) + res.evidence + [{"type": "item", **it} for it in res.items]
+        r.flags = [f for f in r.flags if f not in ("REVIEW_REQUIRED", "INCOMPLETE")] + ["RESOLVED_FROM_DOCUMENTS"] + extra
         r.confidence = 0.9 if res.evidence else 0.75
         n += 1
     return n

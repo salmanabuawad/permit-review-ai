@@ -140,6 +140,7 @@ rules:
     sources:
       - {source_id: TENDER-7-26, page: 26, section: "מסמך ב׳ §7.1.2 — מפת מדידה בתוקף"}
       - {source_id: GOV-LIC-STEPS, section: "מידע להיתר — תנאי סף: מפת מדידה שאינה ישנה מ־6 חודשים"}
+      - {source_id: HA-B5420BF1DF, page: 4, section: "נוהל עצים בוגרים — מפה מצבית עדכנית מפורטת", quote_he: "מפה מצבית עדכנית מפורטת (בתוקף חצי שנה)"}
     notes: "The 6-month limit was read on gov.il for the permit-INFORMATION stage. Its application to the permit request itself must be verified against the 2016 licensing regulations. Survey date comes from declared.survey_map_date (not yet extracted from the PDF)."
     fix_hint_he: "לצרף מפת מדידה עדכנית (עד 6 חודשים)."
 

@@ -9,7 +9,8 @@ Two passes, both rendered from the vector DWFX (sharp at any zoom — a converte
    level, accepted only when the ±0.00 label is in the same close-up or two close-ups give the same value.
 
 A small model invents plausible numbers when an image is unreadable, so nothing is accepted on one blurry look.
-Usage: python drawing_reader.py <plan.dwfx> [model] [llm_url]     prints JSON; needs PyMuPDF.
+Usage: python drawing_reader.py <plan.dwfx> [model] [llm_url]     prints JSON; needs PyMuPDF (and Shapely for areas).
+       python drawing_reader.py --screening <plan.dwfx> <earlier read.json>     pass 3 only.
 """
 from __future__ import annotations
 
@@ -43,6 +44,13 @@ LEVELS_Q = (
     "can read exactly], \"ridge_level\": number or null (the level written at the top of the roof), "
     "\"zero_level_absolute\": number or null (the absolute value in \"+0.00=NN.NN\"), \"roof_type\": "
     "\"tiled\"|\"flat\"|null}. Copy digits exactly; leave out anything not clearly readable.")
+
+
+SCREEN_Q = (
+    "Part of an architectural elevation or roof plan (Israel). Look for outdoor air-conditioning units and solar water "
+    "heaters/tanks. Answer ONLY JSON: {\"ac_units\": \"screened\"|\"exposed\"|\"none\", \"water_heater\": "
+    "\"screened\"|\"exposed\"|\"none\"}. screened = drawn behind a screen wall, louvres or a roof parapet; exposed = "
+    "drawn visible with nothing hiding it; none = not drawn in this image.")
 
 
 def log(msg: str) -> None:
@@ -91,8 +99,13 @@ def render(page, clip: pymupdf.Rect, px: int) -> bytes:
 
 def read(src: Path, model: str = MODEL, url: str = LLM) -> dict:
     t0 = time.time()
+    try:
+        import area_geometry
+        geometry = area_geometry.measure(src)
+    except Exception as exc:  # noqa: BLE001 — geometry is an addition; the drawing read goes on without it
+        geometry = {"error": str(exc)[:300]}
     doc = pymupdf.open(str(src), filetype="xps")
-    out = {"model": model, "sheets": [], "views": {}, "parking": [], "solar": {}, "shed": [], "height": None,
+    out = {"model": model, "area_geometry": geometry, "sheets": [], "views": {}, "parking": [], "solar": {}, "shed": [], "height": None,
            "levels_read": [], "calls": 0}
     elev_tiles = []
     for sno, page in enumerate(doc, 1):
@@ -150,9 +163,49 @@ def read(src: Path, model: str = MODEL, url: str = LLM) -> dict:
         out["height"] = {"value_m": top, "readings": accepted[top], "all_accepted": sorted(accepted),
                          "roof_type": max(set(roofs), key=roofs.count) if roofs else None,
                          "zero_abs": next((x["zero_abs"] for x in accepted[top] if x["zero_abs"]), None)}
+    out["screening"] = screening(doc, [(x["sheet"], x["tile"]) for v in ("elevation", "roof_plan") for x in out["views"].get(v, [])],
+                                 model, url, out)
     out["seconds"] = round(time.time() - t0, 1)
     return out
 
 
+def screening(doc, tile_ids, model: str, url: str, out: dict | None = None) -> dict:
+    """Pass 3: are outdoor technical systems (AC units, water heaters) screened? Asked on the elevation / roof tiles."""
+    res = {"screened": [], "exposed": [], "looked": 0}
+    by_sheet = {}
+    for sno, tno in sorted(set(tile_ids)):
+        page = doc[sno - 1]
+        clips = by_sheet.setdefault(sno, tiles(page.rect))
+        clip = clips[tno - 1]
+        a = ask(render(page, clip, CLOSE_PX), SCREEN_Q, model, url)
+        res["looked"] += 1
+        if out is not None:
+            out["calls"] += 1
+        log(f"sheet {sno} tile {tno} screening: {a}")
+        vals = [a.get("ac_units"), a.get("water_heater")]
+        if "exposed" in vals:
+            # a second look, closer (2 x 2): accepted only when one of the quarters shows it again
+            w, h = clip.width / 2, clip.height / 2
+            again = []
+            for q in range(4):
+                sub = pymupdf.Rect(clip.x0 + (q % 2) * w, clip.y0 + (q // 2) * h, clip.x0 + (q % 2 + 1) * w, clip.y0 + (q // 2 + 1) * h)
+                if blank(page, sub):
+                    continue
+                b = ask(render(page, sub, CLOSE_PX), SCREEN_Q, model, url)
+                res["looked"] += 1
+                log(f"sheet {sno} tile {tno}.{q + 1} screening (second look): {b}")
+                if "exposed" in (b.get("ac_units"), b.get("water_heater")):
+                    again.append(q + 1)
+            (res["exposed"] if again else res.setdefault("not_confirmed", [])).append({"sheet": sno, "tile": tno, "quarters": again})
+        elif "screened" in vals:
+            res["screened"].append({"sheet": sno, "tile": tno})
+    return res
+
+
 if __name__ == "__main__":
-    print(json.dumps(read(Path(sys.argv[1]), *(sys.argv[2:4])), ensure_ascii=False))
+    if sys.argv[1] == "--screening":      # pass 3 only, on the tiles of an earlier read: --screening plan.dwfx read.json
+        prev = json.loads(Path(sys.argv[3]).read_text())
+        ids = [(x["sheet"], x["tile"]) for v in ("elevation", "roof_plan") for x in prev["views"].get(v, [])]
+        print(json.dumps(screening(pymupdf.open(sys.argv[2], filetype="xps"), ids, *(sys.argv[4:6] or [MODEL, LLM])), ensure_ascii=False))
+    else:
+        print(json.dumps(read(Path(sys.argv[1]), *(sys.argv[2:4])), ensure_ascii=False))

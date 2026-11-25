@@ -6,3 +6,7 @@ __pycache__/
 frontend/node_modules/
 frontend/dist/
 *.sqlite3
+
+# real case data: request reports and register scrapes are not committed
+reports/
+exports/
