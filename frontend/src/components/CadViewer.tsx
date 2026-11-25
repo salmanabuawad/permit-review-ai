@@ -35,9 +35,9 @@ export const ROLE_STYLE: Record<string, { color: string; label: string; dash?: s
   ROOF_EDGE_FRONT: { color: '#c2185b', label: 'שפת גג — חזית' },
 }
 
-interface Props { geo: any; findings: Finding[]; selected: string | null; onSelect: (id: string) => void }
+interface Props { geo: any; loading?: boolean; findings: Finding[]; selected: string | null; onSelect: (id: string) => void }
 
-export default function CadViewer({ geo, findings, selected, onSelect }: Props) {
+export default function CadViewer({ geo, loading, findings, selected, onSelect }: Props) {
   const [view, setView] = useState<{ k: number; dx: number; dy: number }>({ k: 1, dx: 0, dy: 0 })
   const drag = useRef<{ x: number; y: number } | null>(null)
   const [hover, setHover] = useState<string | null>(null)
@@ -60,7 +60,8 @@ export default function CadViewer({ geo, findings, selected, onSelect }: Props) 
     return { minx: minx - pad, miny: miny - pad, w: maxx - minx + 2 * pad, h: maxy - miny + 2 * pad, maxy: maxy + pad }
   }, [geo, overlays])
 
-  if (!bbox) return <div className="viewer"><div className="empty">לא הוגש שרטוט CAD מנותח (DXF/DWG) — אין תצוגת תשריט</div></div>
+  if (!bbox) return <div className="viewer"><div className="empty">{loading ? 'טוען תשריט…'
+    : 'לא הוגש שרטוט CAD מנותח (DXF/DWG) — אין תצוגת תשריט'}</div></div>
 
   // CAD Y axis points up; SVG Y points down -> flip with (maxy - y). Drawing stays geometrically true (not mirrored for RTL).
   const P = (x: number, y: number) => `${x.toFixed(3)},${(bbox.maxy - y).toFixed(3)}`

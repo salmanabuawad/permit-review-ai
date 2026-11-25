@@ -7,7 +7,7 @@ export const LEVEL_HE: Record<string, string> = {
 }
 export const KIND_HE: Record<string, string> = {
   compare: 'השוואה כמותית', doc_required: 'מסמך נדרש', cad_roles: 'שכבות CAD', any_present: 'אחד מהפריטים קיים',
-  declared_bool: 'נתון מוצהר', consistency: 'עקביות בין מסמכים', qualitative: 'איכותני — הכרעת בודק', condition: 'תנאי להיתר',
+  declared_bool: 'נתון מוצהר', list_empty: 'רשימת ממצאים ריקה', consistency: 'עקביות בין מסמכים', qualitative: 'איכותני — הכרעת בודק', condition: 'תנאי להיתר',
 }
 const REPORT_HE: Record<string, string> = { reviewer: 'דוח בודק', rights: 'דוח זכויות', completeness: 'דוח שלמות' }
 const SEV_HE: Record<string, string> = { high: 'גבוהה', medium: 'בינונית', low: 'נמוכה' }

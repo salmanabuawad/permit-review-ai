@@ -185,6 +185,9 @@ def guess_doc_type(name: str, kind: str, text: str, classify) -> tuple[str, str]
     for pat, dt in [(r"ועדת[\s_-]*נכים|disabled", "disabled_committee_approval"),
                     (r"פיקוח|inspection", "inspection_report"),
                     (r"תקנה[\s_-]*36|הודעה[\s_-]*לבעלים|המצאה|notice", "reg36_notice_proof"),
+                    (r"עתיקות|antiquit", "antiquities_approval"),
+                    (r"חברת[\s_-]*(?:ה)?חשמל|חח\"?י|\biec\b", "electric_company_approval"),
+                    (r"רי?שיון|licen[cs]e", "professional_license"),
                     (r"survey|מדידה", "survey_map"), (r"photo|תמונ", "existing_building_photos"),
                     (r"consent|הסכמ", "consents"), (r"section|elevation|חתך|חזית", "sections_elevations"),
                     (r"info|מידע", "permit_info"), (r"form|בקשה|application", "application_form")]:

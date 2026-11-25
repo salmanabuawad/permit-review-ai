@@ -19,7 +19,8 @@ from .ingest import cad, excel, files, pdf
 from .knowledge import load_sources
 from .models import (AIPolicyRow, CadEntity, CaseFile, CheckRun, Finding, InferenceCost, Municipality, PermitCase,
                      RuleApproval, RuleDefinition)
-from .rules.derived import derive_completeness_facts
+from .rules.derived import derive_completeness_facts, derive_document_facts
+from .rules.doc_signals import document_signals
 from .rules.engine import Rule, evaluate, load_rules, ruleset_hash
 
 RULE_FILES_BY_TENANT = {
@@ -43,6 +44,9 @@ DOC_TYPES_HE = {
     "committee_protocol": "פרוטוקול ועדה",
     "disabled_committee_approval": "אישור ועדת נכים",
     "inspection_report": "דו\"ח פיקוח",
+    "electric_company_approval": "אישור חברת החשמל",
+    "antiquities_approval": "אישור רשות העתיקות",
+    "professional_license": "רישיון עורך בקשה / מתכנן",
     "reg36_notice_proof": "אסמכתא להודעה לבעלים (תקנה 36)",
     "planning_regulation": "מסמך תכנוני (תכנית/תקנון)",
     "other": "אחר",
@@ -115,6 +119,7 @@ def complete_dwfx_conversion(s: Session, cf: CaseFile, pdf_bytes: bytes | None, 
         conv.update(state="done", pdf_path=str(out), pdf_sha256=hashlib.sha256(pdf_bytes).hexdigest(),
                     pdf_bytes=len(pdf_bytes), info=info, converted_at=dt.datetime.now(dt.timezone.utc).isoformat())
         report["conversion"] = conv
+        report["signals"] = document_signals(cf.filename, r.full_text)
         cf.ingest_status, cf.ingest_report = ("OK" if r.status in ("OK", "NEEDS_OCR") else r.status), report
     audit.record(s, cf.tenant_id, "ai-agent", "file.convert", "case_file", cf.id,
                  {"from": "dwfx", "state": conv["state"], "error": conv.get("error"), "pdf_sha256": conv.get("pdf_sha256")})
@@ -129,7 +134,12 @@ def ingest_file(s: Session, case: PermitCase, filename: str, data: bytes, doc_ty
             raise files.IntakeError(f"קובץ זהה ({dup.filename}) נמחק בעבר מהתיק במחיקה מבוקרת; לא ניתן לקלוט אותו מחדש")
         where = " (בארכיון — ניתן לשחזר)" if dup.lifecycle == "ARCHIVED" else ""
         raise files.IntakeError(f"קובץ זהה כבר קיים בתיק ({dup.filename}, גרסה {dup.version}){where}")
-    prev = s.scalars(select(CaseFile).where(CaseFile.case_id == case.id, CaseFile.doc_type == doc_type)
+    # A new version replaces an earlier file only when type AND filename match. Rishuy Zamin allows several files
+    # per requirement (e.g. two letters under "electric company approval"); a differently named file of the same
+    # type is a separate document, so content rules see both (application 10000197313: a scanned Bezeq letter
+    # had silently superseded the HOT letter for another plot).
+    prev = s.scalars(select(CaseFile).where(CaseFile.case_id == case.id, CaseFile.doc_type == doc_type,
+                                            CaseFile.filename == filename)
                      .order_by(CaseFile.version.desc())).first()
     cf = CaseFile(tenant_id=case.tenant_id, case_id=case.id, doc_type=doc_type, filename=filename, kind=intake.kind,
                   sha256=intake.sha256, size_bytes=intake.size, storage_path=str(intake.stored_path),
@@ -151,6 +161,7 @@ def ingest_file(s: Session, case: PermitCase, filename: str, data: bytes, doc_ty
         if ai.outcome in ("OK", "FALLBACK") and ai.output and ai.output.get("label"):
             cf.suggested_doc_type = ai.output["label"]
         report["classification"] = {"outcome": ai.outcome, "provider": ai.provider_id, "output": ai.output}
+        report["signals"] = document_signals(filename, r.full_text)
     elif cf.kind in ("dxf", "dwg"):
         dxf_path = path
         if cf.kind == "dwg":
@@ -170,6 +181,8 @@ def ingest_file(s: Session, case: PermitCase, filename: str, data: bytes, doc_ty
     elif cf.kind == "dwfx":     # converted on the AI PC, never here: see complete_dwfx_conversion
         cf.ingest_status = "PENDING_CONVERSION"
         report = {"warnings": [DWFX_PENDING_HE], "conversion": {"state": "queued"}}
+    if "signals" not in report and cf.kind != "pdf":
+        report["signals"] = document_signals(filename, None)   # a placeholder is recognisable by name alone
     cf.ingest_report = report
     audit.record(s, case.tenant_id, user, "file.upload", "case_file", cf.id,
                  {"case_id": case.id, "filename": filename, "sha256": cf.sha256, "doc_type": doc_type,
@@ -196,15 +209,18 @@ class _Ent:
 
 
 def latest_files(s: Session, case: PermitCase) -> list[CaseFile]:
-    out: dict[str, CaseFile] = {}
+    """The newest ACTIVE version of each document, a document being (doc_type, filename)."""
+    out: dict[tuple[str, str], CaseFile] = {}
     for f in sorted((f for f in case.files if f.lifecycle == "ACTIVE"), key=lambda f: f.version):
-        out[f.doc_type + ":" + f.kind] = f
+        out[(f.doc_type, f.filename)] = f
     return list(out.values())
 
 
 def build_facts(s: Session, case: PermitCase) -> tuple[dict, dict]:
     files_ = latest_files(s, case)
     usable = [f for f in files_ if f.ingest_status not in ("ERROR", "QUARANTINED")]
+    # A "יישלח בהמשך" placeholder is not the document: it must not satisfy a doc_required rule.
+    real = [f for f in usable if not (f.ingest_report or {}).get("signals", {}).get("placeholder")]
     ref_date = case.declared.get("submission_date") or case.created_at.date().isoformat()
     facts: dict = {
         "case": {"permit_type": case.permit_type, "track": case.track, "zone": case.zone, "stage": case.stage,
@@ -213,9 +229,12 @@ def build_facts(s: Session, case: PermitCase) -> tuple[dict, dict]:
                                                         case.permit_type.startswith("addition") or
                                                         case.permit_type == "roof_room_addition")},
         "declared": dict(case.declared),
-        "docs": {"present": {f.doc_type: True for f in usable}},
+        "docs": {"present": {f.doc_type: True for f in real}},
         "facts_derived": derive_completeness_facts(case.title, case.application_type, case.declared),
     }
+    facts["facts_derived"].update(derive_document_facts(
+        [{"filename": f.filename, "doc_type": f.doc_type, "doc_label_he": DOC_TYPES_HE.get(f.doc_type),
+          "signals": (f.ingest_report or {}).get("signals")} for f in usable], case.gush, ref_date))
     convention = cad.load_convention()
     facts["cad"] = {"required_roles": convention["required_roles_by_permit_type"].get(case.permit_type, [])}
     cad_files = [f for f in usable if f.kind in ("dxf", "dwg") and f.ingest_status in ("OK",)]
