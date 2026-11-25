@@ -106,7 +106,8 @@ def _commit_one(s, tenant, user, batch, app, req, fields, number, blobs_dir, ten
         case = PermitCase(tenant_id=tenant, is_demo=bool(tenant_row and tenant_row.is_demo), sla_due=services.sla_default(),
                           case_number=number or f"IMP-{stamp}-{batch.token[-4:]}-{n:02d}", title=title,
                           permit_type=ptype, source="import", import_batch_id=batch.id,
-                          applicable_plans=[], declared={})
+                          applicable_plans=list((app.get("declared") or {}).get("plans_declared") or []),
+                          declared=dict(app.get("declared") or {}))
         for f, col in CASE_FIELDS.items():
             v = val(f)
             if v not in (None, ""):

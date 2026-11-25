@@ -32,6 +32,10 @@ MERGE_FIELDS = ["application_number", "building_file_number", "address", "gush",
                 "permit_type", "description", "applicable_plans", "deviations"]
 
 
+INFO_FILE_NO = re.compile(r"מידע להיתר מספר\s+(\d{8,12}-\d{1,2})")
+INFO_FILE_REF = re.compile(r"(\d{8,12}-\d{1,2})\s*:\s*מספר תיק המידע להיתר|מספר תיק המידע להיתר\s*:\s*(\d{8,12}-\d{1,2})")
+
+
 def _sha(b: bytes) -> str:
     return hashlib.sha256(b).hexdigest()
 
@@ -83,7 +87,7 @@ class Package:
 def _pdf_pages(data: bytes) -> tuple[list[str], list[int]]:
     doc = pymupdf.open(stream=data, filetype="pdf")
     try:
-        texts = [p.get_text() for p in doc]
+        texts = [T.repair_shifted_font(p.get_text()) for p in doc]
         drawings = []
         for i, p in enumerate(doc):
             if i < 3 and len(texts[i].strip()) < 600:
@@ -146,6 +150,18 @@ def _process_document(pkg: Package, group: str, name: str, data: bytes, route) -
         cls = C.classify_file(name, "pdf", texts, drawings)
         doc["classification"] = cls.model_dump()
         doc["doc_type"] = DOC_TYPE_BY_CLASS.get(cls.doc_class) or legacy.guess_doc_type(name, "pdf", "\n".join(texts), None)[0]
+        whole = "\n".join(texts[:2]).replace("\xa0", " ")
+        if (m := INFO_FILE_NO.search(whole)) and cls.doc_class != "permit_application":
+            # Rishui Zamin permit information file ("מידע להיתר"): one file can serve several applications
+            doc.update(doc_type="permit_info", info_file_number=m.group(1))
+            doc["classification"].update(doc_class="supporting_document", doc_class_he=DOC_CLASSES["supporting_document"],
+                                         method="תיק מידע להיתר (רישוי זמין)", confidence=0.9,
+                                         signals=[f"מידע להיתר מספר {m.group(1)}"])
+            return
+        if (m := INFO_FILE_REF.search(whole)):
+            doc["info_file_ref"] = m.group(1) or m.group(2)   # the information file this application form is based on
+        if cls.doc_class == "permit_application" and legacy.rishui_zamin_number(whole):
+            doc["declared"] = legacy.rishui_zamin_declared("\n".join(texts))   # applicant's declared values
         if cls.doc_class == "committee_protocol":
             items, front = P.split_items(texts)
             for kind_i, pages in items:
@@ -260,6 +276,8 @@ def analyze_package(uploads: list[tuple[str, bytes]], route, existing_numbers: s
             if len(e.pages) == (doc.get("pages") or 0):          # excerpt file: page i ↦ start + i - 1
                 page_map = {p: start + p - 1 for p in e.pages}
         _merge(app, e, doc, page_map)
+        if doc.get("declared"):
+            app.setdefault("declared", {}).update(doc["declared"])
         if row:
             used_rows.add(id(row))
             app["index_row"] = {"source": row.source, "row": row.row, **row.values}
@@ -278,6 +296,20 @@ def analyze_package(uploads: list[tuple[str, bytes]], route, existing_numbers: s
             app["documents"].append({"ref": doc["ref"], "name": doc["name"], "doc_type": doc["doc_type"],
                                      "doc_class": doc["classification"]["doc_class"], "classification": doc["classification"], "origin": None,
                                      "sha256": doc["sha256"]})
+
+    # a Rishui Zamin information file goes to every application whose form cites its number
+    for doc in pkg.documents:
+        no = doc.get("info_file_number")
+        if doc["status"] != "ok" or not no:
+            continue
+        targets = [a for a in apps.values() if any(d2.get("info_file_ref") == no for d2 in pkg.documents
+                                                   if any(x["ref"] == d2["ref"] or (x.get("origin") or {}).get("sha256") == d2["sha256"]
+                                                          for x in a["documents"]))]
+        for a in targets:
+            a["documents"].append({"ref": doc["ref"], "name": doc["name"], "doc_type": "permit_info",
+                                   "doc_class": doc["classification"]["doc_class"], "classification": doc["classification"],
+                                   "origin": None, "sha256": doc["sha256"]})
+        doc["applications"] = [a["application_number"] for a in targets]
 
     # supporting documents and drawings: attach by folder or index row, otherwise report unassigned
     for doc in pkg.documents:

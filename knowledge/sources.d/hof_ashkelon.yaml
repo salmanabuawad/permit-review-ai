@@ -1,0 +1,62 @@
+# Hof Ashkelon local planning committee (הוועדה המקומית לתכנון ובנייה חוף אשקלון) — sources for the
+# hof-ashkelon rule catalogue (knowledge/rules/hof_ashkelon.yaml). Downloaded 2026-11-25 from the committee's
+# public plan archive (hoa.bartech-net.co.il) and the Rishui Zamin information file of the Zikim applications.
+sources:
+  - id: HA-PLAN-633-0723718
+    category: STATUTORY_PLAN
+    title_he: "תכנית 633-0723718 — זיקים: הגדלת מספר יח\"ד באזור מגורים בקיבוץ — הוראות התכנית (מאושרת)"
+    url: https://hoa.bartech-net.co.il/TabaArchive?EntityNum=1990&TabaNum=633-0723718
+    edition: "תדפיס הוראות מיום 05/04/2021 (מונה 13), הועלה לארכיב הוועדה 30/05/2021; תוקף: י.פ. 9602, 11/05/2021"
+    verification: OCR_UNVERIFIED
+    file_name: "2021-05-30 הוראות התכנית (277181).pdf"
+    ocr_path: knowledge/source_texts/ha_633_0723718/ocr/approved_2021_p*.txt
+    legal_status_verified: true
+    notes: >-
+      Scanned approved instructions, read via OCR (Tesseract heb). Sections 4.1, 6.1-6.6, 6.9-6.10 are legible and
+      were read. The building-rights table (section 5, scan page 12 = printed page 13) is garbled in the OCR; it was
+      read from the image on 2026-11-25: cells 365-368, height above the determining entrance 9.0 m tiled / 8.0 m flat,
+      2 floors, 40% main + 10% service, coverage 50%, units 28/43/46/102, cell 368 = 81,033 m². The plan changes only the number of units per cell; all other instructions of
+      6/120/03/6 continue to apply (section 1.6).
+  - id: HA-PLAN-633-0723718-DRAFT
+    category: STATUTORY_PLAN
+    title_he: "תכנית 633-0723718 — תדפיס הוראות מיום 09/07/2019 (נוסח שהוגש, טרם אישור)"
+    url: https://hoa.bartech-net.co.il/TabaArchive?EntityNum=1990&TabaNum=633-0723718
+    edition: "09/07/2019, מונה תדפיס 2"
+    verification: VERIFIED_READ
+    file_name: "2019-07-09 הוראות התכנית (223864).pdf"
+    ocr_path: knowledge/source_texts/ha_633_0723718/draft_2019_text.txt
+    notes: "Background only: the approved 2021 text differs (heights, partition walls, shed distance, conditions). Never cite as binding."
+  - id: HA-PLAN-6-120-03-6
+    category: STATUTORY_PLAN
+    title_he: "תכנית 6/120/03/6 — זיקים: הרחבת הקבוץ (תכנית האם; ממשיכה לחול למעט המשתנה ב־633-0723718)"
+    url: https://hoa.bartech-net.co.il/TabaArchive?EntityNum=644&TabaNum=6/120/03/6
+    edition: "י.פ. 5414, 07/07/2005"
+    verification: FOUND_NOT_READ
+  - id: HA-INFO-10000583665-2
+    category: LOCAL_POLICY
+    title_he: "מידע תכנוני לפי תיקון 119 — הוועדה המקומית חוף אשקלון, מספר בקשה 2/20260338 (תיק מידע להיתר 10000583665-2, קיבוץ זיקים)"
+    url: null
+    edition: "14/05/2026; גוש 2832 חלקות 27, 28; תא שטח / מגרש 368"
+    verification: VERIFIED_READ
+    file_name: "מידע תכנוני.pdf"
+    notes: >-
+      The committee's own statement of rights and instructions for plot 368 under 633-0723718 (main 40%, service 10%,
+      coverage 50%, 102 units, 2 floors, height 9.0 m tiled / 8.0 m flat, sheds, fences, parking, antiquities,
+      sewage). Plot-specific: it applies to cell 368 only.
+  - id: HA-INFO-FILE-10000583665-2
+    category: LOCAL_POLICY
+    title_he: "מידע להיתר 10000583665-2 — ועדה מקומית לרישוי ולבנייה רשות רישוי חוף אשקלון (רישוי זמין)"
+    url: null
+    edition: "16/06/2026"
+    verification: VERIFIED_READ
+    notes: "Lists required documents (rights-holders' consent, main plan), betterment levy liability (yes), no short track."
+  - id: NOP-10-D-10
+    category: STATUTORY_PLAN
+    title_he: "תמ\"א 10/ד/10 — מתקנים פוטו־וולטאיים"
+    url: null
+    verification: FOUND_NOT_READ
+  - id: NOP-34-B-4
+    category: STATUTORY_PLAN
+    title_he: "תמ\"א 34/ב/4 — ניקוז, נגר עילי והעשרת מי תהום"
+    url: null
+    verification: FOUND_NOT_READ

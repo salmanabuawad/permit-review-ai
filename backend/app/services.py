@@ -25,9 +25,9 @@ from .rules.engine import Rule, evaluate, load_rules, ruleset_hash
 
 RULE_FILES_BY_TENANT = {
     "bnei-brak": ["bnei_brak.yaml", "internal_qa.yaml"],
+    # Hof Ashkelon local committee: plan 633-0723718 (Zikim) rules — drafts until a committee reviewer approves.
+    "hof-ashkelon": ["hof_ashkelon.yaml", "internal_qa.yaml"],
     "demo": ["bnei_brak.yaml", "internal_qa.yaml", "demo.yaml"],
-    # No Hof Ashkelon rules yet: knowledge/rule_candidates/hof_ashkelon.yaml holds unverified candidates only.
-    "hof-ashkelon": ["internal_qa.yaml"],
 }
 
 DOC_TYPES_HE = {
@@ -267,9 +267,18 @@ def build_facts(s: Session, case: PermitCase) -> tuple[dict, dict]:
 
 # ------------------------------------------------------------------ rules
 
+# Shared catalogue rules that do not fit a municipality. Hof Ashkelon receives plans through Rishui Zamin as DWFX
+# (a plotted drawing without semantic layers), so the CAD layer-convention check — written for Bnei Brak's draft
+# convention — would report "no CAD" on every request.
+RULES_EXCLUDED_BY_TENANT = {
+    "hof-ashkelon": {"QA-CAD-LAYERS"},
+}
+
+
 def file_rules(tenant_id: str) -> list[Rule]:
     names = RULE_FILES_BY_TENANT.get(tenant_id, ["internal_qa.yaml"])
-    rules = load_rules([settings.knowledge_dir / "rules" / n for n in names])
+    excluded = RULES_EXCLUDED_BY_TENANT.get(tenant_id, set())
+    rules = [r for r in load_rules([settings.knowledge_dir / "rules" / n for n in names]) if r.id not in excluded]
     for r in rules:
         r.raw["origin"] = "file"
     return rules

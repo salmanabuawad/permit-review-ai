@@ -42,6 +42,13 @@ function NavIcon({ name }: { name: string }) {
   return <svg className="nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round" strokeLinejoin="round"><path d={ICON_PATHS[name]} /></svg>
 }
 
+// Name shown in the sidebar, top bar and browser tab — follows the signed-in user's municipality.
+const ORG: Record<string, { short: string; mark: string; org: string; unit: string }> = {
+  'hof-ashkelon': { short: 'חוף אשקלון', mark: 'ח', org: 'הוועדה המקומית לתכנון ובנייה חוף אשקלון', unit: 'הוועדה המקומית לתכנון ובנייה' },
+  'bnei-brak': { short: 'בני ברק', mark: 'ב', org: 'עיריית בני ברק', unit: 'מינהל ההנדסה' },
+}
+const DEFAULT_ORG = 'hof-ashkelon'
+
 export default function App() {
   const [me, setMe] = useState<Me | null>(null)
   const [meta, setMeta] = useState<any>(null)
@@ -66,6 +73,8 @@ export default function App() {
 
   const can = (p: string) => !!me?.permissions.includes(p)
   const isDemo = me?.tenant_id === 'demo'
+  const org = ORG[me?.tenant_id || DEFAULT_ORG] || ORG[DEFAULT_ORG]
+  useEffect(() => { document.title = `בדיקת היתרי בנייה — ${isDemo ? 'סביבת הדגמה' : org.short}` }, [org, isDemo])
 
   return (
     <AppCtx.Provider value={{ me, meta, can, toast }}>
@@ -73,8 +82,8 @@ export default function App() {
         {mobileOpen && <button className="mobile-overlay" aria-label="סגירת תפריט" onClick={() => setMobileOpen(false)} />}
         <aside className={'sidebar' + (mobileOpen ? ' mobile-open' : '')}>
           <div className="brand-lockup">
-            <div className="brand-mark" aria-hidden="true">ב</div>
-            <div><strong>מערכת רישוי חכמה</strong><small>בני ברק · מערכת תומכת החלטה</small></div>
+            <div className="brand-mark" aria-hidden="true">{org.mark}</div>
+            <div><strong>מערכת רישוי חכמה</strong><small>{org.short} · מערכת תומכת החלטה</small></div>
           </div>
           <div className="sidebar-section-label">סביבת עבודה</div>
           <nav aria-label="ניווט ראשי">
@@ -94,7 +103,7 @@ export default function App() {
           )}
           <header className="topbar">
             <button className="mobile-menu" aria-label="פתיחת תפריט" onClick={() => setMobileOpen(true)}>☰</button>
-            <div className="topbar-location"><span className="topbar-eyebrow">סביבת עבודה / עיריית בני ברק</span><strong>{isDemo ? 'סביבת הדגמה' : 'מינהל ההנדסה'}</strong></div>
+            <div className="topbar-location"><span className="topbar-eyebrow">סביבת עבודה / {org.org}</span><strong>{isDemo ? 'סביבת הדגמה' : org.unit}</strong></div>
             <span className="spacer" />
             <span className="topbar-policy"><span className="live-dot" /> כל תוצר הוא המלצה בלבד — ההחלטה בסמכות בעל תפקיד מוסמך</span>
             <label className="small muted" htmlFor="user-switch">משתמש:</label>

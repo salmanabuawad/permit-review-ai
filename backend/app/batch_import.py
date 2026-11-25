@@ -110,6 +110,15 @@ def extract_fields(text: str, file: str, page: int | None = None) -> tuple[dict,
         hit = _first(text, key, value, file, page)
         if hit:
             fields[name], sources[name] = hit
+    if "description" not in fields:   # Rishui Zamin: the section title "מהות הבקשה" on its own line, value below it
+        m = re.search(r"^[ \xa0]*מהות[ \xa0]+הבקשה[ \xa0]*\n[ \xa0]*([^\n]{6,300})", text, re.M)
+        if m:
+            fields["description"] = m.group(1).replace("\xa0", " ").strip()
+            sources["description"] = Source(file, page, "כותרת סעיף ושורה מתחתיה (סדר מילים לבדיקה)", 0.5)
+            fields["title"], sources["title"] = fields["description"][:200], sources["description"]
+    rz = rishui_zamin_number(text)
+    if rz:   # wins over "מספר תיק המידע להיתר: …", which is the information file's number, not the request's
+        fields["case_number"], sources["case_number"] = rz, Source(file, page, "מספר בקשה ברישוי זמין (כותרת הטופס)", 0.95)
     lines = [l for l in text.splitlines() if l.strip()]
     for name, key in TEXT_FIELDS.items():
         hit = _text_field(lines, key, file, page)
@@ -138,9 +147,62 @@ def extract_fields(text: str, file: str, page: int | None = None) -> tuple[dict,
 def pdf_pages_text(data: bytes) -> list[str]:
     doc = pymupdf.open(stream=data, filetype="pdf")
     try:
-        return [p.get_text() for p in doc]
+        from .intake.text import repair_shifted_font
+        return [repair_shifted_font(p.get_text()) for p in doc]
     finally:
         doc.close()
+
+
+# Rishui Zamin (מערכת רישוי זמין) prints "בקשה להיתר בנייה או לשימוש במקרקעין מס' 10000611793-1" on every page;
+# the number is the application number. Visual-order text has it as "10000611793-1 'סמ ןיעקרקמב".
+RZ_NUMBER = [re.compile(r"(\d{8,12}-\d{1,2})[ \xa0]*['׳]?[ \xa0]*בקשה[ \xa0]+להיתר[ \xa0]+בנייה[^\n]{0,40}במקרקעין"),
+             re.compile(r"במקרקעין[ \xa0]+מס['׳]?[ \xa0]*(\d{8,12}-\d{1,2})"),
+             re.compile(r"(\d{8,12}-\d{1,2})[ \xa0]*['׳]?סמ[ \xa0]+ןיעקרקמב")]
+
+
+def rishui_zamin_number(text: str) -> str | None:
+    for pat in RZ_NUMBER:
+        m = pat.search(text)
+        if m:
+            return m.group(1)
+    return None
+
+
+_RZ_NUM = r"(\d+(?:\.\d+)?)"
+
+
+def rishui_zamin_declared(text: str) -> dict:
+    """Values the applicant declared in a Rishui Zamin form (section 4, "מפרט הבנייה"), keyed as case.declared
+    facts. Pymupdf gives these lines as 'VALUE :label' or 'VALUE:(label'; only exact label matches are taken."""
+    t = text.replace("\xa0", " ")
+    out: dict = {}
+
+    def num(label: str, key: str, cast=float):
+        m = re.search(_RZ_NUM + r"\s*:\s*\(?" + label, t) or re.search(label + r"[^\n]{0,40}?:\s*" + _RZ_NUM, t)
+        if m:
+            out[key] = cast(m.group(1))
+    num(r"היקף בנייה שטחים עיקריים", "main_area_m2")
+    num(r"היקף בנייה שטחי שירות", "service_area_m2")
+    num(r"מספר יחידות דיור", "units", int)
+    num(r"מספר קומות המבוקש", "floors", int)
+    m = re.search(r"(כן|לא)\s*\?\s*מטרים מעץ", t) or re.search(r"מטרים מעץ[^\n]*\?\s*(כן|לא)", t)
+    if m:
+        out["trees_within_4m"] = m.group(1) == "כן"
+    m = re.search(r"([\d\-/ ,]+?)\s*:\s*תכניות נוספות", t) or re.search(r"תכניות נוספות\s*:\s*([\d\-/ ,]+)", t)
+    if m:
+        out["plans_declared"] = [x.strip() for x in m.group(1).split(",") if x.strip()]
+    if re.search(r"^\s*בנייה חדשה\s*$", t, re.M):
+        out["work_type"] = "new_building"
+    m = re.search(r"(\S+)\s*:\s*שימוש עיקרי", t) or re.search(r"שימוש עיקרי\s*:\s*(\S+)", t)
+    if m and m.group(1) != "שימוש":
+        out["main_use"] = m.group(1)
+    m = re.search(r"(\d{8,12}-\d{1,2})\s*:\s*מספר תיק המידע להיתר", t) or re.search(r"מספר תיק המידע להיתר\s*:\s*(\d{8,12}-\d{1,2})", t)
+    if m:
+        out["info_file_number"] = m.group(1)
+    m = re.search(r"(\d{2})/(\d{2})/(\d{4})\s*בתאריך[^\n]*נשלח", t) or re.search(r"נשלח ע\"י[^\n]*בתאריך\s*(\d{2})/(\d{2})/(\d{4})", t)
+    if m:
+        out["submission_date"] = f"{m.group(3)}-{m.group(2)}-{m.group(1)}"
+    return out
 
 
 def split_multi_request_pdf(data: bytes) -> list[tuple[int, int]]:
@@ -151,9 +213,13 @@ def split_multi_request_pdf(data: bytes) -> list[tuple[int, int]]:
     for i, t in enumerate(texts):
         if not FORM_START.search(t):
             continue
-        g = _first(t, *FIELD_PATTERNS["gush"], "", i)
-        h = _first(t, *FIELD_PATTERNS["helka"], "", i)
-        key = (g[0] if g else None, h[0] if h else None)
+        rz = rishui_zamin_number(t)
+        if rz:   # the same request number on every page = one form, however many pages
+            key = ("rz", rz)
+        else:
+            g = _first(t, *FIELD_PATTERNS["gush"], "", i)
+            h = _first(t, *FIELD_PATTERNS["helka"], "", i)
+            key = (g[0] if g else None, h[0] if h else None)
         if not starts or key != prev_key or key == (None, None):
             starts.append(i)
         prev_key = key

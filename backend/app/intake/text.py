@@ -17,6 +17,22 @@ HEADER_END = re.compile(r'קומפלוט\s*בע"מ')
 NOISE_LINE = re.compile(r"^\s*(?:BAKPIRUT\d+|TBPIRUT\d+|IB5\.7x23E|גרסה|:?מס'\s*דף\s*:?)\s*$")
 
 
+_SHIFTED_HEB = re.compile(r"[\u02a0-\u02ba]")
+
+
+def repair_shifted_font(text: str) -> str:
+    """Some government PDFs (Rishui Zamin "מידע להיתר") use a Hebrew font whose text layer is shifted: letters come
+    out as U+02A0–U+02BA (א-ת minus 0x330), punctuation as control characters (space/.:"- minus 0x1D), and each line
+    is in visual order. Map the characters back and turn visual lines into logical order. Other text is untouched."""
+    if len(_SHIFTED_HEB.findall(text)) < 20:
+        return text
+    from bidi.algorithm import get_display
+    fixed = "".join(chr(ord(c) + 0x330) if 0x2A0 <= ord(c) <= 0x2BA
+                    else chr(ord(c) + 0x1D) if 0x01 <= ord(c) <= 0x1F and c not in "\n\r\t" else c for c in text)
+    return "\n".join(get_display(line, base_dir="R") if re.search(f"[{HEB}]", line) else line
+                     for line in fixed.split("\n"))
+
+
 def tol(label: str) -> str:
     """Regex matching the letters of `label` in order, tolerating separators between letters."""
     letters = [c for c in label if c.isalnum()]

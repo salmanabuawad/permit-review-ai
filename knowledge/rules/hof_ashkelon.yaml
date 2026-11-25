@@ -1,0 +1,384 @@
+# Hof Ashkelon local planning committee — rule catalogue, PILOT DRAFT (written 2026-11-25).
+# NONE of these rules is PROFESSIONALLY_APPROVED: a computed FAIL is shown only as a potential non-compliance
+# until a licensed reviewer of the committee approves the rule.
+# Scope: plan 633-0723718 (Zikim, residential cells 365-368). Rights values come from the committee's planning
+# information for cell 368 (HA-INFO-10000583665-2) and from the plan's rights table (scan p.13, read visually).
+# Quotes are transcribed from the approved instructions (OCR, checked by eye) or from the planning information.
+jurisdiction: hof-ashkelon
+rules:
+
+  # ---------------------------------------------------------------- building rights (plan 633-0723718, cell 368)
+  - id: HA-633-FLOORS
+    version: "0.1"
+    title_he: "מספר קומות מעל הכניסה הקובעת ≤ 2"
+    legal_level: STATUTORY_PLAN
+    report: rights
+    severity: high
+    review_state: SOURCE_VERIFIED
+    spatial_scope: {plans: ["633-0723718"]}
+    check:
+      kind: compare
+      operand: declared.floors
+      operand_label_he: "מספר קומות מבוקש (טופס הבקשה)"
+      operator: "<="
+      threshold: 2
+      units: "קומות"
+    sources:
+      - {source_id: HA-PLAN-633-0723718, section: "5 טבלת זכויות והוראות בניה — מצב מוצע, תא שטח 368", page: 13, quote_he: "מספר קומות מעל הכניסה הקובעת: 2"}
+      - {source_id: HA-PLAN-633-0723718, section: "4.1.2 א(1) הוראות בינוי", page: 11, quote_he: "הבניה תהיה בקומה אחת או בשתי קומות"}
+      - {source_id: HA-INFO-10000583665-2, section: "בינוי — מספר קומות מעל מפלס הכניסה למבנה", page: 3, quote_he: "2 קומות"}
+    fix_hint_he: "לתכנן את המבנה בקומה אחת או בשתי קומות בלבד."
+
+  - id: HA-633-HEIGHT
+    version: "0.1"
+    title_he: "גובה מבנה ≤ 9.0 מ׳ לגג רעפים / ≤ 8.0 מ׳ לגג שטוח (לא כולל מתקנים טכניים)"
+    legal_level: STATUTORY_PLAN
+    report: rights
+    severity: high
+    review_state: SOURCE_VERIFIED
+    spatial_scope: {plans: ["633-0723718"]}
+    check:
+      kind: compare
+      operand: declared.building_height_m
+      operand_label_he: "גובה המבנה מעל הכניסה הקובעת (±0.00) עד הנקודה הגבוהה, לא כולל מתקנים טכניים"
+      operator: "<="
+      threshold_by:
+        fact: declared.roof_type
+        label_he: "סוג הגג (רעפים/שטוח)"
+        map: {tiled: 9.0, flat: 8.0}
+      units: "מ׳"
+    sources:
+      - {source_id: HA-PLAN-633-0723718, section: "5 טבלת זכויות והוראות בניה — מצב מוצע, תא שטח 368", page: 13, quote_he: "גובה מבנה- מעל הכניסה הקובעת (מטר): (1) לגג רעפים: 9.0 מ', לגג שטוח: 8.0 מ' לא כולל מתקנים טכניים, ארובות, אנטנות וכו'"}
+      - {source_id: HA-INFO-10000583665-2, section: "בינוי — גובה מבנה (מטר)", page: 3, quote_he: "לגג רעפים 9.0 מ', לגג שטוח 8.0 מ', לא כולל מתקנים טכניים"}
+    fix_hint_he: "להנמיך את המבנה, או לסמן בחתך את הגובה הנמדד ואת סוג הגג."
+    notes: "Measured above the determining entrance level (the plan's table header), i.e. from ±0.00 in the sections. Height and roof type are not in the Rishui Zamin form — read from the sections."
+
+  - id: HA-633-UNITS-CELL
+    version: "0.2"
+    title_he: "מספר יח\"ד מצטבר בתא שטח 368 (כל הבניינים בתא) ≤ 102"
+    legal_level: STATUTORY_PLAN
+    report: rights
+    severity: medium
+    review_state: SOURCE_VERIFIED
+    spatial_scope: {plans: ["633-0723718"]}
+    check:
+      kind: compare
+      operand: declared.cell_units_total
+      operand_label_he: "סה\"כ יח\"ד בתא השטח (טבלת הריכוז בתכנית הבינוי שבבקשה)"
+      operator: "<="
+      threshold: 102
+      units: "יח\"ד"
+    sources:
+      - {source_id: HA-PLAN-633-0723718, section: "5 טבלת זכויות והוראות בניה — מצב מוצע, תא שטח 368", page: 13, quote_he: "מספר יח\"ד: 102"}
+      - {source_id: HA-INFO-10000583665-2, section: "צפיפות בניה — מספר יחידות דיור", page: 3, quote_he: "633-0723718 102"}
+    fix_hint_he: "לעדכן את טבלת הריכוז של תא השטח כך שסך יח\"ד לא יעלה על 102."
+    notes: "Cumulative over the cell; the value is the applicant's own summary table — the reviewer checks it against approved permits."
+
+  - id: HA-633-MAIN-AREA-CELL
+    version: "0.1"
+    title_he: "שטח עיקרי מצטבר בתא שטח 368 ≤ 40% משטח התא"
+    legal_level: STATUTORY_PLAN
+    report: rights
+    severity: high
+    review_state: SOURCE_VERIFIED
+    spatial_scope: {plans: ["633-0723718"]}
+    check:
+      kind: compare
+      operand: declared.cell_main_pct
+      operand_label_he: "סה\"כ שטח עיקרי בתא השטח, % (טבלת הריכוז בבקשה)"
+      operator: "<="
+      threshold: 40
+      units: "%"
+    sources:
+      - {source_id: HA-PLAN-633-0723718, section: "5 טבלת זכויות והוראות בניה — מצב מוצע, תא שטח 368", page: 13, quote_he: "שטחי בניה (% מתא שטח) מעל הכניסה הקובעת — עיקרי: 40"}
+      - {source_id: HA-INFO-10000583665-2, section: "שטחים", page: 2, quote_he: "שטח עיקרי מעל לכניסה הקובעת 40%"}
+      - {source_id: HA-PLAN-633-0723718, section: "2.2 עיקרי הוראות", page: 9, quote_he: "ללא הגדלת סך כל השטחים למטרות עיקריות"}
+
+  - id: HA-633-SERVICE-AREA-CELL
+    version: "0.1"
+    title_he: "שטח שירות מצטבר בתא שטח 368 ≤ 10% משטח התא"
+    legal_level: STATUTORY_PLAN
+    report: rights
+    severity: high
+    review_state: SOURCE_VERIFIED
+    spatial_scope: {plans: ["633-0723718"]}
+    check:
+      kind: compare
+      operand: declared.cell_service_pct
+      operand_label_he: "סה\"כ שטח שירות בתא השטח, % (טבלת הריכוז בבקשה)"
+      operator: "<="
+      threshold: 10
+      units: "%"
+    sources:
+      - {source_id: HA-PLAN-633-0723718, section: "5 טבלת זכויות והוראות בניה — מצב מוצע, תא שטח 368", page: 13, quote_he: "שטחי בניה (% מתא שטח) מעל הכניסה הקובעת — שירות: 10"}
+      - {source_id: HA-INFO-10000583665-2, section: "שטחים", page: 2, quote_he: "שטח שירות מעל לכניסה הקובעת 10%"}
+
+  - id: HA-633-COVERAGE-CELL
+    version: "0.1"
+    title_he: "תכסית בתא שטח 368 ≤ 50%"
+    legal_level: STATUTORY_PLAN
+    report: rights
+    severity: medium
+    review_state: SOURCE_VERIFIED
+    spatial_scope: {plans: ["633-0723718"]}
+    check: {kind: qualitative}
+    sources:
+      - {source_id: HA-PLAN-633-0723718, section: "5 טבלת זכויות והוראות בניה — מצב מוצע, תא שטח 368", page: 13, quote_he: "תכסית (% מתא שטח): 50"}
+      - {source_id: HA-INFO-10000583665-2, section: "תכסית", page: 3, quote_he: "תכסית (אחוזים) 633-0723718 50%"}
+    notes: "The applicant's summary table does not state coverage."
+
+  - id: HA-633-BUILDING-FORM
+    version: "0.1"
+    title_he: "צורת בינוי: חד־משפחתי, דו־משפחתי או רב־משפחתי בקיר משותף; גג שטוח, משופע או משולב"
+    legal_level: STATUTORY_PLAN
+    report: reviewer
+    severity: low
+    review_state: SOURCE_VERIFIED
+    spatial_scope: {plans: ["633-0723718"]}
+    check: {kind: qualitative}
+    sources:
+      - {source_id: HA-PLAN-633-0723718, section: "4.1.2 א(1)-(2)", page: 11, quote_he: "בתי המגורים יהיו חד משפחתיים, דו-משפחתיים או רב-משפחתיים בהם הבניה תהיה בקיר משותף"}
+
+  - id: HA-633-SHEDS
+    version: "0.1"
+    title_he: "מחסן: חלק מהבית, או מחומר קל עד 3.0 מ׳ מקיר הבית ובתחום קווי הבניין; גובה פנימי ≤ 2.40 מ׳; ≤ 10 מ\"ר ליח\"ד (שטח שירות)"
+    legal_level: STATUTORY_PLAN
+    report: reviewer
+    severity: medium
+    review_state: SOURCE_VERIFIED
+    spatial_scope: {plans: ["633-0723718"]}
+    check: {kind: qualitative}
+    sources:
+      - {source_id: HA-PLAN-633-0723718, section: "4.1.2 א(4)", page: 11, quote_he: "ובמרחק מירבי של 3.0 מ' בין קיר הבנין לדופן המחסן ובתחום קווי הבנין, גובה מחסן (פנימי) לא יעלה על 2.40 מ' ובשטח מרבי של 10 מ\"ר ליח\"ד"}
+    fix_hint_he: "לסמן את המחסן בתכנית: מיקום, מרחק מקיר הבית, שטח וגובה פנימי."
+
+  - id: HA-633-FENCES
+    version: "0.1"
+    title_he: "אין גדרות בין יחידות דיור; קיר הפרדה חיצוני בדו־משפחתי — המשך קיר ההפרדה, אורך ≤ 5.0 מ׳, גובה ≤ 1.80 מ׳"
+    legal_level: STATUTORY_PLAN
+    report: reviewer
+    severity: medium
+    review_state: SOURCE_VERIFIED
+    spatial_scope: {plans: ["633-0723718"]}
+    check: {kind: qualitative}
+    sources:
+      - {source_id: HA-PLAN-633-0723718, section: "4.1.2 א(5) גדרות", page: 11, quote_he: "באורך מירבי של 5.0 מ' מקיר הבית ובגובה מירבי של 1.80 מ' מעל פני הקרקע הגובלת"}
+
+  - id: HA-633-TECH-SCREENING
+    version: "0.1"
+    title_he: "מערכות טכניות חיצוניות (מיזוג, דוד שמש וקולטים) מוסתרות במסתור או במעקה גג"
+    legal_level: STATUTORY_PLAN
+    report: reviewer
+    severity: low
+    review_state: SOURCE_VERIFIED
+    spatial_scope: {plans: ["633-0723718"]}
+    check: {kind: qualitative}
+    sources:
+      - {source_id: HA-PLAN-633-0723718, section: "4.1.2 א(6)", page: 11, quote_he: "יוסתרו על ידי מסתור מתאים או על ידי מעקה גג"}
+
+  - id: HA-633-PV-ROOF
+    version: "0.1"
+    title_he: "מתקנים פוטו־וולטאיים — על הגגות ובתחומם בלבד, לפי תמ\"א 10/ד/10; בדיקת יציבות הבניין"
+    legal_level: STATUTORY_PLAN
+    report: reviewer
+    severity: medium
+    review_state: SOURCE_VERIFIED
+    spatial_scope: {plans: ["633-0723718"]}
+    check: {kind: qualitative}
+    sources:
+      - {source_id: HA-PLAN-633-0723718, section: "4.1.2 א(7); 6.1 ו", page: 11, quote_he: "לא יינתן היתר בניה אלא אם כן נבחנה יציבות הבניין ותובטח נקיטת אמצעי הבטיחות"}
+      - {source_id: NOP-10-D-10}
+
+  # ---------------------------------------------------------------- conditions for a permit (section 6.1)
+  - id: HA-633-COND-BINUI-PLAN
+    version: "0.1"
+    title_he: "תנאי להיתר: תכנית בינוי ופיתוח מאושרת ע\"י הוועדה המקומית לתא השטח (365-368)"
+    legal_level: STATUTORY_PLAN
+    report: completeness
+    severity: high
+    review_state: SOURCE_VERIFIED
+    spatial_scope: {plans: ["633-0723718"]}
+    check: {kind: condition}
+    condition_he: "יש לוודא שתכנית בינוי ופיתוח לתא השטח אושרה בוועדה המקומית לפני מתן ההיתר."
+    sources:
+      - {source_id: HA-PLAN-633-0723718, section: "6.1 א", page: 14, quote_he: "היתרי בניה למבנים בתאי שטח 365-368 יינתנו לאחר אישור הועדה המקומית לתכנית בינוי ופיתוח שתוגש לכל תא שטח"}
+
+  - id: HA-633-DOC-PLANS-100
+    version: "0.1"
+    title_he: "הבקשה כוללת תכניות המבנה, חתכים וחזיתות בקנ\"מ 1:100 ותכנית פיתוח לסביבת המבנה"
+    legal_level: STATUTORY_PLAN
+    report: completeness
+    severity: high
+    review_state: SOURCE_VERIFIED
+    spatial_scope: {plans: ["633-0723718"]}
+    check:
+      kind: any_present
+      items:
+        - {doc_type: architectural_plan, label_he: "תכנית הגשה"}
+        - {doc_type: sections_elevations, label_he: "חתכים וחזיתות"}
+    sources:
+      - {source_id: HA-PLAN-633-0723718, section: "6.1 ג", page: 14, quote_he: "תוכנית פיתוח תואמת לסביבת כל מבנה מבוקש, וכן תכניות המבנה, חתכים וחזיתות בקנ\"מ 1:100"}
+
+  - id: HA-633-COND-WELLS
+    version: "0.1"
+    title_he: "תנאי להיתר ברדיוס מגן של קידוח מי שתייה (שקמה 7/8/9): אישור משרד הבריאות ומקורות"
+    legal_level: STATUTORY_PLAN
+    report: completeness
+    severity: high
+    review_state: SOURCE_VERIFIED
+    spatial_scope: {plans: ["633-0723718"]}
+    check: {kind: condition}
+    condition_he: "לבדוק אם המבנה ברדיוס מגן של קידוח שקמה 7, 8 או 9 (ב׳ ≈ 84-90 מ׳, ג׳ ≈ 167-180 מ׳); אם כן — נדרשים אישורי משרד הבריאות ומקורות. באזור מגן ב׳ אסורים מבני מגורים."
+    sources:
+      - {source_id: HA-PLAN-633-0723718, section: "6.1 ב; 6.4 ב(3)-(4)", page: 15, quote_he: "באזור מגן ב' אסורים כל בניה, התקנה או פעילות העלולים לזהם את הקידוח, כגון: מבני מגורים"}
+
+  - id: HA-633-COND-DEMOLITION
+    version: "0.1"
+    title_he: "תנאי להיתר: הריסת המבנים המסומנים להריסה בתחום התכנית"
+    legal_level: STATUTORY_PLAN
+    report: completeness
+    severity: medium
+    review_state: SOURCE_VERIFIED
+    spatial_scope: {plans: ["633-0723718"]}
+    check: {kind: condition}
+    condition_he: "לבדוק בתשריט אם במגרש מבנים המסומנים להריסה; אם כן — הריסתם תנאי להיתר."
+    sources:
+      - {source_id: HA-PLAN-633-0723718, section: "6.1 ד", page: 14, quote_he: "תנאי למתן היתרי בניה יהיה הריסת מבנים המסומנים להריסה בתחום התכנית"}
+
+  - id: HA-633-COND-HFC
+    version: "0.1"
+    title_he: "תנאי להיתר: אישור פיקוד העורף לפתרונות המיגון במגרש"
+    legal_level: STATUTORY_PLAN
+    report: completeness
+    severity: high
+    review_state: SOURCE_VERIFIED
+    spatial_scope: {plans: ["633-0723718"]}
+    check: {kind: condition}
+    condition_he: "נדרש אישור פיקוד העורף (פקע\"ר) לפתרונות המיגון."
+    sources:
+      - {source_id: HA-PLAN-633-0723718, section: "6.1 ה", page: 14, quote_he: "תנאי להיתרי בניה יהיה אישור פקע\"ר לפתרונות מיגון בתחום המגרש"}
+
+  - id: HA-633-WASTE-ESTIMATE
+    version: "0.1"
+    title_he: "הבקשה כוללת חישוב מוערך של פסולת בניין ועודפי עפר ואישור פינוי לאתר מוסדר"
+    legal_level: STATUTORY_PLAN
+    report: completeness
+    severity: medium
+    review_state: SOURCE_VERIFIED
+    spatial_scope: {plans: ["633-0723718"]}
+    check: {kind: condition}
+    condition_he: "לוודא שהוגש חישוב כמויות פסולת בניין ועודפי עפר ואישור התקשרות לפינוי לאתר מורשה."
+    sources:
+      - {source_id: HA-PLAN-633-0723718, section: "6.1 ח", page: 14, quote_he: "בקשה להיתר תכלול חישוב מוערך של כמות פסולת בנין ועודפי עפר הצפויים עקב עבודות הבניה ואישור על פינוים לאתר מוסדר"}
+
+  - id: HA-633-COND-ELECTRIC
+    version: "0.1"
+    title_he: "תנאי להיתר: תיאום עם ספק החשמל (חדר שנאים/מיתוג, קווים, מרחקי בנייה)"
+    legal_level: STATUTORY_PLAN
+    report: completeness
+    severity: medium
+    review_state: SOURCE_VERIFIED
+    spatial_scope: {plans: ["633-0723718"]}
+    check:
+      kind: any_present
+      items:
+        - {doc_type: electric_company_approval, label_he: "אישור/תיאום חברת החשמל"}
+    sources:
+      - {source_id: HA-PLAN-633-0723718, section: "6.6 א", page: 17, quote_he: "תנאי למתן ההיתר בניה יהיה - תיאום עם ספק החשמל"}
+    fix_hint_he: "לצרף אישור תיאום מחברת החשמל (או מסמך חברת החשמל מתיק המידע להיתר)."
+
+  - id: HA-633-SEWAGE
+    version: "0.1"
+    title_he: "חיבור לביוב מרכזי: תכנית חיבור המבנה לביוב כחלק מהבקשה; היתר לאחר ביצוע תכנית המים והביוב באזור"
+    legal_level: STATUTORY_PLAN
+    report: completeness
+    severity: medium
+    review_state: SOURCE_VERIFIED
+    spatial_scope: {plans: ["633-0723718"]}
+    check: {kind: condition}
+    condition_he: "לוודא שצורף נספח סניטרי/תכנית חיבור לביוב לאישור מהנדס הוועדה, ושתכנית המים והביוב באזור בוצעה בפועל."
+    sources:
+      - {source_id: HA-PLAN-633-0723718, section: "6.4 א(3)-(4)", page: 15, quote_he: "תכנית חיבור המבנים לפתרון ביוב תהיה חלק מהבקשה להיתר לאישור מהנדס הועדה המקומית"}
+
+  # ---------------------------------------------------------------- environment, trees, infrastructure
+  - id: HA-633-INFILTRATION
+    version: "0.1"
+    title_he: "לפחות 15% משטח המגרש חדיר מים, או מתקני החדרה בתחום המגרש (תמ\"א 34/ב/4)"
+    legal_level: STATUTORY_PLAN
+    report: reviewer
+    severity: medium
+    review_state: SOURCE_VERIFIED
+    spatial_scope: {plans: ["633-0723718"]}
+    check: {kind: qualitative}
+    sources:
+      - {source_id: HA-PLAN-633-0723718, section: "6.2 א(2)", page: 14, quote_he: "לפחות 15% שטחים חדירי מים מתוך שטח המגרש הכולל"}
+      - {source_id: NOP-34-B-4}
+
+  - id: HA-633-TREES-4M
+    version: "0.1"
+    title_he: "עבודה במרחק < 4 מ׳ מעץ לשימור — לפי הנחיות מומחה ונוהל פקיד היערות; העתקה/כריתה ברישיון פקיד היערות"
+    legal_level: STATUTORY_PLAN
+    report: completeness
+    severity: high
+    review_state: SOURCE_VERIFIED
+    spatial_scope: {plans: ["633-0723718"]}
+    applicability:
+      all:
+        - {fact: declared.trees_within_4m, op: true, label_he: "העבודה ברדיוס 4 מ׳ מעץ בוגר (מוצהר בטופס)"}
+    check: {kind: condition}
+    condition_he: "נדרש אישור/רישיון פקיד היערות ומפרט שימור של מומחה לעבודה בקרבת העץ; עץ לשימור יגודר בגידור קשיח."
+    sources:
+      - {source_id: HA-PLAN-633-0723718, section: "6.5 2(ב)-(ג)", page: 16, quote_he: "כל עבודת בנייה ופיתוח הקרובה מ- 4 מ' לגזעו של העץ לשימור תבוצע תחת הנחיות ומפרט שימור שהוגדרו ע\"י מומחה"}
+
+  - id: HA-633-MEKOROT-5M
+    version: "0.1"
+    title_he: "אין עבודות תשתית ופיתוח במרחק < 5 מ׳ מקווי מקורות"
+    legal_level: STATUTORY_PLAN
+    report: reviewer
+    severity: medium
+    review_state: SOURCE_VERIFIED
+    spatial_scope: {plans: ["633-0723718"]}
+    check: {kind: qualitative}
+    sources:
+      - {source_id: HA-PLAN-633-0723718, section: "4.1.2 ג(3)", page: 11, quote_he: "אין לבצע כל עבודות תשתית ועבודות פיתוח במרחק הקטן מ- 5 מ' מקווי מקורות"}
+
+  - id: HA-633-ANTIQUITIES
+    version: "0.1"
+    title_he: "עבודה בשטח המוגדר כעתיקות — בתיאום ובאישור רשות העתיקות"
+    legal_level: STATUTORY_PLAN
+    report: completeness
+    severity: medium
+    review_state: SOURCE_VERIFIED
+    spatial_scope: {plans: ["633-0723718"]}
+    check:
+      kind: any_present
+      items:
+        - {doc_type: antiquities_approval, label_he: "אישור רשות העתיקות"}
+    sources:
+      - {source_id: HA-PLAN-633-0723718, section: "6.9 א", page: 18, quote_he: "כל עבודה בתחום השטח המוגדר כעתיקות, תתואם ותבוצע רק לאחר קבלת אישור מנהל רשות העתיקות"}
+
+  - id: HA-633-PARKING
+    version: "0.1"
+    title_he: "חנייה בתחום תאי השטח למגורים, מסומנת בתכנית הבינוי, לפי תקן החנייה הארצי"
+    legal_level: STATUTORY_PLAN
+    report: reviewer
+    severity: medium
+    review_state: SOURCE_VERIFIED
+    spatial_scope: {plans: ["633-0723718"]}
+    check: {kind: qualitative}
+    sources:
+      - {source_id: HA-PLAN-633-0723718, section: "6.10 חניה", page: 18, quote_he: "מקומות חניה יסומנו בתכנית הבינוי לכל מתחם, בתחום תאי השטח למגורים ועל פי תקן חניה ארצי"}
+
+  - id: HA-633-BETTERMENT-LEVY
+    version: "0.1"
+    title_he: "חבות בהיטל השבחה (לפי תכנית החלה) — הגובה ייקבע לאחר אישור עקרוני"
+    legal_level: CASE_INFO
+    report: completeness
+    severity: low
+    review_state: SOURCE_VERIFIED
+    spatial_scope: {plans: ["633-0723718"]}
+    check: {kind: condition}
+    condition_he: "הבקשה חייבת בהיטל השבחה; יש להסדיר את השומה והתשלום לפני מתן ההיתר."
+    sources:
+      - {source_id: HA-INFO-FILE-10000583665-2, section: "7 סיכום הבקשה — היטל השבחה", page: 5, quote_he: "מבדיקה ראשונית עולה כי הבקשה להיתר מחייבת בתשלום היטל השבחה"}
+      - {source_id: HA-PLAN-633-0723718, section: "היטל השבחה", page: 18}
