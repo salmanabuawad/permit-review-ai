@@ -129,6 +129,189 @@ def area_table_facts(docs: list[Doc]) -> tuple[dict, list[dict]]:
     return {}, []
 
 
+# ------------------------------------------------------------------ the area table, row by row, and the lot ledger
+
+def area_table_rows(docs: list[Doc]) -> tuple[list[dict], dict | None, dict | None]:
+    """(rows, printed_total, where) from an area table "מבנה | מס יח"ד | עיקרי | אחוז | שירות | אחוז | סה"כ" (one row per
+    building). Columns are read by position: a row is [total, service%, service, main%, main, units, lot, building]
+    left to right. Values are kept as Decimal (source precision)."""
+    from decimal import Decimal, InvalidOperation
+    for doc in docs:
+        if not doc.find(r"אחוז.{0,3}מעיקרי|מעיקרי"):
+            continue
+        try:
+            pdf = pymupdf.open(str(doc.path))
+        except Exception:  # noqa: BLE001
+            continue
+        with pdf:
+            for pno, page in enumerate(pdf, 1):
+                lines: dict[int, list] = {}
+                for w in page.get_text("words"):
+                    lines.setdefault(round((w[1] + w[3]) / 6), []).append(w)
+                rows, printed = [], None
+                for k in sorted(lines):
+                    toks = [norm(w[4]) for w in sorted(lines[k], key=lambda w: w[0])]
+                    try:
+                        if len(toks) == 8 and re.fullmatch(r"\d{2,3}(-\d{2,3})?", toks[7]):
+                            rows.append({"building": toks[7], "units": int(toks[5]), "main": Decimal(toks[4]),
+                                         "service": Decimal(toks[2]), "total": Decimal(toks[0])})
+                        elif rows and toks[-1:] == ["סה"] and len(toks) >= 6:
+                            nums = [x for x in toks if re.fullmatch(r"[\d.]+%?", x)]
+                            printed = {"total": Decimal(nums[0]), "service": Decimal(nums[2]), "main": Decimal(nums[4]),
+                                       "units": int(nums[5])}
+                    except (InvalidOperation, ValueError, IndexError):
+                        continue
+                if len(rows) >= 3:
+                    return rows, printed, {"doc": doc, "page": pno}
+    return [], None, None
+
+
+def load_ledger(gush: str | None, cell: str | None) -> dict | None:
+    if not gush or not cell:
+        return None
+    path = Path(settings.knowledge_dir, "lots", f"hof_ashkelon_{gush}_{cell}.yaml")
+    if not path.exists():
+        return None
+    import yaml
+    return yaml.safe_load(path.read_text(encoding="utf-8"))
+
+
+def request_units(ctx) -> tuple[int, int] | None:
+    text = " ".join(str(x) for x in (ctx.declared.get("description"), ctx.title) if x)
+    m = re.search(r"(?<!\d)(\d{3})\s*[-–+]\s*(\d{3})(?!\d)", text)
+    return tuple(sorted((int(m.group(1)), int(m.group(2))))) if m else None
+
+
+def r_table_arithmetic(ctx):
+    rows, printed, where = area_table_rows(ctx.docs)
+    if not rows or not printed:
+        return None
+    sums = {k: sum((r[k] for r in rows), start=type(rows[0][k])(0)) for k in ("main", "service", "total", "units")}
+    diffs = {k: abs(sums[k] - printed[k]) for k in sums}
+    quote = (f"{len(rows)} שורות: עיקרי {sums['main']}, שירות {sums['service']}, סה\"כ {sums['total']}, {sums['units']} יח\"ד; "
+             f"מודפס: עיקרי {printed['main']}, שירות {printed['service']}, סה\"כ {printed['total']}")
+    e = [ev(where["doc"], where["page"], quote)]
+    bad = [k for k, d in diffs.items() if d > (0 if k == "units" else type(d)("0.05"))]
+    if not bad:
+        return Resolution("PASS", f"סכום {len(rows)} השורות תואם את שורת הסה\"כ ({sums['units']} יח\"ד).", e)
+    he = {"main": "עיקרי", "service": "שירות", "total": "סה\"כ", "units": "יח\"ד"}
+    return Resolution("FAIL", "סכום השורות בטבלת השטחים אינו תואם את הסה\"כ המודפס: " + "; ".join(
+        f"{he[k]} — סכום {sums[k]} מול {printed[k]} (הפרש {diffs[k]})" for k in bad) + ".", e)
+
+
+def r_table_vs_registry(ctx):
+    ledger = load_ledger(ctx.gush, ctx.cell)
+    rows, printed, where = area_table_rows(ctx.docs)
+    if not ledger or not rows:
+        return None
+    from decimal import Decimal
+    by_building = {r["building"]: r for r in rows}
+    conflicts, checked, misfiled = [], 0, []
+    for rec in ledger["records"]:
+        if rec["role"] != "new_dwelling" or len(rec.get("units") or []) != 2:
+            continue
+        row = by_building.get(f"{min(rec['units'])}-{max(rec['units'])}")
+        if not row or rec.get("primary_m2") is None:
+            continue
+        checked += 1
+        p = Decimal(rec["primary_m2"])
+        if "total_in_primary" in rec.get("flags", []):
+            if abs(p - row["total"]) > Decimal("0.05"):
+                conflicts.append(f"{row['building']}: במאגר {p} (שדה עיקרי, כנראה סה\"כ) מול סה\"כ {row['total']} בטבלה (בקשה {rec['application_id']})")
+            else:
+                misfiled.append(row["building"])
+            continue
+        s = Decimal(rec["service_m2"]) if rec.get("service_m2") is not None else None
+        diff = []
+        if abs(p - row["main"]) > Decimal("0.05"):
+            diff.append(f"עיקרי {row['main']} בטבלה מול {p} במאגר")
+        if s is not None and abs(s - row["service"]) > Decimal("0.05"):
+            diff.append(f"שירות {row['service']} בטבלה מול {s} במאגר")
+        if diff:
+            conflicts.append(f"יחידות {row['building']}: " + ", ".join(diff) + f" (בקשה {rec['application_id']})")
+    if not checked:
+        return None
+    src = ev(where["doc"], where["page"], f"השוואת {checked} מבנים חדשים בטבלת השטחים לבקשות במאגר הוועדה (צילום 25.11.2026)")
+    note = f" במאגר, שדה השטח העיקרי של {', '.join(misfiled)} מכיל את סה\"כ השטח — רישום שגוי במאגר, ללא סתירה לטבלה." if misfiled else ""
+    if conflicts:
+        return Resolution("FAIL", "סתירה בין טבלת השטחים לבין השטחים הרשומים במאגר הוועדה: " + "; ".join(conflicts) + "." + note, [src])
+    return Resolution("PASS", f"שטחי {checked} המבנים החדשים בטבלה תואמים את הרשום במאגר הוועדה." + note, [src])
+
+
+def r_registry_status(ctx):
+    ledger, units = load_ledger(ctx.gush, ctx.cell), request_units(ctx)
+    if not ledger or not units:
+        return None
+    rec = next((r for r in ledger["records"] if tuple(sorted(r.get("units") or [])) == units), None)
+    if not rec:
+        return None
+    e = [{"type": "document", "file": "מאגר הוועדה", "page": None, "method": "צילום מצב של מאגר הבקשות",
+          "quote": f"בקשה {rec['application_id']} (יחידות {units[0]}-{units[1]}): {rec['status']} — {rec['source_url']}"}]
+    if "לא תקינה" in (rec["status"] or ""):
+        return Resolution("FAIL", f"במאגר הוועדה הבקשה ({rec['application_id']}) בסטטוס \"{rec['status']}\" — הבקרה המרחבית של הוועדה "
+                                  "קבעה שהבקשה אינה תקינה; הסיבה לא פורסמה במאגר.", e)
+    return Resolution("PASS", f"במאגר הוועדה הבקשה ({rec['application_id']}) בסטטוס \"{rec['status']}\".", e)
+
+
+# ------------------------------------------------------------------ facts: the survey map's date
+
+def survey_file_date(files) -> tuple[str | None, list[dict]]:
+    """Latest date a survey could have been made: a survey DWFX is a ZIP package whose entries carry the time the
+    surveyor exported it, and a survey is never newer than its own file. (No rendering — only the ZIP directory.)"""
+    import datetime as _dt
+    import zipfile
+    best = None
+    for f in files:
+        if f.doc_type != "survey_map" or f.kind != "dwfx":
+            continue
+        try:
+            with zipfile.ZipFile(f.storage_path) as z:
+                stamps = [_dt.date(*i.date_time[:3]) for i in z.infolist() if i.date_time[0] >= 2000]
+        except (OSError, zipfile.BadZipFile, ValueError):
+            continue
+        if stamps and (best is None or max(stamps) > best[0]):
+            best = (max(stamps), f.filename)
+    if not best:
+        return None, []
+    d, name = best
+    return d.isoformat(), [{"type": "document", "file": name, "page": None, "method": "תאריך יצירת קובץ המדידה",
+                            "quote": f"קובץ המדידה נוצר ב־{d.strftime('%d.%m.%Y')}; המדידה אינה מאוחרת מתאריך זה"}]
+
+
+# ------------------------------------------------------------------ the plan's sheets, as read on the AI PC
+
+def drawing_facts(files) -> tuple[dict, dict]:
+    """What agent/drawing_reader.py found on the DWFX plan (stored on the file as ingest_report.drawing_read):
+    (drawing, facts). drawing = {"file", "views", "parking", "solar", "shed", "height", "evidence": {fact: [...]}}."""
+    for f in files:
+        read = (f.ingest_report or {}).get("drawing_read") or {}
+        if f.doc_type != "architectural_plan" or read.get("state") != "done":
+            continue
+        drawing = {"file": f.filename, "views": read.get("views") or {}, "parking": read.get("parking") or [],
+                   "solar": read.get("solar") or {}, "shed": read.get("shed") or [], "height": read.get("height"),
+                   "evidence": {}}
+        facts = {}
+        h = read.get("height") or {}
+        if h.get("value_m") is not None:
+            facts["building_height_m"] = float(h["value_m"])
+            r0 = (h.get("readings") or [{}])[0]
+            zero = f" (±0.00 = {h['zero_abs']:.2f})" if h.get("zero_abs") else ""
+            drawing["evidence"]["building_height_m"] = [{
+                "type": "document", "file": f.filename, "page": r0.get("sheet"), "method": "קריאת שרטוט (מודל תמונה מקומי)",
+                "quote": f"רום רכס הגג בחתך/חזית: +{h['value_m']:.2f}{zero}; גג {('רעפים' if h.get('roof_type') == 'tiled' else 'שטוח' if h.get('roof_type') == 'flat' else 'לא זוהה')}"}]
+        return drawing, facts
+    return {}, {}
+
+
+def _sheets(hits: list[dict]) -> str:
+    return ", ".join(str(s) for s in sorted({h["sheet"] for h in hits}))
+
+
+def _drawing_ev(ctx, page, quote):
+    return [{"type": "document", "file": ctx.drawing["file"], "page": page, "quote": quote,
+             "method": "קריאת שרטוט (מודל תמונה מקומי)"}]
+
+
 # ------------------------------------------------------------------ resolvers (qualitative / condition rules)
 
 def _first(docs, *patterns, types: tuple[str, ...] | None = None):
@@ -262,21 +445,56 @@ def r_coverage(ctx):
     return None
 
 
-def _drawing_views(view_he: str):
-    """Sections / elevations live on the plan's sheets. A DWFX plan has no CAD layers and its labels are drawn as lines,
-    so "no sections file" is not "no sections": until the drawing reader has looked, the item stays undecided."""
+def _drawing_views(view_he: str, key: str):
+    """Sections / elevations live on the plan's sheets. Once the AI PC has read the plan, they are found or not;
+    before that, a DWFX plan (labels drawn as lines, no CAD layers) leaves the item undecided — never "missing"."""
     def r(ctx):
-        plan = next((d for d in ctx.docs if d.doc_type == "architectural_plan" and d.path.suffix == ".pdf"
-                     and ".converted" in d.path.name), None)
+        if ctx.drawing:
+            hits = ctx.drawing["views"].get(key) or []
+            if len(hits) >= 2 or (hits and any(x.get("sheet") == hits[0]["sheet"] for x in (ctx.drawing.get("height") or {}).get("readings", []))):
+                return Resolution("PASS", f"{view_he} מופיעים בתכנית ההגשה ({ctx.drawing['file']}, גיליון {_sheets(hits)}).",
+                                  _drawing_ev(ctx, hits[0]["sheet"], f"זוהו {view_he} בגיליון {_sheets(hits)} ({len(hits)} אזורים)"))
+            if not hits:
+                return Resolution("FAIL", f"לא נמצאו {view_he} בגיליונות תכנית ההגשה ({ctx.drawing['file']}).")
+        plan = next((d for d in ctx.docs if d.doc_type == "architectural_plan" and ".converted" in d.path.name), None)
         if plan:
             return Resolution("UNCERTAIN", f"התכנית הוגשה כ־DWFX ({plan.filename}, {len(plan.pages)} גיליונות); "
-                                           f"{view_he} מופיעים בגיליונות התכנית ולא כקובץ נפרד — טרם אותרו בה אוטומטית.")
+                                           f"{view_he} מופיעים בגיליונות התכנית ולא כקובץ נפרד — טרם נקראו.")
         return None
     return r
 
 
+def r_parking(ctx):
+    if ctx.drawing and ctx.drawing["parking"]:
+        hits = ctx.drawing["parking"]
+        return Resolution("PASS", f"מקומות חנייה מסומנים בתכנית (גיליון {_sheets(hits)}).",
+                          _drawing_ev(ctx, hits[0]["sheet"], f"זוהו מקומות חנייה מסומנים בגיליון {_sheets(hits)}"))
+    return None
+
+
+def r_pv(ctx):
+    if not ctx.drawing:
+        return None
+    roof, ground = ctx.drawing["solar"].get("roof") or [], ctx.drawing["solar"].get("ground") or []
+    if roof and not ground:
+        return Resolution("PASS", f"מתקנים פוטו־וולטאיים מסומנים על הגג (גיליון {_sheets(roof)}).",
+                          _drawing_ev(ctx, roof[0]["sheet"], f"פאנלים סולריים על הגג, גיליון {_sheets(roof)}"))
+    if not roof and not ground:
+        return Resolution("PASS", "לא מוצעים מתקנים פוטו־וולטאיים מחוץ לגג; לא זוהו פאנלים בתכנית.")
+    return None
+
+
+def r_shed(ctx):
+    if ctx.drawing and not ctx.drawing["shed"]:
+        return Resolution("PASS", "לא מוצע מחסן בתכנית ההגשה — אין מחסן לבדוק.")
+    return None
+
+
 RESOLVERS = {
-    "QA-REQ-SECTIONS": _drawing_views("חתכים"), "QA-REQ-ELEVATIONS": _drawing_views("חזיתות"),
+    "QA-REQ-SECTIONS": _drawing_views("חתכים", "section"), "QA-REQ-ELEVATIONS": _drawing_views("חזיתות", "elevation"),
+    "HA-368-REGISTRY-STATUS": r_registry_status, "HA-368-TABLE-ARITHMETIC": r_table_arithmetic,
+    "HA-368-TABLE-VS-REGISTRY": r_table_vs_registry,
+    "HA-633-PARKING": r_parking, "HA-633-PV-ROOF": r_pv, "HA-633-SHEDS": r_shed,
     "HA-633-ANTIQUITIES": r_antiquities, "HA-633-COND-ELECTRIC": r_electric, "HA-633-COND-WELLS": r_wells,
     "HA-633-COND-HFC": r_hfc, "HA-633-COND-BINUI-PLAN": r_binui_plan, "HA-633-COND-DEMOLITION": r_demolition,
     "HA-633-WASTE-ESTIMATE": r_waste, "HA-633-SEWAGE": r_sewage, "HA-633-BETTERMENT-LEVY": r_betterment,
@@ -292,6 +510,8 @@ class Context:
     cell: str | None
     facts_from_docs: dict
     area_evidence: list[dict]
+    drawing: dict = field(default_factory=dict)
+    gush: str | None = None
 
 
 def document_facts(files) -> tuple[list[Doc], dict, list[dict]]:
@@ -302,7 +522,8 @@ def document_facts(files) -> tuple[list[Doc], dict, list[dict]]:
     return docs, facts, evidence
 
 
-def resolve(results: list, docs: list[Doc], declared: dict, title: str, facts_from_docs: dict, area_evidence: list[dict]) -> int:
+def resolve(results: list, docs: list[Doc], declared: dict, title: str, facts_from_docs: dict, area_evidence: list[dict],
+            drawing: dict | None = None, gush: str | None = None) -> int:
     """Answer open findings in place; returns how many were resolved."""
     cell = None                     # the plan cell: "משטח מגרש 368" (also extracted as "368 משטח מגרש") or "מגרש 368 מתכנית"
     for d in docs:
@@ -315,7 +536,7 @@ def resolve(results: list, docs: list[Doc], declared: dict, title: str, facts_fr
                 break
         if cell:
             break
-    ctx = Context(docs, declared, title, cell, facts_from_docs, area_evidence)
+    ctx = Context(docs, declared, title, cell, facts_from_docs, area_evidence, drawing or {}, gush)
     n = 0
     for r in results:
         fn = RESOLVERS.get(r.rule_id)

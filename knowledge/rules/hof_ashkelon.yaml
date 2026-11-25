@@ -408,3 +408,49 @@ rules:
     sources:
       - {source_id: HA-INFO-FILE-10000583665-2, section: "7 סיכום הבקשה — היטל השבחה", page: 5, quote_he: "מבדיקה ראשונית עולה כי הבקשה להיתר מחייבת בתשלום היטל השבחה"}
       - {source_id: HA-PLAN-633-0723718, section: "היטל השבחה", page: 18}
+
+  # ---------------------------------------------------------------- lot 368 ledger: the request against the register
+  - id: HA-368-REGISTRY-STATUS
+    version: "0.1"
+    title_he: "סטטוס הבקשה במאגר הוועדה"
+    legal_level: CASE_INFO
+    report: reviewer
+    severity: high
+    review_state: PROFESSIONALLY_APPROVED
+    reviewer: approved-by-default (system owner instruction, 2026-11-25)
+    issue_type: INVALID
+    spatial_scope: {plans: ["633-0723718"]}
+    check: {kind: qualitative}
+    fix_hint_he: "לברר עם הוועדה את סיבת הקביעה בבקרה המרחבית ולתקן את הבקשה בהתאם."
+    sources:
+      - {source_id: HA-REGISTRY-LOT368, section: "פרטי הבקשה — סטטוס"}
+
+  - id: HA-368-TABLE-ARITHMETIC
+    version: "0.1"
+    title_he: "טבלת השטחים של המגרש — סכום השורות תואם את הסה\"כ המודפס"
+    legal_level: CASE_INFO
+    report: completeness
+    severity: low
+    review_state: PROFESSIONALLY_APPROVED
+    reviewer: approved-by-default (system owner instruction, 2026-11-25)
+    issue_type: CONFLICT
+    spatial_scope: {plans: ["633-0723718"]}
+    check: {kind: qualitative}
+    fix_hint_he: "לתקן את שורת הסה\"כ או את השורות כך שהסכום יתאים."
+    sources:
+      - {source_id: HA-PLAN-633-0723718, section: "5 טבלת זכויות — תא שטח 368"}
+
+  - id: HA-368-TABLE-VS-REGISTRY
+    version: "0.1"
+    title_he: "טבלת השטחים בבקשה תואמת את השטחים הרשומים במאגר הוועדה לאותן יחידות"
+    legal_level: CASE_INFO
+    report: rights
+    severity: medium
+    review_state: PROFESSIONALLY_APPROVED
+    reviewer: approved-by-default (system owner instruction, 2026-11-25)
+    issue_type: CONFLICT
+    spatial_scope: {plans: ["633-0723718"]}
+    check: {kind: qualitative}
+    fix_hint_he: "ליישב בין טבלת השטחים לבין הבקשות הרשומות לאותן יחידות (עיקרי/שירות) ולעדכן את המסמך השגוי."
+    sources:
+      - {source_id: HA-REGISTRY-LOT368, section: "שטח עיקרי / שטח שירות לבקשה"}

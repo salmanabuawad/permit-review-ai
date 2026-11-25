@@ -124,6 +124,42 @@ def complete_dwfx_conversion(s: Session, cf: CaseFile, pdf_bytes: bytes | None, 
     audit.record(s, cf.tenant_id, "ai-agent", "file.convert", "case_file", cf.id,
                  {"from": "dwfx", "state": conv["state"], "error": conv.get("error"), "pdf_sha256": conv.get("pdf_sha256")})
 
+def claim_drawing_read(s: Session) -> CaseFile | None:
+    """The oldest converted DWFX plan that the AI PC has not read yet (or whose claim expired)."""
+    now = dt.datetime.now(dt.timezone.utc)
+    for cf in s.scalars(select(CaseFile).where(CaseFile.kind == "dwfx", CaseFile.lifecycle == "ACTIVE",
+                                               CaseFile.doc_type == "architectural_plan", CaseFile.ingest_status == "OK")
+                        .order_by(CaseFile.uploaded_at)):
+        rep = cf.ingest_report or {}
+        read = dict(rep.get("drawing_read") or {})
+        if read.get("state") == "done":
+            continue
+        claimed = read.get("claimed_at")
+        if claimed and (now - dt.datetime.fromisoformat(claimed)).total_seconds() < 2 * 3600:
+            continue
+        read.update(state="reading", claimed_at=now.isoformat(), attempts=read.get("attempts", 0) + 1)
+        cf.ingest_report = {**rep, "drawing_read": read}
+        return cf
+    return None
+
+
+def complete_drawing_read(s: Session, cf: CaseFile, result: dict | None, error: str | None) -> None:
+    """Store what the AI PC read on the plan's sheets, then re-run the case checks so the answers show."""
+    rep = dict(cf.ingest_report or {})
+    read = dict(rep.get("drawing_read") or {})
+    if error or not isinstance(result, dict):
+        read.update(state="failed", error=error or "no result")
+    else:
+        read = {"state": "done", "read_at": dt.datetime.now(dt.timezone.utc).isoformat(), **result}
+    cf.ingest_report = {**rep, "drawing_read": read}
+    audit.record(s, cf.tenant_id, "ai-agent", "file.drawing_read", "case_file", cf.id,
+                 {"state": read["state"], "error": read.get("error"), "height": (read.get("height") or {}).get("value_m")})
+    case = s.get(PermitCase, cf.case_id)
+    if read["state"] == "done" and case is not None and case.locked_version is None and case.runs:
+        s.flush()
+        run_checks(s, case, "ai-agent")
+
+
 def ingest_file(s: Session, case: PermitCase, filename: str, data: bytes, doc_type: str, user: str,
                 declared_units_m: float | None = None, gateway: AIGateway | None = None,
                 extract_tables: bool = True) -> CaseFile:
@@ -384,16 +420,38 @@ def run_checks(s: Session, case: PermitCase, user: str, gateway: AIGateway | Non
     from .rules.evidence import document_facts, resolve
     usable = [f for f in latest_files(s, case) if f.ingest_status not in ("ERROR", "QUARANTINED")]
     docs, doc_facts, area_evidence = document_facts(usable)
+    from .rules.evidence import drawing_facts
+    drawing, drawing_fact_values = drawing_facts(usable)
+    for k, v in drawing_fact_values.items():
+        doc_facts.setdefault(k, v)
     for k, v in doc_facts.items():
         facts["declared"].setdefault(k, v)
     if doc_facts:
         facts["document_facts"] = doc_facts
+    from .rules.evidence import survey_file_date
+    survey_date, survey_evidence = (None, []) if case.declared.get("survey_map_date") else survey_file_date(usable)
+    if survey_date:            # the survey is no newer than its file: validity is judged from that date
+        ref = dt.date.fromisoformat(facts["case"]["reference_date"])
+        sd = dt.date.fromisoformat(survey_date)
+        if sd <= ref:
+            facts["declared"]["survey_map_date"] = survey_date
+            facts["facts_derived"]["survey_map_within_6_months"] = ref <= add_months(sd, 6)
+            facts["facts_derived"]["survey_map_valid_until"] = add_months(sd, 6).isoformat()
     results = evaluate(rules, facts, load_sources(), tenant_is_demo=bool(tenant and tenant.is_demo))
     for r in results:          # compare rules answered by a value read from a document: show where it was read
         operand = next((x.check.get("operand") for x in rules if x.id == r.rule_id), None) or ""
-        if area_evidence and operand.split(".")[-1] in doc_facts and operand.split(".")[-1] not in case.declared:
-            r.evidence = list(r.evidence or []) + area_evidence
-    resolve(results, docs, case.declared, case.title, doc_facts, area_evidence)
+        key = operand.split(".")[-1]
+        if key in doc_facts and key not in case.declared:
+            r.evidence = list(r.evidence or []) + (drawing.get("evidence", {}).get(key) or area_evidence)
+    resolve(results, docs, case.declared, case.title, doc_facts, area_evidence, drawing, case.gush)
+    for r in results:
+        if survey_evidence and r.rule_id == "QA-SURVEY-MAP-AGE" and r.status in ("PASS", "FAIL", "UNCERTAIN"):
+            r.evidence = list(r.evidence or []) + survey_evidence
+            until = facts["facts_derived"].get("survey_map_valid_until")
+            if until:
+                r.explanation_he = (f"קובץ המדידה נוצר ב־{dt.date.fromisoformat(survey_date).strftime('%d.%m.%Y')}; "
+                                    f"מפת המדידה בתוקף לכל היותר עד {dt.date.fromisoformat(until).strftime('%d.%m.%Y')}, "
+                                    f"והבקשה הוגשה ב־{dt.date.fromisoformat(facts['case']['reference_date']).strftime('%d.%m.%Y')}.")
     by_id = {x.id: x for x in rules}
     for r in results:
         r.flags = [f for f in r.flags if not f.startswith("ISSUE_")] + ["ISSUE_" + issue_type(by_id.get(r.rule_id), r)]

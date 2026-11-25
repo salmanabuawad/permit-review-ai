@@ -257,6 +257,44 @@ def _pending_dwfx(s: Session, file_id: str) -> CaseFile:
     return f
 
 
+# ---- reading a converted DWFX plan with the local image model (agent/drawing_reader.py on the AI PC)
+
+def _readable_dwfx(s: Session, file_id: str) -> CaseFile:
+    f = s.get(CaseFile, file_id)
+    if f is None or f.kind != "dwfx" or ((f.ingest_report or {}).get("drawing_read") or {}).get("state") != "reading":
+        raise HTTPException(410, "no drawing read pending for this file")
+    return f
+
+
+@app.post("/api/agent/drawings/next", dependencies=[Depends(_agent)])
+def agent_next_drawing(s: Session = Depends(get_session)):
+    f = services.claim_drawing_read(s)
+    if f is None:
+        return Response(status_code=204)
+    s.commit()
+    return {"file_id": f.id, "filename": f.filename, "sha256": f.sha256, "size_bytes": f.size_bytes}
+
+
+@app.get("/api/agent/drawings/{file_id}/source", dependencies=[Depends(_agent)])
+def agent_drawing_source(file_id: str, s: Session = Depends(get_session)):
+    f = _readable_dwfx(s, file_id)
+    return FileResponse(f.storage_path, media_type="application/octet-stream", filename=f"{f.id}.dwfx")
+
+
+@app.post("/api/agent/drawings/{file_id}/result", dependencies=[Depends(_agent)])
+async def agent_drawing_result(file_id: str, request: Request, s: Session = Depends(get_session)):
+    """Body: the reader's JSON, or {"error": "..."}."""
+    f = _readable_dwfx(s, file_id)
+    try:
+        data = json.loads(await request.body())
+    except ValueError:
+        data = {"error": "invalid JSON"}
+    err = data.get("error") if isinstance(data, dict) else "invalid result"
+    services.complete_drawing_read(s, f, None if err else data, err)
+    s.commit()
+    return {"file_id": f.id, "state": (f.ingest_report.get("drawing_read") or {}).get("state")}
+
+
 @app.post("/api/agent/conversions/next", dependencies=[Depends(_agent)])
 def agent_next_conversion(s: Session = Depends(get_session)):
     f = services.claim_dwfx_conversion(s)

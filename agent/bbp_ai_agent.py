@@ -18,6 +18,8 @@ Settings (environment, e.g. ~/.config/bbp-ai-agent.env):
   BBP_APP_URL=https://<app host>              (DWFX conversion; default: the relay URL without /llm-relay)
   BBP_CONVERT_PYTHON=<python with PyMuPDF>    (default: the repository's .venv/bin/python)
   BBP_DWFX_CONVERSION=0                       turns the DWFX converter off
+  BBP_DRAWING_READ=0                          turns the drawing reader off (agent/drawing_reader.py)
+  BBP_VISION_MODEL=ministral-3-8b-iq4xs       local image model for reading plans
 The agent also converts DWFX drawings for the app (Converter below): drawings are rendered on this PC, not the server.
 Run:  python3 bbp_ai_agent.py   (systemd --user unit bbp-ai-agent). Standard library only.
 """
@@ -204,6 +206,59 @@ class Converter:
                 self.stop.wait(backoff)
 
 
+class DrawingReader:
+    """Reads converted DWFX plans with the local image model (agent/drawing_reader.py): views, building height,
+    parking, solar panels, storage shed. Pulls /api/agent/drawings/* like the converter; one plan at a time."""
+
+    def __init__(self, app_url: str, token: str, python: str, stop: threading.Event, model: str, llm_url: str,
+                 timeout_s: float = 3 * 3600.0):
+        self.app = app_url.rstrip("/")
+        self.auth = {"Authorization": f"Bearer {token}"}
+        self.python, self.stop, self.model, self.llm_url, self.timeout_s = python, stop, model, llm_url, timeout_s
+        self.script = str(Path(__file__).with_name("drawing_reader.py"))
+
+    def _call(self, path: str, data=None, method="POST", headers: dict | None = None, timeout: float = 120.0):
+        req = urllib.request.Request(f"{self.app}/api/agent/drawings{path}", data=data, method=method,
+                                     headers={**self.auth, **(headers or {})})
+        return urllib.request.urlopen(req, timeout=timeout)
+
+    def once(self) -> bool:
+        with self._call("/next", data=b"") as r:
+            if r.status == 204:
+                return False
+            job = json.loads(r.read())
+        fid = job["file_id"]
+        with tempfile.TemporaryDirectory(prefix="bbp-read-") as tmp:
+            src = Path(tmp) / "plan.dwfx"
+            with self._call(f"/{fid}/source", method="GET", timeout=600) as r, src.open("wb") as f:
+                shutil.copyfileobj(r, f)
+            try:
+                p = subprocess.run([self.python, self.script, str(src), self.model, self.llm_url], capture_output=True,
+                                   text=True, timeout=self.timeout_s)
+                out = p.stdout.strip().splitlines()[-1] if p.returncode == 0 and p.stdout.strip() else ""
+                body = out if out.startswith("{") else json.dumps({"error": (p.stderr.strip().splitlines() or ["read failed"])[-1][:300]})
+            except subprocess.TimeoutExpired:
+                body = json.dumps({"error": f"הקריאה חרגה מ-{int(self.timeout_s)} שניות"})
+            with self._call(f"/{fid}/result", data=body.encode(), headers={"Content-Type": "application/json"}, timeout=600) as r:
+                log.info("drawing %s (%s): %s -> %d", fid, job.get("filename"), body[:120], r.status)
+        return True
+
+    def run(self, interval: float = 30.0) -> None:
+        backoff = interval
+        while not self.stop.is_set():
+            try:
+                busy = self.once()
+                backoff = interval
+            except urllib.error.HTTPError as e:
+                log.warning("drawing reader: app answered %d %s", e.code, e.read()[:200].decode(errors="replace"))
+                busy, backoff = False, min(backoff * 2, 600)
+            except (urllib.error.URLError, OSError, ValueError, KeyError) as e:
+                log.warning("drawing reader: %s", e)
+                busy, backoff = False, min(backoff * 2, 600)
+            if not busy:
+                self.stop.wait(backoff)
+
+
 def _model(job: dict) -> str | None:
     try:
         body = json.loads(job.get("body") or "{}")
@@ -232,6 +287,11 @@ def main() -> None:
         log.info("dwfx converter: %s with %s", app_url, python)
     else:
         log.info("dwfx converter: off (BBP_DWFX_CONVERSION=0 or no Python with PyMuPDF at %s)", python)
+    if os.environ.get("BBP_DRAWING_READ", "1") != "0" and Path(python).exists():
+        vision = os.environ.get("BBP_VISION_MODEL", "ministral-3-8b-iq4xs")
+        reader = DrawingReader(app_url, token, python, agent.stop, vision, local.rstrip("/") + "/v1/chat/completions")
+        threading.Thread(target=reader.run, daemon=True).start()
+        log.info("drawing reader: %s with %s via %s", app_url, vision, local)
     agent.run()
 
 

@@ -1,0 +1,12 @@
+# Lot ledger source for Zikim block 2832 lot 368 (scripts/import_lot_ledger.py -> knowledge/lots/hof_ashkelon_2832_368.yaml).
+sources:
+- id: HA-REGISTRY-LOT368
+  category: LOCAL_POLICY
+  title_he: "מאגר הבקשות להיתר של הוועדה המקומית חוף אשקלון — גוש 2832 מגרש 368 (צילום מצב 25.11.2026)"
+  url: https://hoa.bartech-net.co.il/SearchPermitApplication
+  edition: "25/11/2026 — 51 בקשות במגרש 368"
+  verification: VERIFIED_READ
+  jurisdiction: hof-ashkelon
+  notes: "Public register, scraped page by page with the detail page saved and hashed (exports/lot_368_zikim). A snapshot,
+    not a certified rights ledger: legalization and addition areas are deltas; three records file the total in the
+    primary-area field."

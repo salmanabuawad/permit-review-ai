@@ -85,3 +85,28 @@ def test_a_document_filed_as_other_reverses_a_missing_document_fail(tmp_path):
     results[0].status = results[0].computed_result = "FAIL"
     assert E.resolve(results, E.load_docs([pdf(tmp_path, "y.pdf", ["מסמך כללי"])]), {}, "", {}, []) == 0
     assert results[0].status == "FAIL"                       # nothing found: the FAIL stands
+
+
+DRAWING = {"state": "done", "views": {"section": [{"sheet": 6, "tile": 2}, {"sheet": 6, "tile": 3}],
+                                      "elevation": [{"sheet": 6, "tile": 2}, {"sheet": 6, "tile": 4}]},
+           "parking": [{"sheet": 3, "tile": 7}], "solar": {}, "shed": [],
+           "height": {"value_m": 6.85, "zero_abs": 24.2, "roof_type": "tiled", "readings": [{"sheet": 6, "tile": 2}]}}
+
+
+def test_drawing_read_answers_views_height_parking():
+    plan = SimpleNamespace(doc_type="architectural_plan", filename="PERMIT.dwfx", ingest_report={"drawing_read": DRAWING})
+    drawing, facts = E.drawing_facts([plan])
+    assert facts == {"building_height_m": 6.85} and "+6.85" in drawing["evidence"]["building_height_m"][0]["quote"]
+    ctx = E.Context([], {}, "", "368", {}, [], drawing)
+    assert E.RESOLVERS["QA-REQ-SECTIONS"](ctx).status == "PASS"
+    assert E.RESOLVERS["HA-633-PARKING"](ctx).status == "PASS"
+    assert E.RESOLVERS["HA-633-PV-ROOF"](ctx).status == "PASS" and E.RESOLVERS["HA-633-SHEDS"](ctx).status == "PASS"
+    drawing["views"].pop("elevation")
+    assert E.RESOLVERS["QA-REQ-ELEVATIONS"](ctx).status == "FAIL"
+
+
+def test_unread_drawing_leaves_drawing_items_open():
+    plan = SimpleNamespace(doc_type="architectural_plan", filename="PERMIT.dwfx", ingest_report={"drawing_read": {"state": "reading"}})
+    assert E.drawing_facts([plan]) == ({}, {})
+    ctx = E.Context([], {}, "", "368", {}, [], {})
+    assert E.RESOLVERS["HA-633-PARKING"](ctx) is None and E.RESOLVERS["HA-633-SHEDS"](ctx) is None
