@@ -49,8 +49,28 @@ CONFLICT / INVALID), a review status — flag `STATUS_*` (`services.review_statu
 Rule `HA-AREA-DIAGRAMS` compares A (declared main / service) with B. Zikim: A 366.10 / 125.24 / 491.34 vs
 B 366.101 / 125.247 / 491.348 — PASS; no overlaps; the two units are repeated copies.
 
-**Source C (reconstructing areas from the floor plans' walls) is not implemented.** Every PASS says so; A = B does
-not establish compliance.
+**Source C — floor areas from the floor plans' walls** (`agent/floor_geometry.py`, rule `HA-AREA-FLOORPLANS`,
+added 26.11.2026):
+
+* the plan sheet's XPS paths are parsed directly; each path's DWF object number places it in its viewport, and the
+  viewport's `<Viewport Transform>` gives the scale (here 1:100 for plans, 1:50 for a detail) — from the file, not
+  from any total; only viewports at 1:100 or larger are floor plans (site plans are 1:125/1:250);
+* cut walls by the permit-drawing colour convention (saturated red = new, blue = concrete); drawings with a slab cut
+  across their width are sections and are skipped;
+* openings are bridged by a morphological closing with a square element: the smallest bridge (0.6–3.5 m) that gives
+  one closed outline whose area does not change at the next size — so a recess wider than the bridge is never filled;
+  the gross area inside the outer face of the walls is the floor's area; copies of the same plan on other sheets are
+  grouped and their spread recorded;
+* unit diagrams of B are assigned to floors (minimum total gap) and compared with the B categories that lie inside
+  the walls (primary, protected-room floor and walls). Walls enclosing more than B counts → `UNRESOLVED`, internal
+  (attic, void or open balcony are not floor area; room labels are drawn as lines and are not read). B counting more
+  than the walls enclose → `DOCUMENTED_DISCREPANCY`.
+
+Zikim: ground floor 247.55 m² from the walls (three copies, spread 0.04) vs 247.545 in the diagrams — match;
+upper floor 158.68 m² vs 144.834 — the walls enclose 13.85 m² that the diagrams do not count (on the plan: the low
+attic under the tiled roof marked 1.80 m and the open service balcony) — unresolved, not a defect. Not measured from
+the plans: canopies and covered areas outside the walls (98.97 m² in the diagrams), so the canopy dimension check
+(1.80 × 9.50, 7.35 × 4.40 per unit) is still open.
 
 ## 3. Historical permits and the cumulative rights table
 
@@ -95,6 +115,7 @@ units 313–314 vs the register). Internal: 4 future-stage, 1 unresolved, 2 not 
 | Step | Where | Time |
 |---|---|---|
 | Area geometry (B) | AI PC | 5.8 s |
+| Floor-plan geometry (C) | AI PC | 7.6 s |
 | Drawing read (74 image calls) | AI PC, RTX 3050 | 33 min (hours on CPU before the GPU preset) |
 | Screening pass (9 calls) | AI PC | ~50 s |
 | Check run (36 files, incl. local AI summary) | app server | 31–39 s |
@@ -103,7 +124,8 @@ Not measured yet: token counts, cache hit rates, CPU/GPU utilisation per run (sp
 
 ## 7. Not implemented (spec items still open)
 
-* Source C (wall reconstruction), measured setbacks / building lines / coverage from geometry, annotated crops for
+* Canopies outside the walls in source C, room classification from labels, measured setbacks / building lines /
+  coverage from geometry, annotated crops for
   geometric defects (none confirmed in this case), DWG/DXF/vector-PDF area extraction beyond the DWFX tool legend.
 * Import of `Zikim_Lot368_Local_AI_Knowledge_Base.zip` — the file is not on this machine.
 * Blind validation set (20210885 Be'er Ganim, 20211027 Hodiya) — source packages not collected.
@@ -116,7 +138,7 @@ Not measured yet: token counts, cache hit rates, CPU/GPU utilisation per run (sp
 * App server: copy `backend/app/{rules/evidence.py,rules/engine.py,services.py,main.py,reports.py,defects_report.py,
   batch_import.py}`, `knowledge/{rules,sources.d,lots}`; `pip install python-docx==1.1.2` in the venv; build the
   frontend (`npm ci && npx tsc -b && npx vite build`); `systemctl restart permit-review-ai`; rerun checks.
-* AI PC: `agent/area_geometry.py`, `agent/drawing_reader.py`; `systemctl --user restart bbp-ai-agent`.
+* AI PC: `agent/area_geometry.py`, `agent/floor_geometry.py`, `agent/drawing_reader.py`; `systemctl --user restart bbp-ai-agent`.
 * No database migration: the new data lives in existing JSON columns (finding `flags` / `evidence`,
   `run.summary.review`, file `ingest_report.drawing_read`).
 * Rollback: `git revert` the commit and redeploy the same paths; old runs stay readable (the old UI ignores the new

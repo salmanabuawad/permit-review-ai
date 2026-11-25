@@ -104,8 +104,15 @@ def read(src: Path, model: str = MODEL, url: str = LLM) -> dict:
         geometry = area_geometry.measure(src)
     except Exception as exc:  # noqa: BLE001 — geometry is an addition; the drawing read goes on without it
         geometry = {"error": str(exc)[:300]}
+    try:
+        import floor_geometry
+        floors = floor_geometry.measure(src)
+        for p in floors.get("plans", []):
+            p.pop("outline_cm", None)            # kept small: the outline is reproducible from the file
+    except Exception as exc:  # noqa: BLE001
+        floors = {"error": str(exc)[:300]}
     doc = pymupdf.open(str(src), filetype="xps")
-    out = {"model": model, "area_geometry": geometry, "sheets": [], "views": {}, "parking": [], "solar": {}, "shed": [], "height": None,
+    out = {"model": model, "area_geometry": geometry, "floor_geometry": floors, "sheets": [], "views": {}, "parking": [], "solar": {}, "shed": [], "height": None,
            "levels_read": [], "calls": 0}
     elev_tiles = []
     for sno, page in enumerate(doc, 1):

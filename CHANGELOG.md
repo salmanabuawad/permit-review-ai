@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-11-26 — area check source C
+
+- `agent/floor_geometry.py`: floor areas from the floor plans' cut walls (XPS paths, viewport scale from the file,
+  section and site-plan filtering, opening bridging with a stability check, duplicate plans grouped); run by the
+  drawing reader. Rule HA-AREA-FLOORPLANS compares C with the diagram categories inside the walls.
+- Zikim: ground floor matches (247.55 vs 247.545); upper floor walls enclose 13.85 m² more than counted — unresolved,
+  internal. Canopies outside the walls are not measured from the plans yet.
+
 ## 2026-11-25 — consolidated review update (Zikim)
 
 Details, test results and limitations: `docs/09_consolidated_review.md`.

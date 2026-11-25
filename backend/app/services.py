@@ -561,7 +561,11 @@ def run_checks(s: Session, case: PermitCase, user: str, gateway: AIGateway | Non
                               "coverage": {"completed": done, "applicable": applicable},
                               "external_findings": sum(1 for r in results if "EXTERNAL" in r.flags),
                               "limitations_he": [
-                                  "מקור ג׳ של בדיקת השטחים (שחזור מתכניות הקומות) לא בוצע.",
+                                  ("מקור ג׳ של בדיקת השטחים נמדד לשטחים שבתוך הקירות; סככות ושטחים מקורים מחוץ לקירות לא נמדדו מהתכניות."
+                                   if any(r.rule_id == "HA-AREA-FLOORPLANS" and "RESOLVED_FROM_DOCUMENTS" in r.flags or
+                                          r.rule_id == "HA-AREA-FLOORPLANS" and any(f == "REVIEW:UNRESOLVED" for f in r.flags)
+                                          for r in results)
+                                   else "מקור ג׳ של בדיקת השטחים (שחזור מתכניות הקומות) לא בוצע."),
                                   "בדיקות שלא הושלמו: " + str(review_counts.get("UNRESOLVED", 0) + review_counts.get("NOT_CHECKED", 0)) + "."]},
                    "ai_summary": (draft.output or {}).get("text") if draft.outcome in ("OK", "FALLBACK") else None,
                    "ai_summary_outcome": draft.outcome, "ai_provider": draft.provider_id,

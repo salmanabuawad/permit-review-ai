@@ -524,3 +524,19 @@ rules:
     sources:
       - {source_id: HA-ED8592A090, section: "הסכמת בעלי הזכויות במקרקעין", quote_he: "הנחיות לעריכת בקשה להיתר"}
 
+  - id: HA-AREA-FLOORPLANS
+    version: "0.1"
+    title_he: "שטחי הקומות מקירות תכניות הקומות (מקור ג׳) תואמים את תרשימי חישוב השטחים"
+    legal_level: REGULATION
+    report: rights
+    severity: high
+    review_state: PROFESSIONALLY_APPROVED
+    reviewer: approved-by-default (system owner instruction, 2026-11-26)
+    licensing_stage: SPATIAL_REVIEW
+    check: {kind: qualitative}
+    fix_hint_he: "להתאים את תרשימי חישוב השטחים לגבולות הקירות בתכניות הקומות."
+    sources:
+      - {source_id: HA-65B1B9A5DE, section: "חישוב שטחים ואחוזי בנייה בתכניות ובהיתרים"}
+      - {source_id: HA-ED8592A090, section: "יש לחשב את כל השטחים המקורים", quote_he: "יש לחשב את כל השטחים המקורים"}
+    notes: "Source C of the three-way area check (agent/floor_geometry.py): gross area inside the outer face of the cut walls per floor, against the area-diagram categories inside the walls (primary, protected room floor and walls)."
+

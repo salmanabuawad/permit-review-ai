@@ -307,6 +307,7 @@ def drawing_facts(files) -> tuple[dict, dict]:
         drawing = {"file": f.filename, "views": read.get("views") or {}, "parking": read.get("parking") or [],
                    "solar": read.get("solar") or {}, "shed": read.get("shed") or [], "height": read.get("height"),
                    "area_geometry": read.get("area_geometry"), "screening": read.get("screening"),
+                   "floor_geometry": read.get("floor_geometry"),
                    "evidence": {}}
         facts = {}
         h = read.get("height") or {}
@@ -574,7 +575,8 @@ def r_area_diagrams(ctx):
                       "where_he": "תרשימי קומת הקרקע", "evidence": e})
     same = [i for i, d in enumerate(diags, 1) if d.get("same_as")]
     note = (f" {len(same)} מהתרשימים חוזרים על יחידה אחרת (יחידה ראי/העתק) באותם שטחים." if same else "")
-    c_note = " מקור ג׳ — שחזור השטחים מקירות תכניות הקומות — לא בוצע; התאמה בין המוצהר לתרשימים אינה מוכיחה עמידה בזכויות."
+    c_note = (" מקור ג׳ — שטחי הקומות מקירות התכניות — נבדק בכלל נפרד (HA-AREA-FLOORPLANS)." if (ctx.drawing or {}).get("floor_geometry")
+              else " מקור ג׳ — שחזור השטחים מקירות תכניות הקומות — לא בוצע; התאמה בין המוצהר לתרשימים אינה מוכיחה עמידה בזכויות.")
     if any(x["review"] == "CONFIRMED_DEFECT" for x in items):
         return Resolution("FAIL", "תרשימי חישוב השטחים אינם תואמים את השטחים המוצהרים או מכילים כפילות: " + "; ".join(
             x["found_he"] for x in items if x["review"] == "CONFIRMED_DEFECT") + "." + c_note, e, items=items)
@@ -763,6 +765,85 @@ def r_infiltration(ctx):
                                    "שנמדדו; עמידה ב־15% לא חושבה.", [], review="NOT_CHECKED")
 
 
+# ------------------------------------------------------------------ areas: source C (floor plans' walls) vs B
+
+ENCLOSED = ("primary", "protected_room_floor", "protected_room_walls")   # B categories that lie inside the walls
+
+
+def _assign(diagrams: list[float], floors: list[float]) -> list[int] | None:
+    """Each area diagram (one unit on one floor) to one floor plan, minimising the total gap. Brute force: the
+    diagrams of a request are few (units x floors)."""
+    import itertools
+    if not floors or not diagrams or len(floors) ** len(diagrams) > 200_000:
+        return None
+    best = None
+    for combo in itertools.product(range(len(floors)), repeat=len(diagrams)):
+        sums = [0.0] * len(floors)
+        for d, f in zip(diagrams, combo):
+            sums[f] += d
+        gap = sum(abs(a - b) for a, b in zip(sums, floors))
+        if best is None or gap < best[0]:
+            best = (gap, combo)
+    return list(best[1])
+
+
+def r_floor_plans(ctx):
+    """Source C: each floor's gross area inside the outer face of its cut walls (agent/floor_geometry.py), against
+    the area-diagram categories that lie inside the walls (B). Walls enclosing more than B counts is unresolved (an
+    attic, a void or an open balcony is not floor area, and room labels are drawn as lines); B counting area that the
+    walls do not enclose is a discrepancy."""
+    fg = (ctx.drawing or {}).get("floor_geometry") or {}
+    ag = (ctx.drawing or {}).get("area_geometry") or {}
+    floors = fg.get("floors") or []
+    diags = [d for s in ag.get("sheets", []) for d in s.get("diagrams", [])]
+    if not floors or not diags:
+        return None
+    enclosed = [sum(d["area_m2"].get(c, 0.0) for c in ENCLOSED) for d in diags]
+    combo = _assign(enclosed, [f["gross_m2"] for f in floors])
+    if combo is None:
+        return None
+    file = ctx.drawing.get("file")
+    items, lines = [], []
+    for i, f in enumerate(floors):
+        b = round(sum(e for e, c in zip(enclosed, combo) if c == i), 3)
+        n = sum(1 for c in combo if c == i)
+        tol = max(0.3, 0.003 * f["gross_m2"]) + f.get("sensitivity_m2", 0) + f.get("copies_spread_m2", 0)
+        d = round(f["gross_m2"] - b, 2)
+        where = f"גיליון {f['sheet']}, קנ\"מ {f['scale']}; {len(f.get('copies', []))} עותקים של התכנית (פיזור {f.get('copies_spread_m2', 0)} מ\"ר)"
+        e = [{"type": "measurement", "file": file, "page": f["sheet"],
+              "method": "מעטפת הקירות החתוכים בתכנית הקומה (גישור פתחים עד " + f"{f['bridge_m']} מ׳" + "), קנ\"מ מטרנספורמציית ה-Viewport",
+              "quote": f"קומה {i + 1}: {f['size_m'][0]}×{f['size_m'][1]} מ׳, שטח ברוטו בתוך הקירות {f['gross_m2']} מ\"ר; "
+                       f"בתרשימי חישוב השטחים ({n} תרשימים): עיקרי+ממ\"ד בתוך הקירות {b} מ\"ר",
+              "algorithm": fg.get("algorithm")}]
+        lines.append(f"קומה {i + 1}: קירות {f['gross_m2']} מול תרשימים {b} (הפרש {d:+.2f})")
+        if abs(d) <= tol:
+            continue
+        if d > 0:
+            items.append({"review": "UNRESOLVED", "internal": True, "title_he": f"שטח בתוך הקירות שאינו נספר — קומה {i + 1}",
+                          "found_he": f"הקירות בקומה {i + 1} תוחמים {f['gross_m2']} מ\"ר; בתרשימי חישוב השטחים נספרו בתוכם {b} מ\"ר — "
+                                      f"{d:.2f} מ\"ר אינם נספרים. אם אלה עליית גג נמוכה, חלל או מרפסת פתוחה — אינם שטח רצפה; "
+                                      "כינויי החדרים משורטטים כקווים ולא נקראו, ולכן הסיווג לא הוכרע.",
+                          "diff": f"{d:+.2f} מ\"ר", "where_he": where, "evidence": e})
+        else:
+            items.append({"review": "DOCUMENTED_DISCREPANCY", "title_he": f"שטח שנספר מחוץ לקירות — קומה {i + 1}",
+                          "found_he": f"בתרשימי חישוב השטחים נספרו בקומה {i + 1} {b} מ\"ר בקטגוריות שבתוך המבנה, אך הקירות בתכנית "
+                                      f"הקומה תוחמים רק {f['gross_m2']} מ\"ר.",
+                          "diff": f"{d:+.2f} מ\"ר", "where_he": where,
+                          "correction_he": "להתאים את תרשימי חישוב השטחים לגבולות הקירות בתכנית הקומה.", "evidence": e})
+    ev_all = [x for it in items for x in it["evidence"]] or [{
+        "type": "measurement", "file": file, "page": floors[0]["sheet"], "method": "מעטפת הקירות בתכניות הקומות",
+        "quote": "; ".join(lines), "algorithm": fg.get("algorithm")}]
+    canopies = sum(d["area_m2"].get("covered_service", 0.0) for d in diags)
+    note = (f" סככות ושטחים מקורים מחוץ לקירות ({canopies:.2f} מ\"ר בתרשימים) לא נמדדו מהתכניות." if canopies else "")
+    if any(x["review"] == "DOCUMENTED_DISCREPANCY" for x in items):
+        return Resolution("FAIL", "מקור ג׳ (תכניות הקומות): " + "; ".join(lines) + "." + note, ev_all,
+                          review="DOCUMENTED_DISCREPANCY", items=items)
+    if items:
+        return Resolution("UNCERTAIN", "מקור ג׳ (תכניות הקומות): " + "; ".join(lines) + ". " + items[0]["found_he"] + note,
+                          ev_all, review="UNRESOLVED", items=items, internal=True)
+    return Resolution("PASS", "מקור ג׳ (תכניות הקומות) תואם את תרשימי חישוב השטחים: " + "; ".join(lines) + "." + note, ev_all)
+
+
 RESOLVERS = {
     "QA-REQ-SECTIONS": _drawing_views("חתכים", "section"), "QA-REQ-ELEVATIONS": _drawing_views("חזיתות", "elevation"),
     "HA-368-REGISTRY-STATUS": r_registry_status, "HA-368-TABLE-ARITHMETIC": r_table_arithmetic,
@@ -774,7 +855,7 @@ RESOLVERS = {
     "HA-633-TREES-4M": r_trees, "HA-633-BUILDING-FORM": r_building_form, "HA-633-COVERAGE-CELL": r_coverage,
     "HA-AREA-DIAGRAMS": r_area_diagrams, "HA-368-TABLE-VS-PERMITS": r_permit_history, "HA-LAND-PARCEL": r_land_parcel,
     "HA-RMI-CONSENT": r_rmi_consent, "HA-633-MEKOROT-5M": r_mekorot_lines, "HA-633-TECH-SCREENING": r_tech_screening,
-    "HA-633-FENCES": r_fences, "HA-633-INFILTRATION": r_infiltration,
+    "HA-633-FENCES": r_fences, "HA-633-INFILTRATION": r_infiltration, "HA-AREA-FLOORPLANS": r_floor_plans,
 }
 
 
