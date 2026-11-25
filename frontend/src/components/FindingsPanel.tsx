@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Case, Citation, Finding, OP_HE, Report, SEV_HE, STATUS_HE, fmt } from '../api'
 import DefectsReport from './DefectsReport'
+import RequestResults from './RequestResults'
 import FindingCard, { StatusChip } from './FindingCard'
 
 // The findings of a check run as a clear, filterable list: a count per result and per decision (each one a filter),
@@ -38,8 +39,8 @@ export default function FindingsPanel({ c, report, kind, setKind, reports, sel, 
   const [fl, setFl] = useState<Filters>(load)
   const [open, setOpen] = useState<string | null>(null)
   const [full, setFull] = useState(false)
-  const [view, setView] = useState<'report' | 'list'>(() => { try { return (window.localStorage.getItem('bbp_findings_view') as any) || 'report' } catch { return 'report' } })
-  useEffect(() => { try { window.localStorage.setItem('bbp_findings_view', view) } catch { /* private mode */ } }, [view])
+  const [view, setView] = useState<'results' | 'report' | 'list'>(() => { try { return (window.localStorage.getItem('bbp_findings_view_v2') as any) || 'results' } catch { return 'results' } })
+  useEffect(() => { try { window.localStorage.setItem('bbp_findings_view_v2', view) } catch { /* private mode */ } }, [view])
   useEffect(() => { try { window.localStorage.setItem(KEY, JSON.stringify(fl)) } catch { /* private mode */ } }, [fl])
   useEffect(() => { if (sel) setOpen(sel) }, [sel])          // a finding picked on the drawing opens here
   const set = (p: Partial<Filters>) => setFl(x => ({ ...x, ...p }))
@@ -88,14 +89,16 @@ export default function FindingsPanel({ c, report, kind, setKind, reports, sel, 
           {reports.map(r => <option key={r.key} value={r.key}>{r.label}</option>)}
         </select>
         <div className="seg" role="tablist" aria-label="תצוגה">
-          <button className={view === 'report' ? 'active' : ''} onClick={() => setView('report')}>דוח ליקויים</button>
-          <button className={view === 'list' ? 'active' : ''} onClick={() => setView('list')}>רשימה עם סינון</button>
+          <button className={view === 'results' ? 'active' : ''} onClick={() => setView('results')}>תוצאות</button>
+          <button className={view === 'report' ? 'active' : ''} onClick={() => setView('report')}>דוח מלא</button>
+          <button className={view === 'list' ? 'active' : ''} onClick={() => setView('list')}>כל הכללים</button>
         </div>
         <span className="spacer" />
         {counts.pending > 0 && <span className="chip warn">{counts.pending} ממתינים להחלטה</span>}
         {report && <button className="sm" onClick={() => setFull(!full)}>{full ? 'סגירת מסך מלא' : 'מסך מלא'}</button>}
       </div>
       {!report && <div className="empty">טרם הורצה בדיקה</div>}
+      {report && view === 'results' && <RequestResults c={c} report={report} onCite={onCite} onSelect={id => { setSel(id); setOpen(id); setView('list') }} />}
       {report && view === 'report' && <DefectsReport c={c} report={report} onCite={onCite} onSelect={id => { setSel(id); setOpen(id); setView('list') }} />}
       {report && view === 'list' && <>
         <div className="fp-tiles" role="group" aria-label="סינון לפי תוצאה">

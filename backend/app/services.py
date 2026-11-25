@@ -337,6 +337,42 @@ def case_passages(case: PermitCase, results: list) -> list[dict]:
     return list(picked.values())
 
 
+# What a finding means for the request, in the reviewer's three words: something is missing, something contradicts
+# something else, or something is not valid. Stored as a flag (ISSUE_*) on the finding.
+ISSUE_BY_RULE = {
+    "QA-DOC-PLACEHOLDER": "MISSING", "QA-APPROVAL-PARCEL-MISMATCH": "CONFLICT",
+    "QA-APPROVAL-ISSUER-MISMATCH": "INVALID", "QA-IAA-DEMAND-NOT-APPROVAL": "INVALID", "QA-LICENCE-EXPIRED": "INVALID",
+}
+ISSUE_BY_KIND = {"doc_required": "MISSING", "any_present": "MISSING", "condition": "MISSING", "declared_bool": "INVALID",
+                 "consistency": "CONFLICT", "list_empty": "INVALID", "qualitative": "INVALID", "cad_roles": "MISSING"}
+
+
+def issue_type(rule: Rule | None, r) -> str:
+    """MISSING | CONFLICT | INVALID for a finding the documents answer as not met; OPEN when nothing decided it;
+    OK / NA otherwise. A rule may set `issue_type` itself."""
+    if r.rule_id.startswith("CONFLICT:"):        # two sources give different values for the same fact
+        return "CONFLICT"
+    result = r.computed_result if r.computed_result in ("PASS", "FAIL", "NA") else r.status
+    if result == "PASS":
+        return "OK"
+    if result == "NA":
+        return "NA"
+    if result != "FAIL":
+        return "OPEN"
+    if r.rule_id.startswith("CONFLICT:") or "SOURCE_CONFLICT" in r.flags:
+        return "CONFLICT"
+    if rule is None:
+        return "INVALID"
+    if rule.raw.get("issue_type"):
+        return rule.raw["issue_type"]
+    if r.rule_id in ISSUE_BY_RULE:
+        return ISSUE_BY_RULE[r.rule_id]
+    kind = rule.check.get("kind")
+    if kind == "compare":
+        return "MISSING" if "INCOMPLETE" in r.flags else "INVALID"
+    return ISSUE_BY_KIND.get(kind, "INVALID")
+
+
 def run_checks(s: Session, case: PermitCase, user: str, gateway: AIGateway | None = None) -> CheckRun:
     if case.locked_version is not None:
         raise PermissionError("התיק נעול לאחר אישור; לא ניתן להריץ בדיקה חדשה על הגרסה הנעולה")
@@ -358,6 +394,9 @@ def run_checks(s: Session, case: PermitCase, user: str, gateway: AIGateway | Non
         if area_evidence and operand.split(".")[-1] in doc_facts and operand.split(".")[-1] not in case.declared:
             r.evidence = list(r.evidence or []) + area_evidence
     resolve(results, docs, case.declared, case.title, doc_facts, area_evidence)
+    by_id = {x.id: x for x in rules}
+    for r in results:
+        r.flags = [f for f in r.flags if not f.startswith("ISSUE_")] + ["ISSUE_" + issue_type(by_id.get(r.rule_id), r)]
     ver = (s.scalar(select(func.max(CheckRun.version)).where(CheckRun.case_id == case.id)) or 0) + 1
     run = CheckRun(tenant_id=case.tenant_id, case_id=case.id, version=ver, ruleset_hash=ruleset_hash(rules),
                    input_hashes=[{"file": f.filename, "sha256": f.sha256, "version": f.version}

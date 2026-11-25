@@ -262,7 +262,21 @@ def r_coverage(ctx):
     return None
 
 
+def _drawing_views(view_he: str):
+    """Sections / elevations live on the plan's sheets. A DWFX plan has no CAD layers and its labels are drawn as lines,
+    so "no sections file" is not "no sections": until the drawing reader has looked, the item stays undecided."""
+    def r(ctx):
+        plan = next((d for d in ctx.docs if d.doc_type == "architectural_plan" and d.path.suffix == ".pdf"
+                     and ".converted" in d.path.name), None)
+        if plan:
+            return Resolution("UNCERTAIN", f"התכנית הוגשה כ־DWFX ({plan.filename}, {len(plan.pages)} גיליונות); "
+                                           f"{view_he} מופיעים בגיליונות התכנית ולא כקובץ נפרד — טרם אותרו בה אוטומטית.")
+        return None
+    return r
+
+
 RESOLVERS = {
+    "QA-REQ-SECTIONS": _drawing_views("חתכים"), "QA-REQ-ELEVATIONS": _drawing_views("חזיתות"),
     "HA-633-ANTIQUITIES": r_antiquities, "HA-633-COND-ELECTRIC": r_electric, "HA-633-COND-WELLS": r_wells,
     "HA-633-COND-HFC": r_hfc, "HA-633-COND-BINUI-PLAN": r_binui_plan, "HA-633-COND-DEMOLITION": r_demolition,
     "HA-633-WASTE-ESTIMATE": r_waste, "HA-633-SEWAGE": r_sewage, "HA-633-BETTERMENT-LEVY": r_betterment,
@@ -309,10 +323,18 @@ def resolve(results: list, docs: list[Doc], declared: dict, title: str, facts_fr
         if not fn or r.status not in ("UNCERTAIN", "FAIL"):
             continue
         res = fn(ctx)
-        if not res or (r.status == "FAIL" and not (res.status == "PASS" and res.evidence)):
-            continue                # a FAIL is only reversed by a document that shows the requirement is met
+        if not res:
+            continue
+        # a FAIL is only reversed by a document that shows the requirement is met, or — for a drawing that the system
+        # cannot read yet — made undecided (never PASS without evidence)
+        if r.status == "FAIL" and not ((res.status == "PASS" and res.evidence) or res.status == "UNCERTAIN"):
+            continue
         r.computed_result = res.status
         r.status = "UNCERTAIN" if res.status == "FAIL" and "RULE_NOT_APPROVED" in r.flags else res.status
+        if res.status == "UNCERTAIN":
+            r.explanation_he = res.explanation_he
+            r.flags = [f for f in r.flags if f != "RESOLVED_FROM_DOCUMENTS"] + ["NEEDS_DRAWING_READ"]
+            continue
         r.explanation_he = res.explanation_he
         r.evidence = list(r.evidence or []) + res.evidence
         r.flags = [f for f in r.flags if f not in ("REVIEW_REQUIRED", "INCOMPLETE")] + ["RESOLVED_FROM_DOCUMENTS"]
