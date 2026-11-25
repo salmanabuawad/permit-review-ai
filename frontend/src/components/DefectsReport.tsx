@@ -7,14 +7,20 @@ import { Case, Citation, Finding, OP_HE, Report, STATUS_HE, fmt } from '../api'
 
 type Cat = 'defect' | 'missing' | 'condition' | 'review' | 'pass' | 'na'
 
+// The system's answer is the computed result: a FAIL on a rule that is not yet professionally approved is shown
+// with status UNCERTAIN (not applied as a rejection) but it is still the answer the documents give.
 export function categorize(f: Finding): Cat {
-  if (f.status === 'FAIL') return 'defect'
-  if (f.status === 'PASS') return 'pass'
-  if (f.status === 'NA') return 'na'
+  const r = f.computed_result ?? f.status
+  const cond = f.flags.includes('CONDITION_FOR_PERMIT') || /^תנאי/.test(f.title_he)
+  if (r === 'PASS') return 'pass'
+  if (r === 'NA') return 'na'
+  if (r === 'FAIL') return cond ? 'condition' : 'defect'
   if (f.flags.includes('INCOMPLETE')) return 'missing'
-  if (f.flags.includes('CONDITION_FOR_PERMIT')) return 'condition'
+  if (cond) return 'condition'
   return 'review'
 }
+const condState = (f: Finding) => (f.computed_result === 'FAIL' ? 'לא התקיים' : f.computed_result === 'PASS' ? 'התקיים' : 'לא נבדק')
+const docEvidence = (f: Finding) => (f.evidence ?? []).filter((e: any) => e.type === 'document')
 
 const DECLARED: [string, string, string?][] = [
   ['main_area_m2', 'שטח עיקרי מבוקש', 'מ״ר'], ['service_area_m2', 'שטח שירות מבוקש', 'מ״ר'], ['units', 'יחידות דיור'],
@@ -60,6 +66,13 @@ function verdict(groups: Record<Cat, Finding[]>): { text: string; status: string
   if (m) return { text, status: 'דרושה השלמת נתונים ומסמכים קודם להכרעה בעמידת הבקשה בדרישות.', tone: 'warn' }
   if (c || r) return { text, status: 'ניתן להמשיך להכרעת הבודק ולבדיקת התנאים למתן היתר.', tone: 'warn' }
   return { text, status: 'לא נמצאו ליקויים בכללים שנבדקו.', tone: 'ok' }
+}
+
+function Evidence({ f }: { f: Finding }) {
+  const ev = docEvidence(f)
+  if (!ev.length) return null
+  return <div className="dr-evidence">{ev.map((e: any, i: number) => (
+    <div key={i}>ראיה: {e.file}{e.page ? `, עמ׳ ${e.page}` : ''} — <span className="quote">״{e.quote}״</span></div>))}</div>
 }
 
 interface Props { c: Case; report: Report; onCite: (c: Citation) => void; onSelect: (id: string) => void }
@@ -121,7 +134,7 @@ export default function DefectsReport({ c, report, onCite, onSelect }: Props) {
             <tbody>{groups.defect.map((f, i) => (
               <tr key={f.id} onClick={() => onSelect(f.id)} className="dr-click">
                 <td className="num">{num(i + 1)}</td><td>{f.title_he}</td>
-                <td>{f.measured_value !== null ? `${fmt(f.measured_value)} ${f.units ?? ''}; נדרש ${f.operator ? OP_HE[f.operator] : ''} ${fmt(f.threshold)} ${f.units ?? ''}` : plain(f.explanation_he)}</td>
+                <td>{f.measured_value !== null ? `${fmt(f.measured_value)} ${f.units ?? ''}; נדרש ${f.operator ? OP_HE[f.operator] : ''} ${fmt(f.threshold)} ${f.units ?? ''}` : plain(f.explanation_he)}<Evidence f={f} /></td>
                 <td>{action(f)}</td></tr>))}</tbody>
           </table>}
 
@@ -141,6 +154,7 @@ export default function DefectsReport({ c, report, onCite, onSelect }: Props) {
                   {g && <tr><td>פער מחושב</td><td className="num">{g}</td></tr>}
                 </tbody>
               </table>)}
+            <Evidence f={f} />
             <p><b>הוראה רלוונטית:</b> <Ref f={f} /></p>
             <p><b>דרישת תיקון:</b> {action(f)}</p>
           </section>)
@@ -159,9 +173,11 @@ export default function DefectsReport({ c, report, onCite, onSelect }: Props) {
       {groups.condition.length > 0 && <>
         <h3>{++sec}. תנאים למתן היתר</h3>
         <table className="dr-table">
-          <thead><tr><th>תנאי</th><th>מצב</th><th>מקור</th></tr></thead>
+          <thead><tr><th>תנאי</th><th>מצב</th><th>פירוט וראיה</th><th>מקור</th></tr></thead>
           <tbody>{groups.condition.map(f => (
-            <tr key={f.id} onClick={() => onSelect(f.id)} className="dr-click"><td>{f.title_he}</td><td>{plain(f.explanation_he)}</td><td><Ref f={f} /></td></tr>))}</tbody>
+            <tr key={f.id} onClick={() => onSelect(f.id)} className="dr-click"><td>{f.title_he}</td>
+              <td><span className={'chip ' + (f.computed_result === 'FAIL' ? 'bad' : 'warn')}>{condState(f)}</span></td>
+              <td>{plain(f.explanation_he)}<Evidence f={f} /></td><td><Ref f={f} /></td></tr>))}</tbody>
         </table>
       </>}
 
@@ -180,7 +196,9 @@ export default function DefectsReport({ c, report, onCite, onSelect }: Props) {
       <p className={'dr-status ' + v.tone}><b>סטטוס מומלץ:</b> {v.status}</p>
 
       {groups.pass.length > 0 && <details className="dr-pass"><summary>{++sec}. נבדקו ונמצאו תקינים ({groups.pass.length})</summary>
-        <ul>{groups.pass.map(f => <li key={f.id}>{f.title_he}</li>)}</ul></details>}
+        <table className="dr-table"><thead><tr><th>נושא</th><th>הנימוק והראיה</th></tr></thead>
+          <tbody>{groups.pass.map(f => <tr key={f.id} onClick={() => onSelect(f.id)} className="dr-click"><td>{f.title_he}</td>
+            <td>{plain(f.explanation_he)}<Evidence f={f} /></td></tr>)}</tbody></table></details>}
 
       <h3>{++sec}. מקורות</h3>
       <p className="small">מסמכי הבקשה {c.case_number}: {report.run.inputs.map((x: any) => x.file).join('; ')}.</p>

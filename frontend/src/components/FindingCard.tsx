@@ -47,9 +47,14 @@ export default function FindingCard({ f, selected, onSelect, onCite, canDecide, 
       </div>
       <div className="small muted" style={{ marginTop: 6 }}>
         <span className="mono">{f.rule_id} v{f.rule_version}</span>
-        {f.evidence?.length > 0 && <> · <button className="ghost sm" onClick={e => { e.stopPropagation(); setOpen(!open) }}>{open ? 'הסתר ראיות' : 'ראיות מדידה'}</button></>}
+        {f.evidence?.some((ev: any) => ev.type !== 'document') && <> · <button className="ghost sm" onClick={e => { e.stopPropagation(); setOpen(!open) }}>{open ? 'הסתר ראיות' : 'ראיות מדידה'}</button></>}
       </div>
-      {open && f.evidence.map((ev, i) => (
+      {f.evidence?.filter((ev: any) => ev.type === 'document').map((ev: any, i: number) => (
+        <div key={'d' + i} className="small evidence-doc">
+          <b>ראיה:</b> {ev.file}{ev.page ? `, עמ׳ ${ev.page}` : ''} — <span className="quote">״{ev.quote}״</span>
+        </div>
+      ))}
+      {open && f.evidence.filter((ev: any) => ev.type !== 'document').map((ev, i) => (
         <div key={i} className="small" style={{ background: 'var(--surface-2)', padding: 6, borderRadius: 6, marginTop: 4 }}>
           שיטה: <span className="mono">{ev.method}</span><br />
           ישויות מקור: <span className="mono">{(ev.source_entities || []).join(', ') || '—'}</span>

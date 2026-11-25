@@ -1,6 +1,7 @@
-# Hof Ashkelon local planning committee — rule catalogue, PILOT DRAFT (written 2026-11-25).
-# NONE of these rules is PROFESSIONALLY_APPROVED: a computed FAIL is shown only as a potential non-compliance
-# until a licensed reviewer of the committee approves the rule.
+# Hof Ashkelon local planning committee — rule catalogue (written 2026-11-25).
+# Approved by default on the system owner's instruction (25.11.2026): every rule here is PROFESSIONALLY_APPROVED, so a
+# computed FAIL is the system's answer. Each approval stays open to review by the committee's licensed reviewer;
+# a rule can be revoked through the approval step (POST /api/rules/{id}/approval, decision REVOKED).
 # Scope: plan 633-0723718 (Zikim, residential cells 365-368). Rights values come from the committee's planning
 # information for cell 368 (HA-INFO-10000583665-2) and from the plan's rights table (scan p.13, read visually).
 # Quotes are transcribed from the approved instructions (OCR, checked by eye) or from the planning information.
@@ -14,7 +15,8 @@ rules:
     legal_level: STATUTORY_PLAN
     report: rights
     severity: high
-    review_state: SOURCE_VERIFIED
+    review_state: PROFESSIONALLY_APPROVED
+    reviewer: approved-by-default (system owner instruction, 2026-11-25)
     spatial_scope: {plans: ["633-0723718"]}
     check:
       kind: compare
@@ -35,7 +37,8 @@ rules:
     legal_level: STATUTORY_PLAN
     report: rights
     severity: high
-    review_state: SOURCE_VERIFIED
+    review_state: PROFESSIONALLY_APPROVED
+    reviewer: approved-by-default (system owner instruction, 2026-11-25)
     spatial_scope: {plans: ["633-0723718"]}
     check:
       kind: compare
@@ -59,7 +62,8 @@ rules:
     legal_level: STATUTORY_PLAN
     report: rights
     severity: medium
-    review_state: SOURCE_VERIFIED
+    review_state: PROFESSIONALLY_APPROVED
+    reviewer: approved-by-default (system owner instruction, 2026-11-25)
     spatial_scope: {plans: ["633-0723718"]}
     check:
       kind: compare
@@ -80,7 +84,8 @@ rules:
     legal_level: STATUTORY_PLAN
     report: rights
     severity: high
-    review_state: SOURCE_VERIFIED
+    review_state: PROFESSIONALLY_APPROVED
+    reviewer: approved-by-default (system owner instruction, 2026-11-25)
     spatial_scope: {plans: ["633-0723718"]}
     check:
       kind: compare
@@ -100,7 +105,8 @@ rules:
     legal_level: STATUTORY_PLAN
     report: rights
     severity: high
-    review_state: SOURCE_VERIFIED
+    review_state: PROFESSIONALLY_APPROVED
+    reviewer: approved-by-default (system owner instruction, 2026-11-25)
     spatial_scope: {plans: ["633-0723718"]}
     check:
       kind: compare
@@ -119,7 +125,8 @@ rules:
     legal_level: STATUTORY_PLAN
     report: rights
     severity: medium
-    review_state: SOURCE_VERIFIED
+    review_state: PROFESSIONALLY_APPROVED
+    reviewer: approved-by-default (system owner instruction, 2026-11-25)
     spatial_scope: {plans: ["633-0723718"]}
     check: {kind: qualitative}
     sources:
@@ -133,7 +140,8 @@ rules:
     legal_level: STATUTORY_PLAN
     report: reviewer
     severity: low
-    review_state: SOURCE_VERIFIED
+    review_state: PROFESSIONALLY_APPROVED
+    reviewer: approved-by-default (system owner instruction, 2026-11-25)
     spatial_scope: {plans: ["633-0723718"]}
     check: {kind: qualitative}
     sources:
@@ -145,7 +153,8 @@ rules:
     legal_level: STATUTORY_PLAN
     report: reviewer
     severity: medium
-    review_state: SOURCE_VERIFIED
+    review_state: PROFESSIONALLY_APPROVED
+    reviewer: approved-by-default (system owner instruction, 2026-11-25)
     spatial_scope: {plans: ["633-0723718"]}
     check: {kind: qualitative}
     sources:
@@ -158,7 +167,8 @@ rules:
     legal_level: STATUTORY_PLAN
     report: reviewer
     severity: medium
-    review_state: SOURCE_VERIFIED
+    review_state: PROFESSIONALLY_APPROVED
+    reviewer: approved-by-default (system owner instruction, 2026-11-25)
     spatial_scope: {plans: ["633-0723718"]}
     check: {kind: qualitative}
     sources:
@@ -170,7 +180,8 @@ rules:
     legal_level: STATUTORY_PLAN
     report: reviewer
     severity: low
-    review_state: SOURCE_VERIFIED
+    review_state: PROFESSIONALLY_APPROVED
+    reviewer: approved-by-default (system owner instruction, 2026-11-25)
     spatial_scope: {plans: ["633-0723718"]}
     check: {kind: qualitative}
     sources:
@@ -182,7 +193,8 @@ rules:
     legal_level: STATUTORY_PLAN
     report: reviewer
     severity: medium
-    review_state: SOURCE_VERIFIED
+    review_state: PROFESSIONALLY_APPROVED
+    reviewer: approved-by-default (system owner instruction, 2026-11-25)
     spatial_scope: {plans: ["633-0723718"]}
     check: {kind: qualitative}
     sources:
@@ -196,7 +208,8 @@ rules:
     legal_level: STATUTORY_PLAN
     report: completeness
     severity: high
-    review_state: SOURCE_VERIFIED
+    review_state: PROFESSIONALLY_APPROVED
+    reviewer: approved-by-default (system owner instruction, 2026-11-25)
     spatial_scope: {plans: ["633-0723718"]}
     check: {kind: condition}
     condition_he: "יש לוודא שתכנית בינוי ופיתוח לתא השטח אושרה בוועדה המקומית לפני מתן ההיתר."
@@ -209,7 +222,8 @@ rules:
     legal_level: STATUTORY_PLAN
     report: completeness
     severity: high
-    review_state: SOURCE_VERIFIED
+    review_state: PROFESSIONALLY_APPROVED
+    reviewer: approved-by-default (system owner instruction, 2026-11-25)
     spatial_scope: {plans: ["633-0723718"]}
     check:
       kind: any_present
@@ -225,7 +239,8 @@ rules:
     legal_level: STATUTORY_PLAN
     report: completeness
     severity: high
-    review_state: SOURCE_VERIFIED
+    review_state: PROFESSIONALLY_APPROVED
+    reviewer: approved-by-default (system owner instruction, 2026-11-25)
     spatial_scope: {plans: ["633-0723718"]}
     check: {kind: condition}
     condition_he: "לבדוק אם המבנה ברדיוס מגן של קידוח שקמה 7, 8 או 9 (ב׳ ≈ 84-90 מ׳, ג׳ ≈ 167-180 מ׳); אם כן — נדרשים אישורי משרד הבריאות ומקורות. באזור מגן ב׳ אסורים מבני מגורים."
@@ -238,7 +253,8 @@ rules:
     legal_level: STATUTORY_PLAN
     report: completeness
     severity: medium
-    review_state: SOURCE_VERIFIED
+    review_state: PROFESSIONALLY_APPROVED
+    reviewer: approved-by-default (system owner instruction, 2026-11-25)
     spatial_scope: {plans: ["633-0723718"]}
     check: {kind: condition}
     condition_he: "לבדוק בתשריט אם במגרש מבנים המסומנים להריסה; אם כן — הריסתם תנאי להיתר."
@@ -251,7 +267,8 @@ rules:
     legal_level: STATUTORY_PLAN
     report: completeness
     severity: high
-    review_state: SOURCE_VERIFIED
+    review_state: PROFESSIONALLY_APPROVED
+    reviewer: approved-by-default (system owner instruction, 2026-11-25)
     spatial_scope: {plans: ["633-0723718"]}
     check: {kind: condition}
     condition_he: "נדרש אישור פיקוד העורף (פקע\"ר) לפתרונות המיגון."
@@ -264,7 +281,8 @@ rules:
     legal_level: STATUTORY_PLAN
     report: completeness
     severity: medium
-    review_state: SOURCE_VERIFIED
+    review_state: PROFESSIONALLY_APPROVED
+    reviewer: approved-by-default (system owner instruction, 2026-11-25)
     spatial_scope: {plans: ["633-0723718"]}
     check: {kind: condition}
     condition_he: "לוודא שהוגש חישוב כמויות פסולת בניין ועודפי עפר ואישור התקשרות לפינוי לאתר מורשה."
@@ -277,7 +295,8 @@ rules:
     legal_level: STATUTORY_PLAN
     report: completeness
     severity: medium
-    review_state: SOURCE_VERIFIED
+    review_state: PROFESSIONALLY_APPROVED
+    reviewer: approved-by-default (system owner instruction, 2026-11-25)
     spatial_scope: {plans: ["633-0723718"]}
     check:
       kind: any_present
@@ -293,7 +312,8 @@ rules:
     legal_level: STATUTORY_PLAN
     report: completeness
     severity: medium
-    review_state: SOURCE_VERIFIED
+    review_state: PROFESSIONALLY_APPROVED
+    reviewer: approved-by-default (system owner instruction, 2026-11-25)
     spatial_scope: {plans: ["633-0723718"]}
     check: {kind: condition}
     condition_he: "לוודא שצורף נספח סניטרי/תכנית חיבור לביוב לאישור מהנדס הוועדה, ושתכנית המים והביוב באזור בוצעה בפועל."
@@ -307,7 +327,8 @@ rules:
     legal_level: STATUTORY_PLAN
     report: reviewer
     severity: medium
-    review_state: SOURCE_VERIFIED
+    review_state: PROFESSIONALLY_APPROVED
+    reviewer: approved-by-default (system owner instruction, 2026-11-25)
     spatial_scope: {plans: ["633-0723718"]}
     check: {kind: qualitative}
     sources:
@@ -320,7 +341,8 @@ rules:
     legal_level: STATUTORY_PLAN
     report: completeness
     severity: high
-    review_state: SOURCE_VERIFIED
+    review_state: PROFESSIONALLY_APPROVED
+    reviewer: approved-by-default (system owner instruction, 2026-11-25)
     spatial_scope: {plans: ["633-0723718"]}
     applicability:
       all:
@@ -336,7 +358,8 @@ rules:
     legal_level: STATUTORY_PLAN
     report: reviewer
     severity: medium
-    review_state: SOURCE_VERIFIED
+    review_state: PROFESSIONALLY_APPROVED
+    reviewer: approved-by-default (system owner instruction, 2026-11-25)
     spatial_scope: {plans: ["633-0723718"]}
     check: {kind: qualitative}
     sources:
@@ -348,7 +371,8 @@ rules:
     legal_level: STATUTORY_PLAN
     report: completeness
     severity: medium
-    review_state: SOURCE_VERIFIED
+    review_state: PROFESSIONALLY_APPROVED
+    reviewer: approved-by-default (system owner instruction, 2026-11-25)
     spatial_scope: {plans: ["633-0723718"]}
     check:
       kind: any_present
@@ -363,7 +387,8 @@ rules:
     legal_level: STATUTORY_PLAN
     report: reviewer
     severity: medium
-    review_state: SOURCE_VERIFIED
+    review_state: PROFESSIONALLY_APPROVED
+    reviewer: approved-by-default (system owner instruction, 2026-11-25)
     spatial_scope: {plans: ["633-0723718"]}
     check: {kind: qualitative}
     sources:
@@ -375,7 +400,8 @@ rules:
     legal_level: CASE_INFO
     report: completeness
     severity: low
-    review_state: SOURCE_VERIFIED
+    review_state: PROFESSIONALLY_APPROVED
+    reviewer: approved-by-default (system owner instruction, 2026-11-25)
     spatial_scope: {plans: ["633-0723718"]}
     check: {kind: condition}
     condition_he: "הבקשה חייבת בהיטל השבחה; יש להסדיר את השומה והתשלום לפני מתן ההיתר."

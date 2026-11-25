@@ -344,7 +344,20 @@ def run_checks(s: Session, case: PermitCase, user: str, gateway: AIGateway | Non
     tenant = s.get(Municipality, case.tenant_id)
     rules = rules_for_tenant(s, case.tenant_id)
     facts, measurements = build_facts(s, case)
+    # values read from the case's documents (e.g. cell totals from the area table) — never over a declared value
+    from .rules.evidence import document_facts, resolve
+    usable = [f for f in latest_files(s, case) if f.ingest_status not in ("ERROR", "QUARANTINED")]
+    docs, doc_facts, area_evidence = document_facts(usable)
+    for k, v in doc_facts.items():
+        facts["declared"].setdefault(k, v)
+    if doc_facts:
+        facts["document_facts"] = doc_facts
     results = evaluate(rules, facts, load_sources(), tenant_is_demo=bool(tenant and tenant.is_demo))
+    for r in results:          # compare rules answered by a value read from a document: show where it was read
+        operand = next((x.check.get("operand") for x in rules if x.id == r.rule_id), None) or ""
+        if area_evidence and operand.split(".")[-1] in doc_facts and operand.split(".")[-1] not in case.declared:
+            r.evidence = list(r.evidence or []) + area_evidence
+    resolve(results, docs, case.declared, case.title, doc_facts, area_evidence)
     ver = (s.scalar(select(func.max(CheckRun.version)).where(CheckRun.case_id == case.id)) or 0) + 1
     run = CheckRun(tenant_id=case.tenant_id, case_id=case.id, version=ver, ruleset_hash=ruleset_hash(rules),
                    input_hashes=[{"file": f.filename, "sha256": f.sha256, "version": f.version}

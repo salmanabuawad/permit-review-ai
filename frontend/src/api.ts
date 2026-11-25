@@ -120,7 +120,7 @@ export const FLAG_HE: Record<string, string> = {
   RULE_NOT_APPROVED: 'כלל טרם אושר מקצועית', INCOMPLETE: 'חסר נתון', THRESHOLD_SOURCE_MISSING: 'ערך סף חסר במקור',
   WITHIN_UNCERTAINTY_BAND: 'בתחום אי-ודאות המדידה', REVIEW_REQUIRED: 'נדרשת הכרעת בודק',
   CONDITION_FOR_PERMIT: 'תנאי למתן היתר', APPLICABILITY_UNKNOWN: 'תחולה לא ידועה', SOURCE_CONFLICT: 'סתירת מקורות',
-  DEMO_RULE: 'כלל הדגמה',
+  DEMO_RULE: 'כלל הדגמה', RESOLVED_FROM_DOCUMENTS: 'הוכרע ממסמכי התיק',
 }
 export const REVIEW_STATE_HE: Record<string, string> = {
   DRAFT: 'טיוטה', SOURCE_MISSING: 'מקור חסר', SOURCE_LOCATED: 'מקור אותר', SOURCE_VERIFIED: 'מקור נקרא ואומת',

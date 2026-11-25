@@ -428,3 +428,6 @@ tr.selected td { background: #eef4ff; }
   .fp-dec { grid-column: 2; grid-row: 2; }
   .fp-source { max-width: 100%; }
 }
+
+.evidence-doc, .dr-evidence { margin-top: 4px; padding: 4px 8px; background: var(--surface-2); border-radius: 6px; font-size: .8rem; color: var(--ink-2); }
+.evidence-doc .quote, .dr-evidence .quote { color: var(--ink); }
