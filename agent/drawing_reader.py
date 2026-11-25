@@ -24,7 +24,7 @@ from pathlib import Path
 
 import pymupdf
 
-MODEL = "ministral-3-8b-iq4xs"
+MODEL = "ministral-3-8b-vision"
 LLM = "http://127.0.0.1:8081/v1/chat/completions"
 TILE_PX = 1024               # overview tile, long side
 CLOSE_PX = 2000              # close-up, long side

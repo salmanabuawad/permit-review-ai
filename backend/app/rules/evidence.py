@@ -293,12 +293,20 @@ def drawing_facts(files) -> tuple[dict, dict]:
         facts = {}
         h = read.get("height") or {}
         if h.get("value_m") is not None:
-            facts["building_height_m"] = float(h["value_m"])
+            # the accepted ridge (read twice) — but a single higher ridge reading may be the real top that was read
+            # only once, so the height checked is the highest plausible ridge read anywhere (never too low)
+            single = [x for x in (r.get("ridge") for r in read.get("levels_read") or [])
+                      if isinstance(x, (int, float)) and 2 <= x <= 20]
+            top = max([float(h["value_m"]), *single])
+            facts["building_height_m"] = top
+            if h.get("roof_type") in ("tiled", "flat"):
+                facts["roof_type"] = h["roof_type"]           # the height limit depends on it (9 m tiled, 8 m flat)
             r0 = (h.get("readings") or [{}])[0]
             zero = f" (±0.00 = {h['zero_abs']:.2f})" if h.get("zero_abs") else ""
+            also = f"; הרום הגבוה ביותר שנקרא: +{top:.2f}" if top > float(h["value_m"]) else ""
             drawing["evidence"]["building_height_m"] = [{
                 "type": "document", "file": f.filename, "page": r0.get("sheet"), "method": "קריאת שרטוט (מודל תמונה מקומי)",
-                "quote": f"רום רכס הגג בחתך/חזית: +{h['value_m']:.2f}{zero}; גג {('רעפים' if h.get('roof_type') == 'tiled' else 'שטוח' if h.get('roof_type') == 'flat' else 'לא זוהה')}"}]
+                "quote": f"רום רכס הגג בחתך/חזית: +{h['value_m']:.2f} (נקרא פעמיים){also}{zero}; גג {('רעפים' if h.get('roof_type') == 'tiled' else 'שטוח' if h.get('roof_type') == 'flat' else 'לא זוהה')}"}]
         return drawing, facts
     return {}, {}
 

@@ -19,7 +19,7 @@ Settings (environment, e.g. ~/.config/bbp-ai-agent.env):
   BBP_CONVERT_PYTHON=<python with PyMuPDF>    (default: the repository's .venv/bin/python)
   BBP_DWFX_CONVERSION=0                       turns the DWFX converter off
   BBP_DRAWING_READ=0                          turns the drawing reader off (agent/drawing_reader.py)
-  BBP_VISION_MODEL=ministral-3-8b-iq4xs       local image model for reading plans
+  BBP_VISION_MODEL=ministral-3-8b-vision      local image model for reading plans (GPU projector preset)
 The agent also converts DWFX drawings for the app (Converter below): drawings are rendered on this PC, not the server.
 Run:  python3 bbp_ai_agent.py   (systemd --user unit bbp-ai-agent). Standard library only.
 """
@@ -288,7 +288,7 @@ def main() -> None:
     else:
         log.info("dwfx converter: off (BBP_DWFX_CONVERSION=0 or no Python with PyMuPDF at %s)", python)
     if os.environ.get("BBP_DRAWING_READ", "1") != "0" and Path(python).exists():
-        vision = os.environ.get("BBP_VISION_MODEL", "ministral-3-8b-iq4xs")
+        vision = os.environ.get("BBP_VISION_MODEL", "ministral-3-8b-vision")
         reader = DrawingReader(app_url, token, python, agent.stop, vision, local.rstrip("/") + "/v1/chat/completions")
         threading.Thread(target=reader.run, daemon=True).start()
         log.info("drawing reader: %s with %s via %s", app_url, vision, local)
