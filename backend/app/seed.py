@@ -75,6 +75,31 @@ PILOT_USERS = [
 ]
 
 
+HOF_ASHKELON = ("hof-ashkelon", "הוועדה המקומית לתכנון ובנייה חוף אשקלון")
+HOF_ASHKELON_USERS = [
+    ("u-ha-admin", "מנהל מערכת — חוף אשקלון", "sysadmin"),
+    ("u-ha-engineer", "מהנדס הוועדה — חוף אשקלון", "city_engineer"),
+    ("u-ha-manager", "מנהל/ת רישוי — חוף אשקלון", "dept_manager"),
+    ("u-ha-reviewer", "בודק/ת תכניות — חוף אשקלון", "reviewer"),
+    ("u-ha-planner", "עורך/ת בקשה — חוף אשקלון", "planner"),
+    ("u-ha-secretary", "מזכירות — חוף אשקלון", "secretariat"),
+]
+
+
+def ensure_hof_ashkelon(s: Session) -> bool:
+    """The Hof Ashkelon local committee tenant with its role users. Idempotent; True if anything was added."""
+    added = False
+    if s.get(Municipality, HOF_ASHKELON[0]) is None:
+        s.add(Municipality(id=HOF_ASHKELON[0], name_he=HOF_ASHKELON[1], is_demo=False))
+        s.flush()
+        added = True
+    for uid, name, role in HOF_ASHKELON_USERS:
+        if s.get(User, uid) is None:
+            s.add(User(id=uid, tenant_id=HOF_ASHKELON[0], display_name=name, role=role))
+            added = True
+    return added
+
+
 def seed_empty() -> None:
     """Clean pilot install: Bnei Brak tenant with role users only — no sample cases, no files,
     and no demo tenant (so the fictitious DEMO/1 rules never run)."""
@@ -86,8 +111,18 @@ def seed_empty() -> None:
         s.add(Municipality(id="bnei-brak", name_he="עיריית בני ברק", is_demo=False))
         s.flush()
         s.add_all([User(id=i, tenant_id="bnei-brak", display_name=n, role=r) for i, n, r in PILOT_USERS])
+        ensure_hof_ashkelon(s)
         s.commit()
-    print("seeded empty Bnei Brak tenant with", len(PILOT_USERS), "users and no sample data")
+    print("seeded empty Bnei Brak and Hof Ashkelon tenants with role users and no sample data")
+
+
+def add_hof_ashkelon() -> None:
+    """Add the Hof Ashkelon tenant to an existing install without touching anything else."""
+    run_migrations()
+    with Session(engine) as s:
+        changed = ensure_hof_ashkelon(s)
+        s.commit()
+    print("added Hof Ashkelon tenant" if changed else "Hof Ashkelon tenant already present")
 
 
 def seed(reset: bool = False, samples: bool = True) -> None:
@@ -110,6 +145,7 @@ def seed(reset: bool = False, samples: bool = True) -> None:
                    Municipality(id="bnei-brak", name_he="עיריית בני ברק", is_demo=False)])
         s.flush()
         s.add_all([User(id=i, tenant_id=t, display_name=n, role=r) for i, t, n, r in USERS])
+        ensure_hof_ashkelon(s)
         s.flush()
         for spec in CASES:
             spec = dict(spec)
@@ -129,4 +165,7 @@ def seed(reset: bool = False, samples: bool = True) -> None:
 
 
 if __name__ == "__main__":
-    seed(reset="--reset" in sys.argv, samples="--no-samples" not in sys.argv)
+    if "--add-hof-ashkelon" in sys.argv:
+        add_hof_ashkelon()
+    else:
+        seed(reset="--reset" in sys.argv, samples="--no-samples" not in sys.argv)

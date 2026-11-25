@@ -84,3 +84,28 @@ def test_intake_rejects_mismatched_content():
     with pytest.raises(files.IntakeError):
         files.detect_kind("evil.exe", b"MZ")
     assert files.detect_kind("a.dxf", b"  0\nSECTION\n") == "dxf"
+
+
+def test_pdf_tables_never_use_the_layout_model(tmp_path, monkeypatch):
+    """Table detection must not run pymupdf_layout's ONNX model: it segfaulted on a real scanned letter
+    (application 10000612352), which killed the whole server process — no try/except can catch that."""
+    import pymupdf
+    from app.ingest.pdf import parse_pdf
+
+    doc = pymupdf.open()
+    page = doc.new_page()
+    for i in range(4):                                   # a 3x3 ruled grid with text in each cell
+        page.draw_line((72, 72 + 30 * i), (342, 72 + 30 * i))
+        page.draw_line((72 + 90 * i, 72), (72 + 90 * i, 162))
+    for r in range(3):
+        for c in range(3):
+            page.insert_text((80 + 90 * c, 92 + 30 * r), f"r{r}c{c}")
+    path = tmp_path / "grid.pdf"
+    doc.save(str(path))
+
+    def no_layout(self, **kwargs):
+        raise AssertionError("find_tables called the layout model")
+    monkeypatch.setattr(pymupdf.Page, "get_layout", no_layout)
+    res = parse_pdf(path)
+    assert res.status == "OK"
+    assert res.pages[0].tables and res.pages[0].tables[0][0][0] == "r0c0"

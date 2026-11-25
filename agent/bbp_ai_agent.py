@@ -15,6 +15,10 @@ Settings (environment, e.g. ~/.config/bbp-ai-agent.env):
   BBP_LLM_RELAY_TOKEN=<same value as BBP_LLM_RELAY_TOKEN in /etc/bbp.env on the server>
   BBP_LLM_RELAY_LOCAL=http://127.0.0.1:8081
   BBP_LLM_RELAY_CONCURRENCY=2
+  BBP_APP_URL=https://<app host>              (DWFX conversion; default: the relay URL without /llm-relay)
+  BBP_CONVERT_PYTHON=<python with PyMuPDF>    (default: the repository's .venv/bin/python)
+  BBP_DWFX_CONVERSION=0                       turns the DWFX converter off
+The agent also converts DWFX drawings for the app (Converter below): drawings are rendered on this PC, not the server.
 Run:  python3 bbp_ai_agent.py   (systemd --user unit bbp-ai-agent). Standard library only.
 """
 from __future__ import annotations
@@ -22,11 +26,16 @@ from __future__ import annotations
 import json
 import logging
 import os
+import shutil
 import signal
+import subprocess
+import tempfile
 import threading
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
+from pathlib import Path
 
 log = logging.getLogger("bbp.llm_relay_agent")
 
@@ -130,6 +139,71 @@ class Agent:
             t.join()
 
 
+class Converter:
+    """Converts DWFX drawings for the app on this PC (agent/dwfx_convert.py, run with a Python that has PyMuPDF).
+
+    Pulls work from the app API (/api/agent/conversions/*) with the relay token: next -> source -> result. The file
+    lives in a temporary folder only while it is converted. A failure is reported back, so the case shows why."""
+
+    def __init__(self, app_url: str, token: str, python: str, stop: threading.Event, timeout_s: float = 900.0):
+        self.app = app_url.rstrip("/")
+        self.auth = {"Authorization": f"Bearer {token}"}
+        self.python = python
+        self.stop = stop
+        self.timeout_s = timeout_s
+        self.script = str(Path(__file__).with_name("dwfx_convert.py"))
+
+    def _call(self, path: str, data=None, method="POST", headers: dict | None = None, timeout: float = 120.0):
+        req = urllib.request.Request(f"{self.app}/api/agent/conversions{path}", data=data, method=method,
+                                     headers={**self.auth, **(headers or {})})
+        return urllib.request.urlopen(req, timeout=timeout)
+
+    def once(self) -> bool:
+        """Converts one waiting file; False when there was none."""
+        with self._call("/next", data=b"") as r:
+            if r.status == 204:
+                return False
+            job = json.loads(r.read())
+        fid = job["file_id"]
+        with tempfile.TemporaryDirectory(prefix="bbp-dwfx-") as tmp:
+            src, dst = Path(tmp) / "in.dwfx", Path(tmp) / "out.pdf"
+            with self._call(f"/{fid}/source", method="GET", timeout=600) as r, src.open("wb") as f:
+                shutil.copyfileobj(r, f)
+            t0 = time.monotonic()
+            try:
+                p = subprocess.run([self.python, self.script, str(src), str(dst)], capture_output=True, text=True,
+                                   timeout=self.timeout_s)
+                info = json.loads((p.stdout or "{}").strip().splitlines()[-1] or "{}") if p.stdout.strip() else {}
+                error = info.get("error") or (None if p.returncode == 0 and dst.exists() else
+                                              (p.stderr.strip().splitlines() or ["conversion failed"])[-1][:300])
+            except subprocess.TimeoutExpired:
+                info, error = {}, f"ההמרה חרגה מ-{int(self.timeout_s)} שניות"
+            info["seconds"] = round(time.monotonic() - t0, 1)
+            head = {"X-Conversion-Status": "failed" if error else "ok",
+                    "X-Conversion-Info": urllib.parse.quote(json.dumps(info, ensure_ascii=False)),
+                    "Content-Type": "text/plain; charset=utf-8" if error else "application/pdf"}
+            body = error.encode() if error else dst.read_bytes()
+            with self._call(f"/{fid}/result", data=body, headers=head, timeout=600) as r:
+                log.info("dwfx %s (%s): %s in %.1fs -> %d", fid, job.get("filename"), "failed: " + error if error
+                         else "converted", info["seconds"], r.status)
+        return True
+
+    def run(self, interval: float = 10.0) -> None:
+        backoff = interval
+        while not self.stop.is_set():
+            try:
+                busy = self.once()
+                backoff = interval
+            except urllib.error.HTTPError as e:
+                log.warning("dwfx converter: app answered %d %s", e.code, e.read()[:200].decode(errors="replace"))
+                busy, backoff = False, min(backoff * 2, 300)
+            except (urllib.error.URLError, OSError, ValueError, KeyError) as e:
+                log.warning("dwfx converter: %s", e)
+                busy, backoff = False, min(backoff * 2, 300)
+            if not busy:
+                self.stop.wait(backoff)
+
+
 def _model(job: dict) -> str | None:
     try:
         body = json.loads(job.get("body") or "{}")
@@ -150,6 +224,14 @@ def main() -> None:
     for sig in (signal.SIGINT, signal.SIGTERM):
         signal.signal(sig, lambda *_: agent.stop.set())
     log.info("relay agent: %s -> %s (%d workers)", agent.relay, agent.local, agent.concurrency)
+    app_url = os.environ.get("BBP_APP_URL") or relay.rstrip("/").removesuffix("/llm-relay")
+    python = os.environ.get("BBP_CONVERT_PYTHON") or str(Path(__file__).resolve().parents[1] / ".venv" / "bin" / "python")
+    if os.environ.get("BBP_DWFX_CONVERSION", "1") != "0" and Path(python).exists():
+        conv = Converter(app_url, token, python, agent.stop)
+        threading.Thread(target=conv.run, daemon=True).start()
+        log.info("dwfx converter: %s with %s", app_url, python)
+    else:
+        log.info("dwfx converter: off (BBP_DWFX_CONVERSION=0 or no Python with PyMuPDF at %s)", python)
     agent.run()
 
 

@@ -61,7 +61,10 @@ def parse_pdf(path: Path, extract_tables: bool = True) -> PdfResult:
         tables: list = []
         if extract_tables and words:
             try:
-                tables = [t.extract() for t in page.find_tables().tables]
+                # use_layout=False: line-based detection only. The layout path runs the pymupdf_layout ONNX
+                # model in native code, which segfaulted (killing the whole server process) on a scanned
+                # IEC letter; a Python try/except cannot catch that.
+                tables = [t.extract() for t in page.find_tables(use_layout=False).tables]
             except Exception:  # noqa: BLE001
                 tables = []
         res.pages.append(PdfPage(page.number + 1, page.rect.width, page.rect.height, text, words,

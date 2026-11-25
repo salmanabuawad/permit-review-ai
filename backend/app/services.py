@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import datetime as dt
+import hashlib
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -24,6 +25,8 @@ from .rules.engine import Rule, evaluate, load_rules, ruleset_hash
 RULE_FILES_BY_TENANT = {
     "bnei-brak": ["bnei_brak.yaml", "internal_qa.yaml"],
     "demo": ["bnei_brak.yaml", "internal_qa.yaml", "demo.yaml"],
+    # No Hof Ashkelon rules yet: knowledge/rule_candidates/hof_ashkelon.yaml holds unverified candidates only.
+    "hof-ashkelon": ["internal_qa.yaml"],
 }
 
 DOC_TYPES_HE = {
@@ -67,6 +70,54 @@ def gateway_logger(s: Session, tenant: str, case_id: str | None, user: str | Non
 
 
 # ------------------------------------------------------------------ ingest
+
+DWFX_PENDING_HE = "ממתין להמרה במחשב ה-AI (DWFX ← PDF)"
+DWFX_CLAIM_TTL_S = 30 * 60       # a claimed conversion that never came back is offered again after this
+
+
+def converted_pdf_path(cf: CaseFile) -> Path | None:
+    """The PDF the AI PC made from a DWFX, if it has come back."""
+    p = (cf.ingest_report or {}).get("conversion", {}).get("pdf_path")
+    return Path(p) if p and Path(p).exists() else None
+
+
+def claim_dwfx_conversion(s: Session) -> CaseFile | None:
+    """The oldest DWFX waiting for conversion (or whose claim expired), marked as taken by the agent."""
+    now = dt.datetime.now(dt.timezone.utc)
+    for cf in s.scalars(select(CaseFile).where(CaseFile.kind == "dwfx", CaseFile.lifecycle == "ACTIVE",
+                                               CaseFile.ingest_status == "PENDING_CONVERSION")
+                        .order_by(CaseFile.uploaded_at)):
+        conv = dict((cf.ingest_report or {}).get("conversion") or {})
+        claimed = conv.get("claimed_at")
+        if claimed and (now - dt.datetime.fromisoformat(claimed)).total_seconds() < DWFX_CLAIM_TTL_S:
+            continue
+        conv.update(state="converting", claimed_at=now.isoformat(), attempts=conv.get("attempts", 0) + 1)
+        cf.ingest_report = {**(cf.ingest_report or {}), "conversion": conv}
+        return cf
+    return None
+
+
+def complete_dwfx_conversion(s: Session, cf: CaseFile, pdf_bytes: bytes | None, info: dict, error: str | None) -> None:
+    """Take the AI PC's result: store the PDF next to the original DWFX and read it like any PDF (text for search
+    and classification). Tables are not extracted: a rendered sheet has no ruled cells, only pixels."""
+    conv = dict((cf.ingest_report or {}).get("conversion") or {})
+    if error or not pdf_bytes or not pdf_bytes.startswith(b"%PDF-"):
+        conv.update(state="failed", error=error or "התוצאה אינה PDF")
+        cf.ingest_status = "ERROR"
+        cf.ingest_report = {"warnings": [f"המרת DWFX נכשלה: {conv['error']}"], "conversion": conv}
+    else:
+        out = Path(cf.storage_path).with_suffix(".converted.pdf")
+        out.write_bytes(pdf_bytes)
+        r = pdf.parse_pdf(out, extract_tables=False)
+        report = r.report()
+        report["warnings"] = report.get("warnings", []) + [
+            "תמונה של השרטוט שהומרה מ-DWFX במחשב ה-AI — לתצוגה ולחיפוש טקסט בלבד, לא נמדדה; המקור הוא קובץ ה-DWFX"]
+        conv.update(state="done", pdf_path=str(out), pdf_sha256=hashlib.sha256(pdf_bytes).hexdigest(),
+                    pdf_bytes=len(pdf_bytes), info=info, converted_at=dt.datetime.now(dt.timezone.utc).isoformat())
+        report["conversion"] = conv
+        cf.ingest_status, cf.ingest_report = ("OK" if r.status in ("OK", "NEEDS_OCR") else r.status), report
+    audit.record(s, cf.tenant_id, "ai-agent", "file.convert", "case_file", cf.id,
+                 {"from": "dwfx", "state": conv["state"], "error": conv.get("error"), "pdf_sha256": conv.get("pdf_sha256")})
 
 def ingest_file(s: Session, case: PermitCase, filename: str, data: bytes, doc_type: str, user: str,
                 declared_units_m: float | None = None, gateway: AIGateway | None = None,
@@ -116,6 +167,9 @@ def ingest_file(s: Session, case: PermitCase, filename: str, data: bytes, doc_ty
     elif cf.kind == "xlsx":
         r = excel.parse_area_table(path)
         cf.ingest_status, report = r.status, r.report()
+    elif cf.kind == "dwfx":     # converted on the AI PC, never here: see complete_dwfx_conversion
+        cf.ingest_status = "PENDING_CONVERSION"
+        report = {"warnings": [DWFX_PENDING_HE], "conversion": {"state": "queued"}}
     cf.ingest_report = report
     audit.record(s, case.tenant_id, user, "file.upload", "case_file", cf.id,
                  {"case_id": case.id, "filename": filename, "sha256": cf.sha256, "doc_type": doc_type,

@@ -13,8 +13,9 @@ MAGIC = {
     "pdf": [b"%PDF-"],
     "xlsx": [b"PK\x03\x04"],
     "dwg": [b"AC10"],
+    "dwfx": [b"PK\x03\x04"],   # OPC/ZIP package; converted to PDF on the AI PC (agent/dwfx_convert.py)
 }
-EXT_KIND = {".pdf": "pdf", ".dxf": "dxf", ".dwg": "dwg", ".xlsx": "xlsx", ".xlsm": "xlsx"}
+EXT_KIND = {".pdf": "pdf", ".dxf": "dxf", ".dwg": "dwg", ".dwfx": "dwfx", ".xlsx": "xlsx", ".xlsm": "xlsx"}
 
 
 class IntakeError(ValueError):
@@ -34,7 +35,7 @@ def detect_kind(filename: str, head: bytes) -> str:
     ext = Path(filename).suffix.lower()
     kind = EXT_KIND.get(ext)
     if not kind:
-        raise IntakeError(f"סוג קובץ לא נתמך: {ext}. נתמכים: PDF, DXF, DWG, XLSX")
+        raise IntakeError(f"סוג קובץ לא נתמך: {ext}. נתמכים: PDF, DXF, DWG, DWFX, XLSX")
     if kind == "dxf":
         txt = head[:2048].decode("latin-1", errors="ignore")
         if "SECTION" not in txt and not head.startswith(b"AutoCAD Binary DXF"):

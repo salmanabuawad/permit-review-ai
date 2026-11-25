@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom'
 import { Case, Citation, Finding, Report, api, fmt, fmtDate, openBlob } from '../api'
 import { useApp } from '../App'
 import CadViewer from '../components/CadViewer'
+import SheetViewer from '../components/SheetViewer'
 import FindingCard, { StatusChip } from '../components/FindingCard'
 import SourceDrawer from '../components/SourceDrawer'
 
@@ -14,7 +15,7 @@ const REPORTS = [
 const LIFECYCLE_HE: Record<string, string> = { ACTIVE: 'פעיל', ARCHIVED: 'בארכיון', DELETED: 'נמחק' }
 const INGEST_HE: Record<string, string> = {
   OK: 'נקלט', NEEDS_OCR: 'נדרש OCR', NEEDS_CONVERSION: 'נדרשת המרה (DWG)', NEEDS_UNITS: 'חסרות יחידות',
-  NO_AREA_TABLE: 'לא זוהתה טבלת שטחים', ERROR: 'שגיאה', QUARANTINED: 'בהסגר', PENDING: 'ממתין',
+  NO_AREA_TABLE: 'לא זוהתה טבלת שטחים', ERROR: 'שגיאה', QUARANTINED: 'בהסגר', PENDING: 'ממתין', PENDING_CONVERSION: 'ממתין להמרה (DWFX)',
 }
 
 export default function CaseView() {
@@ -66,6 +67,10 @@ export default function CaseView() {
     return o
   }, [report])
 
+  const sheetFile = (c?.files ?? []).filter(f => f.lifecycle === 'ACTIVE' && f.ingest_status === 'OK' &&
+    (f.kind === 'dwfx' || (f.kind === 'pdf' && f.doc_type === 'architectural_plan')))
+    .sort((a, b) => (a.doc_type === 'architectural_plan' ? 0 : 1) - (b.doc_type === 'architectural_plan' ? 0 : 1)
+      || (a.kind === 'dwfx' ? 0 : 1) - (b.kind === 'dwfx' ? 0 : 1))[0]
   if (!c || !meta) return <div className="empty">טוען תיק…</div>
   const locked = c.locked_version !== null
   const hasFiles = (c.files?.length ?? 0) > 0
@@ -132,7 +137,9 @@ export default function CaseView() {
       <div className="workspace">
         <section className="card" aria-label="תשריט">
           <div className="card-head"><h3>תצוגת תשריט ושכבות</h3><span className="spacer" /><span className="small muted">לחיצה על סימון אדום/צהוב מציגה את הממצא</span></div>
-          <CadViewer geo={geo} findings={report?.findings ?? []} selected={sel} onSelect={id => { setSel(id); setTab('findings') }} />
+          {!(geo?.features?.length) && sheetFile
+            ? <SheetViewer file={sheetFile} />
+            : <CadViewer geo={geo} findings={report?.findings ?? []} selected={sel} onSelect={id => { setSel(id); setTab('findings') }} />}
           {report && <Measurements m={report.measurements} />}
         </section>
 
@@ -265,7 +272,7 @@ function Files({ c, onChange, locked }: { c: Case; onChange: () => Promise<void>
                 <td className="small">
                   {f.kind === 'dxf' && <>יחידות: <span className="ltr">{f.ingest_report.units}</span> · ישויות <span className="num">{f.ingest_report.entity_count}</span>
                     {f.ingest_report.unmapped_layers?.length ? <> · שכבות לא ממופות: <span className="ltr">{f.ingest_report.unmapped_layers.join(', ')}</span></> : null}</>}
-                  {f.kind === 'pdf' && <>עמודים <span className="num">{f.ingest_report.page_count}</span> · חתימה: {f.signature_status === 'NO_SIGNATURE_FIELD' ? 'אין שדה חתימה' : 'שדה חתימה קיים (לא אומת)'}</>}
+                  {(f.kind === 'pdf' || f.kind === 'dwfx') && f.ingest_report.page_count != null && <>{f.kind === 'dwfx' ? 'גיליונות' : 'עמודים'} <span className="num">{f.ingest_report.page_count}</span>{f.kind === 'pdf' && <> · חתימה: {f.signature_status === 'NO_SIGNATURE_FIELD' ? 'אין שדה חתימה' : 'שדה חתימה קיים (לא אומת)'}</>}</>}
                   {f.kind === 'xlsx' && <>שורות <span className="num">{f.ingest_report.row_count}</span> · מוצע עיקרי <span className="num">{f.ingest_report.totals_m2?.proposed_main_m2}</span> מ״ר</>}
                   {(f.ingest_report.warnings ?? []).map((w: string, i: number) => <div key={i} style={{ color: 'var(--unc)' }}>{w}</div>)}
                 </td>

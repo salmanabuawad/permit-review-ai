@@ -23,7 +23,7 @@ from . import text as T
 from .grounding import ground
 from .schemas import DOC_CLASSES, ApplicationExtraction, Extracted, SourceRef
 
-KIND = {".pdf": "pdf", ".dxf": "dxf", ".dwg": "dwg", ".xlsx": "xlsx", ".xlsm": "xlsx", ".csv": "csv",
+KIND = {".pdf": "pdf", ".dxf": "dxf", ".dwg": "dwg", ".dwfx": "dwfx", ".xlsx": "xlsx", ".xlsm": "xlsx", ".csv": "csv",
         ".json": "json", ".html": "html", ".htm": "html"}
 DOC_TYPE_BY_CLASS = {"committee_protocol": "committee_protocol", "planning_regulation": "planning_regulation",
                      "architectural_drawing": "architectural_plan", "permit_application": "application_form"}
@@ -125,6 +125,12 @@ def _process_document(pkg: Package, group: str, name: str, data: bytes, route) -
         if kind in ("dxf", "dwg"):
             cls = C.classify_file(name, kind)
             doc.update(classification=cls.model_dump(), doc_type="architectural_plan")
+            return
+        if kind == "dwfx":      # Rishui Zamin plots; converted to PDF on the AI PC after the case is created
+            cls = C.classify_file(name, "dwg")
+            survey = re.search(r"מדיד|survey", name, re.I)
+            doc.update(classification=cls.model_dump(), doc_type="survey_map" if survey else "architectural_plan",
+                       messages=["DWFX — יומר ל-PDF במחשב ה-AI לאחר יצירת התיק"])
             return
         texts, drawings = _pdf_pages(data)
         doc["pages"] = len(texts)

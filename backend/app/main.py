@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 
 import yaml
-from fastapi import Depends, FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import BaseModel
@@ -234,9 +234,62 @@ def file_lifecycle(file_id: str, body: LifecycleIn, p: Principal = Depends(curre
 @app.get("/api/files/{file_id}/page/{n}.png")
 def page_png(file_id: str, n: int, p: Principal = Depends(require("case.read")), s: Session = Depends(get_session)):
     f = _file(s, p, file_id)
-    if f.kind != "pdf":
-        raise HTTPException(400, "לא PDF")
-    return Response(render_page_png(Path(f.storage_path), n), media_type="image/png")
+    path = Path(f.storage_path) if f.kind == "pdf" else services.converted_pdf_path(f) if f.kind == "dwfx" else None
+    if path is None:
+        raise HTTPException(400, "לא PDF" if f.kind != "dwfx" else services.DWFX_PENDING_HE)
+    return Response(render_page_png(path, n), media_type="image/png")
+
+
+# ---- DWFX conversion on the AI PC. The agent (agent/bbp_ai_agent.py) pulls work over outbound HTTPS with the relay
+# token, converts on that PC (agent/dwfx_convert.py) and posts the PDF back: drawings are never rendered here.
+
+def _agent(authorization: str = Header("")) -> None:
+    import hmac
+    token = settings.llm_relay_token
+    if not token or not hmac.compare_digest(authorization.encode(), f"Bearer {token}".encode()):
+        raise HTTPException(401, "agent token required")
+
+
+def _pending_dwfx(s: Session, file_id: str) -> CaseFile:
+    f = s.get(CaseFile, file_id)
+    if f is None or f.kind != "dwfx" or f.ingest_status != "PENDING_CONVERSION":
+        raise HTTPException(410, "no conversion pending for this file")
+    return f
+
+
+@app.post("/api/agent/conversions/next", dependencies=[Depends(_agent)])
+def agent_next_conversion(s: Session = Depends(get_session)):
+    f = services.claim_dwfx_conversion(s)
+    if f is None:
+        return Response(status_code=204)
+    s.commit()
+    return {"file_id": f.id, "filename": f.filename, "sha256": f.sha256, "size_bytes": f.size_bytes, "kind": f.kind}
+
+
+@app.get("/api/agent/conversions/{file_id}/source", dependencies=[Depends(_agent)])
+def agent_conversion_source(file_id: str, s: Session = Depends(get_session)):
+    f = _pending_dwfx(s, file_id)
+    return FileResponse(f.storage_path, media_type="application/octet-stream", filename=f"{f.id}.dwfx")
+
+
+@app.post("/api/agent/conversions/{file_id}/result", dependencies=[Depends(_agent)])
+async def agent_conversion_result(file_id: str, request: Request, s: Session = Depends(get_session),
+                                  x_conversion_status: str = Header("ok"), x_conversion_info: str = Header("{}")):
+    """Body: the PDF (X-Conversion-Status: ok) or a UTF-8 error message (X-Conversion-Status: failed)."""
+    import urllib.parse
+    f = _pending_dwfx(s, file_id)
+    body = await request.body()
+    if len(body) > settings.max_upload_mb * 1024 * 1024:
+        raise HTTPException(413, "PDF too large")
+    try:
+        info = json.loads(urllib.parse.unquote(x_conversion_info))
+    except ValueError:
+        info = {}
+    ok = x_conversion_status == "ok"
+    services.complete_dwfx_conversion(s, f, body if ok else None, info if isinstance(info, dict) else {},
+                                      None if ok else (body.decode("utf-8", "replace")[:500] or "conversion failed"))
+    s.commit()
+    return {"file_id": f.id, "ingest_status": f.ingest_status}
 
 
 @app.get("/api/files/{file_id}/download")

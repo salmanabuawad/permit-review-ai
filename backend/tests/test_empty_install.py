@@ -12,7 +12,7 @@ def test_no_samples_install_is_clean():
     with TestClient(app) as c:
         H = {"X-User": "u-reviewer"}
         users = c.get("/api/users").json()
-        assert users and {u["tenant_id"] for u in users} == {"bnei-brak"}
+        assert users and {u["tenant_id"] for u in users} == {"bnei-brak", "hof-ashkelon"}
         assert not any("הדגמה" in u["display_name"] for u in users)
         assert c.get("/api/cases", headers=H).json() == []
         assert not any(r["id"].startswith("DEMO-") for r in c.get("/api/rules", headers=H).json())
