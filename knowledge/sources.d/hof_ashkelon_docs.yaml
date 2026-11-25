@@ -3294,9 +3294,9 @@ sources:
     received: '2026-11-25'
     official_url: https://hoa.bartech-net.co.il/media/9302/takanon_stiya.doc
     site: hoa.bartech-net.co.il
-  text_extraction: NONE
-  text_path: null
-  text_pages: 0
+  text_extraction: TEXT_LAYER
+  text_path: knowledge/source_texts/national/deviation_regulations_2002.txt
+  text_pages: 1
   legal_status_verified: false
   notes: null
 - id: HA-BD45594959

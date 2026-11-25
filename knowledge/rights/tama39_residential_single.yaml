@@ -1,0 +1,41 @@
+# Floor-specific building rights — plan "תמא 39" (Be'er Ganim / Nitzanim area), residential zone with ground-attached
+# single-unit lots ("אזור מגורים צמוד קרקע", lot use "מגורים חד משפחתי"). Read from the plan regulations
+# (scanned; local OCR, tesseract heb, checked by eye) — chapter 26 rights table (scan p.47, printed p.45) and the
+# residential provisions (scan p.55–56). The "70" in the table is OCR-damaged ("0 מ\"ר"); it is the only value that
+# closes the table's own total: 220 + 70 + 60 = 350.
+plan: "תמא 39"
+aliases: ["תמא 39", "תמ\"א 39", "תמא39"]
+source_id: TAMA39-REG
+effective_from: "2006-01-01"          # GIS: "פרסום תוקף ברשומות", 01/01/2006
+effective_to: null
+amendment_check: "Hof Ashkelon GIS lists only 'תמא 39' for parcel 3155/148 (snapshot 25.11.2026); no amendment found. Not proof that none existed in 2021."
+land_use: ["מגורים חד משפחתי", "מגורים צמוד קרקע"]
+lot_min_m2: 500
+lot_min_tolerance_pct: 5              # note (1): up to 5% deviation in the minimum lot size
+rights:                               # per housing unit (one unit per lot)
+  main_m2: 220
+  service_above_m2: 70
+  service_below_m2: 60                # "שרות תת-קרקעי (מרתף)"
+  total_m2: 350
+  floors_above_entrance: 2
+  height_max_m: 9.5                   # p.55 §2(1): from the entrance level to the ridge
+transfers:
+  to_basement: true                   # note (4): above-ground service and main areas may move to the basement
+  condition: totals_unchanged         # "ובתנאי שסה\"כ שטחי השרות והשטחים העיקריים המותרים יהיו כקבוע בטבלה"
+  mechanism: unverified               # "תותר" does not say whether the transfer is by right or needs publication
+                                      # (s.149); a basement relying on it is a POSSIBLE deviation, never "within"
+basement:
+  floors_max: 1                       # p.56 §5: one basement floor below the entrance level
+  below_entrance_level: true
+  uses: ["מחסן", "ממ\"ד", "חדר כביסה", "וכד'"]     # §5 — service-type uses
+  source_pages: [47, 56]
+quotes:
+  rights_table: "אזור 1 (1) 500 | 220 0 מ\"ר | 60 מ\"ר | 350 2 ק'"
+  transfer: "תותר העברה של שטחי שרות ושטחים עיקריים עיליים למרתף ובתנאי שסה\"כ שטחי השרות והשטחים העיקריים המותרים יהיו כקבוע בטבלה זו"
+  basement: "תותר בנית קומת מרתף אחת, מתחת למפלס הכניסה בה יותרו שימושים למחסן, ממ\"ד, חדר כביסה וכד'"
+local_guidelines:                     # Be'er Ganim building-guidelines booklet (Sept. 2015) — guidelines, not plan provisions
+  source_id: BG-GUIDELINES-2015
+  zero_level_flex_m: {up: 0.5, down: 0.2, condition: "באישור מהנדס הועדה"}   # p.6 א(1)
+  english_courtyard_max_m: {width: 1.5, depth: 1.5}                          # p.5 §2
+  basement_external_entrance: allowed                                        # p.5 §2 "בנוסף תותר כניסה חיצונית למרתף"
+  storage_max_m2: 12.0

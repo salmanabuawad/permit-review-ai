@@ -1,0 +1,28 @@
+# תקנות התכנון והבניה (סטיה ניכרת מתכנית), תשס"ב-2002 — what is a substantial deviation (סטייה ניכרת), which a relief
+# (הקלה, s.147 of the law) cannot approve. Text: knowledge/source_texts/national/deviation_regulations_2002.txt
+# (Nevo consolidated version, amendments to 20.11.2011). Only provisions that can be applied mechanically are encoded;
+# anything else stays a quote for the reviewer, never a computed result.
+source_id: HA-02FF437A29
+in_force_from: "2002-07-13"           # published 13.6.2002, in force 30 days later (reg. 8)
+consolidated_as_of: "2011-11-20"      # last amendment in this text; later amendments were NOT verified
+applies_to: "requests submitted on or after the in-force date (reg. 8)"
+basement_definition:                  # reg. 2(8): a basement does not count as a floor
+  reg: "2(8)"
+  ceiling_above_ground_max_m: 1.20
+  quote: "שפני תקרתו אינם גבוהים יותר מ-1.20 מטרים מפני הקרקע האמורים או מפני הרחוב"
+floor_definition: {reg: "2(8)", min_height_m: 1.80, excludes: ["עליית גג", "יציע"]}
+substantial:
+  service_to_main:   {reg: "2(16)", quote: "שינוי השימוש בשטח בבנין, שנועד לשמש, על פי תכנית, כשטח שירות ... לשטחים למטרות עיקריות"}
+  added_floors:      {reg: "2(8)", relief_table_verified: false,
+                      note: "adding floors beyond the plan is substantial unless the conditions and the table of reg. 2(8)(b) are met; the table did not extract cleanly, so floor additions are never classified as relief-eligible automatically"}
+  design_requirements: {reg: "2(10)", quote: "בניה שלא בהתאם לדרישות בינוי או עיצוב המפורטות בתכנית"}
+  plan_declared:     {reg: "2(19)", quote: "סטיה מהוראות תכנית, כשנקבע בתכנית, כי סטיה מהן מהווה סטיה ניכרת"}
+building_lines:                       # reg. 2(5)–(7): beyond these, a building-line deviation is substantial
+  front: {reg: "2(5)", relief_only: [{kind: balcony, min_height_m: 2.50, max_m: 2.0, max_pct: 40}]}
+  side:  {reg: "2(6)", relief_only: [{kind: wall_with_openings, max_pct: 10, min_distance_m: 2.70},
+                                     {kind: wall_without_openings, min_distance_m: 2.70}]}
+  rear:  {reg: "2(7)", relief_only: [{kind: wall_with_openings, max_pct: 10}, {kind: balcony, min_height_m: 2.50, max_m: 2.0, max_pct: 40},
+                                     {kind: wall_without_openings, max_pct: 30}]}
+area_increase:
+  old_plans: {deposited_before: "1989-08-01", reg: "9", max_pct_of_lot: 6, per_added_floor_pct: 2.5, added_floors_cap_pct: 5}
+  newer_plans: "not settled by this text — an area increase beyond a plan deposited after 1.8.1989 is never classified automatically"

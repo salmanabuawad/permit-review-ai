@@ -19,3 +19,20 @@ sources:
   jurisdiction: hof-ashkelon
   notes: "Signed permit drawings published in the committee's register; area tables transcribed and checked by their own
     arithmetic (knowledge/lots/hof_ashkelon_2832_368_permits.yaml, crops in knowledge/lots/evidence)."
+- id: TAMA39-REG
+  category: STATUTORY_PLAN
+  title_he: "תמ\"א 39 — הוראות התכנית (באר גנים / מרחב ניצנים), פרק 26 טבלת זכויות והוראות בניה"
+  url: https://mg2.gis-net.co.il/HofAshkelonGis/#/?interface=parcels&params=3155,148
+  edition: "בתוקף מ-01/01/2006 (פרסום תוקף ברשומות, GIS)"
+  verification: VERIFIED_READ
+  jurisdiction: hof-ashkelon
+  sha256: 7c14878ee3c1267b78fb90fc5913b7c938e015d9a5a16ecd8601aa845189fec5
+  text_path: knowledge/source_texts/tama39/p*.txt
+  notes: "Scanned regulations, OCR locally (tesseract heb). Rights for residential single-unit lots: knowledge/rights/tama39_residential_single.yaml."
+- id: BG-GUIDELINES-2015
+  category: LOCAL_POLICY
+  title_he: "חוברת הנחיות בינוי — באר גנים, מרחב ניצנים ת-3 (ספטמבר 2015)"
+  url: https://hoa.bartech-net.co.il/site_media/32105/חוברת-הנחיות-בינוי-באר-גנים.pdf
+  verification: VERIFIED_READ
+  jurisdiction: hof-ashkelon
+  sha256: 873eec8561beed70d6b97966bdf86052c42330245f78875af068d441426cac60

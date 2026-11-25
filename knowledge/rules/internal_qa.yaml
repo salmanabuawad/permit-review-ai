@@ -299,3 +299,36 @@ rules:
       - {source_id: LAW-ENG-ARCH-1958, section: "סעיף 11 — רישיון מהנדס/אדריכל; הרישיון בר תוקף לאחר תשלום האגרה"}
     fix_hint_he: "לצרף רישיון בתוקף, או קבלה על תשלום האגרה השנתית, ולאמת מול פנקס המהנדסים והאדריכלים."
     notes: "Application 10000197313: the architect's card says valid until 31/03/2021 and a 03/03/2022 annual-fee receipt was attached — a later receipt counts as renewal. Both files were scans, so this needs OCR to fire on that case."
+
+  # ---------------------------------------------------------------- licensing route validation (2026-11-26)
+  - id: QA-LICENSING-ROUTE
+    version: "0.1"
+    title_he: "מסלול הרישוי שנבחר תואם את הבקשה (רגיל / הקלות / סטייה ניכרת)"
+    legal_level: REGULATION
+    report: rights
+    severity: high
+    review_state: PROFESSIONALLY_APPROVED
+    reviewer: approved-by-default (system owner instruction, 2026-11-26)
+    licensing_stage: PRELIMINARY_ACCEPTANCE
+    stages: [permit_request]
+    check: {kind: qualitative}
+    fix_hint_he: "להגיש את הבקשה במסלול המתאים: בקשה כוללת הקלות כשיש חריגה מהתכנית; סטייה ניכרת אינה ניתנת לאישור."
+    sources:
+      - {source_id: HA-02FF437A29, section: "תקנה 2 — סטייה ניכרת", quote_he: "סטיה ניכרת מתכנית, לענין סעיף 151 לחוק, היא אחת מאלה"}
+    notes: "backend/app/rules/route.py; rights per plan in knowledge/rights, deviation regulations in knowledge/law. NA when no rights file exists for the case's plan."
+
+  - id: QA-FLOOR-RIGHTS
+    version: "0.1"
+    title_he: "זכויות הבנייה לפי קומה ומגבלות המרתף (לא רק סה\"כ עיקרי ושירות)"
+    legal_level: STATUTORY_PLAN
+    report: rights
+    severity: high
+    review_state: PROFESSIONALLY_APPROVED
+    reviewer: approved-by-default (system owner instruction, 2026-11-26)
+    licensing_stage: SPATIAL_REVIEW
+    stages: [permit_request]
+    check: {kind: qualitative}
+    fix_hint_he: "להתאים את שטחי הקומות והמרתף לתכנית, או לבקש הקלה כשהיא אפשרית."
+    sources:
+      - {source_id: HA-02FF437A29, section: "תקנה 2(8) — הגדרת מרתף וקומה; תקנה 2(16) — שטח שירות לשימוש עיקרי"}
+

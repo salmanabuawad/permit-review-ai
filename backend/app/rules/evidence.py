@@ -60,6 +60,7 @@ class Resolution:
     # where_he, correction_he, impact_he, evidence: [...]}
     items: list[dict] = field(default_factory=list)
     internal: bool = False                 # kept out of the external defects report (stays in the audit record)
+    reject_basis: bool = False             # a confirmed substantive ground for a rejection recommendation
 
 
 def ev(doc: Doc | None, page: int | None, quote: str, source: str | None = None) -> dict:
@@ -844,6 +845,110 @@ def r_floor_plans(ctx):
     return Resolution("PASS", "מקור ג׳ (תכניות הקומות) תואם את תרשימי חישוב השטחים: " + "; ".join(lines) + "." + note, ev_all)
 
 
+# ------------------------------------------------------------------ licensing route and floor-specific rights
+
+def case_proposal(ctx):
+    """The application as the route engine sees it: plans and submission date from the case, the route the applicant
+    chose (declared, or the request form: a relief section means the relief route), per-floor areas only when
+    declared per floor or measured — never derived from totals."""
+    import datetime as _dt
+    from . import route as R
+    d = ctx.declared or {}
+    try:
+        sub = _dt.date.fromisoformat(str(d.get("submission_date")))
+    except (TypeError, ValueError):
+        return None
+    route, how = d.get("licensing_route"), "הוצהר בתיק" if d.get("licensing_route") else ""
+    if not route:
+        form = next((x for x in ctx.docs if x.doc_type == "application_form"), None)
+        if form:
+            has_relief = bool(form.find(r"הקלות מבוקשות|בקשה להקלה|פירוט ההקלות"))
+            route, how = ("RELIEF" if has_relief else "REGULAR"), f"טופס הבקשה ({form.filename}): " + (
+                "כולל פרק הקלות" if has_relief else "לא מבוקשות הקלות")
+    floors = None                     # "floor_areas": a per-floor area table (declared["floors"] is the number of floors)
+    rows = d.get("floor_areas")
+    if isinstance(rows, list) and rows and all(isinstance(f, dict) and f.get("name") for f in rows):
+        floors = [R.Floor(**{k: v for k, v in f.items() if k in R.Floor.__dataclass_fields__}) for f in rows]
+    return R.Proposal(application_id=str(d.get("application_number") or ""), submission_date=sub,
+                      plans=list(d.get("plans_declared") or []), land_use=d.get("main_use"), selected_route=route,
+                      route_source=how, total_main_m2=d.get("main_area_m2"), total_service_m2=d.get("service_area_m2"),
+                      floors=floors, floors_source="טבלת שטחים לפי קומה" if floors else "",
+                      request_text=" ".join(str(x) for x in (d.get("description"), ctx.title) if x),
+                      zero_level_change_m=d.get("zero_level_change_m"))
+
+
+def _route_items(res, statuses):
+    out = []
+    for c in res.checks:
+        if c.status not in statuses:
+            continue
+        review = ("CONFIRMED_DEFECT" if c.confirmable and c.status in ("RELIEF", "DEVIATION_UNCLASSIFIED") else
+                  "CONFIRMED_DEFECT" if c.confirmable and c.status == "PROHIBITED" and res.confirmed else "DOCUMENTED_DISCREPANCY")
+        out.append({"review": review, "title_he": c.topic_he, "found_he": c.explanation_he,
+                    "diff": (f"{c.measured} מול {c.limit} {c.unit}" if c.measured is not None and c.limit is not None else None),
+                    "where_he": "תכנית " + (res.rights_source or ""), "correction_he": (
+                        "להגיש את הבקשה במסלול הקלות, או להתאים את התכנון לתכנית." if c.status in ("RELIEF", "DEVIATION_UNCLASSIFIED")
+                        else "לתקן את התכנון — סטייה ניכרת אינה ניתנת לאישור בהקלה."),
+                    "evidence": [{"type": "document", "file": res.rights_source, "page": None,
+                                  "quote": c.explanation_he, "method": "מנוע מסלול רישוי" + (f", תקנה {c.reg}" if c.reg else "")}]})
+    return out
+
+
+def _no_proposal(ctx, what_he: str):
+    """No submission date: not applicable when no rights file covers the case's plans, else not checked."""
+    import datetime as _dt
+    from . import route as R
+    plans = list((ctx.declared or {}).get("plans_declared") or [])
+    rights, _ = R.load_rights(plans, (ctx.declared or {}).get("main_use"), _dt.date.today())
+    if rights is None:
+        return Resolution("NA", f"אין קובץ זכויות לתכנית החלה — {what_he} לא נבדק.")
+    return Resolution("UNCERTAIN", f"חסר תאריך הגשת הבקשה — לא ניתן לקבוע את הדין החל; {what_he} לא נבדק.", [], review="NOT_CHECKED")
+
+
+def r_licensing_route(ctx):
+    from . import route as R
+    p = case_proposal(ctx)
+    if p is None:
+        return _no_proposal(ctx, "מסלול הרישוי")
+    res = R.validate(p)
+    if res.verdict == "NO_RIGHTS":
+        return Resolution("NA", "אין קובץ זכויות לתכנית החלה על הבקשה — מסלול הרישוי לא נבדק. " + "; ".join(res.law_notes))
+    text = R.summary_he(res) + (f" ({p.route_source})" if p.route_source else "")
+    notes = " | " + "; ".join(res.law_notes)
+    if res.verdict == "ROUTE_OK":
+        return Resolution("PASS", text + notes)
+    if res.verdict == "INSUFFICIENT_EVIDENCE":
+        return Resolution("UNCERTAIN", text + notes, review="NOT_CHECKED")
+    items = _route_items(res, ("RELIEF", "DEVIATION_UNCLASSIFIED", "PROHIBITED"))
+    prohibited = res.verdict == "PROHIBITED_DEVIATION" and res.confirmed
+    head = {"review": "CONFIRMED_DEFECT" if res.confirmed else "DOCUMENTED_DISCREPANCY",
+            "title_he": "סטייה ניכרת מהתכנית" if res.verdict == "PROHIBITED_DEVIATION" else "מסלול רישוי שגוי",
+            "found_he": text, "where_he": p.route_source or None,
+            "correction_he": ("לתקן את התכנון — סטייה ניכרת אינה ניתנת לאישור בהקלה" if res.verdict == "PROHIBITED_DEVIATION"
+                              else "להגיש את הבקשה מחדש במסלול הקלות (עם פרסום ההקלות הנדרשות)."), "evidence": []}
+    return Resolution("FAIL", text + notes, [], review=head["review"], items=[head], reject_basis=prohibited)
+
+
+def r_floor_rights(ctx):
+    from . import route as R
+    p = case_proposal(ctx)
+    if p is None:
+        return _no_proposal(ctx, "זכויות לפי קומה")
+    res = R.validate(p)
+    if res.verdict == "NO_RIGHTS":
+        return Resolution("NA", "אין קובץ זכויות לתכנית החלה — זכויות לפי קומה לא נבדקו.")
+    floor_checks = [c for c in res.checks if c.topic in ("floors", "floors_above", "basement_floors", "basement_area", "service_to_main")]
+    devs = [c for c in floor_checks if c.status in ("RELIEF", "DEVIATION_UNCLASSIFIED", "PROHIBITED")]
+    if devs:
+        sub = R.RouteResult(res.application_id, res.selected_route, res.route_needed, res.verdict, res.confirmed, devs,
+                            res.law_notes, res.rights_source)
+        return Resolution("FAIL", "; ".join(c.explanation_he for c in devs), [], items=_route_items(sub, ("RELIEF", "DEVIATION_UNCLASSIFIED", "PROHIBITED")),
+                          review="CONFIRMED_DEFECT" if all(c.confirmable for c in devs) else "DOCUMENTED_DISCREPANCY")
+    if any(c.status in ("NOT_CHECKED", "POSSIBLE_DEVIATION") for c in floor_checks):
+        return Resolution("UNCERTAIN", "; ".join(c.explanation_he for c in floor_checks), [], review="NOT_CHECKED")
+    return Resolution("PASS", "; ".join(c.explanation_he for c in floor_checks), [])
+
+
 RESOLVERS = {
     "QA-REQ-SECTIONS": _drawing_views("חתכים", "section"), "QA-REQ-ELEVATIONS": _drawing_views("חזיתות", "elevation"),
     "HA-368-REGISTRY-STATUS": r_registry_status, "HA-368-TABLE-ARITHMETIC": r_table_arithmetic,
@@ -856,6 +961,7 @@ RESOLVERS = {
     "HA-AREA-DIAGRAMS": r_area_diagrams, "HA-368-TABLE-VS-PERMITS": r_permit_history, "HA-LAND-PARCEL": r_land_parcel,
     "HA-RMI-CONSENT": r_rmi_consent, "HA-633-MEKOROT-5M": r_mekorot_lines, "HA-633-TECH-SCREENING": r_tech_screening,
     "HA-633-FENCES": r_fences, "HA-633-INFILTRATION": r_infiltration, "HA-AREA-FLOORPLANS": r_floor_plans,
+    "QA-LICENSING-ROUTE": r_licensing_route, "QA-FLOOR-RIGHTS": r_floor_rights,
 }
 
 
@@ -911,7 +1017,8 @@ def resolve(results: list, docs: list[Doc], declared: dict, title: str, facts_fr
             continue
         r.computed_result = res.status
         r.status = "UNCERTAIN" if res.status == "FAIL" and "RULE_NOT_APPROVED" in r.flags else res.status
-        extra = ([f"REVIEW:{res.review}"] if res.review else []) + (["INTERNAL"] if res.internal else [])
+        extra = (([f"REVIEW:{res.review}"] if res.review else []) + (["INTERNAL"] if res.internal else [])
+                 + (["REJECT_BASIS"] if res.reject_basis else []))
         if res.status == "UNCERTAIN":
             r.explanation_he = res.explanation_he
             r.evidence = list(r.evidence or []) + res.evidence

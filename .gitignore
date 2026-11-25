@@ -10,3 +10,4 @@ frontend/dist/
 # real case data: request reports and register scrapes are not committed
 reports/
 exports/
+validation/results/

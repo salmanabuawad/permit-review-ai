@@ -1,0 +1,28 @@
+{
+  "application_id": "20210885",
+  "national_licensing_id": "10000083176",
+  "building_file_id": "35316520",
+  "submission_date": "29/09/2021",
+  "main_use": "מגורים",
+  "description": "בנייה חדשה",
+  "request_text": "הקמת בית מגורים חד משפחתי תלת קומתי הכולל שינוי מפלס 0.00 לעומת המסומן בתוכנית בינוי , הקמת חומות , מרפסות , פרגולות וקומת מרתף הכוללת כניסה חיצונית אל המרתף.",
+  "primary_area": "219.45 מ\"ר",
+  "service_area": "128.35 מ\"ר",
+  "land": [
+    {
+      "מספר גוש": "3155",
+      "מספר חלקה": "148",
+      "מספר מגרש": "1652",
+      "תוכנית קובעת מגרש": "תמא 39"
+    }
+  ],
+  "source_url": "https://hoa.bartech-net.co.il/PermitApplicationDetails?Definement_Entity_Type=81&Entity_Type=P&Entity_Number=20210885",
+  "excluded_from_blind": [
+    "status",
+    "permit id",
+    "requirements sheet",
+    "meetings and decisions",
+    "process steps",
+    "interested parties"
+  ]
+}

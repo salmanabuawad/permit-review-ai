@@ -1,0 +1,20 @@
+{
+  "source": "Hof Ashkelon GIS, planning-information panel (GetLandUseObj)",
+  "block": "3155",
+  "parcel": "148",
+  "plans": [
+    {
+      "planName": "תמא 39",
+      "planStatusDesc": "פרסום תוקף ברשומות",
+      "planDate": "01/01/2006",
+      "doc33": [
+        {
+          "lotName": "1652",
+          "parcelName": "148",
+          "LandUseName": "מגורים חד משפחתי",
+          "qArea": 502.1041
+        }
+      ]
+    }
+  ]
+}

@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-11-26 — licensing route validation
+
+- `backend/app/rules/route.py`: per-floor and basement rights, the regulation's basement definition, deviation
+  classification (relief / substantial / unclassified / possible), route needed vs. selected, law as of the
+  submission date, strict confirmation policy. Rules QA-LICENSING-ROUTE, QA-FLOOR-RIGHTS; `REJECT_BASIS` flag.
+- Knowledge: TAMA 39 rights (OCR of the scanned regulations), the deviation regulations 2002 (text extracted from the
+  .doc), Be'er Ganim building guidelines.
+- Blind regression 20210885 with separate ground truth and `scripts/evaluate_blind.py`; 19 tests.
+
 ## 2026-11-26 — area check source C
 
 - `agent/floor_geometry.py`: floor areas from the floor plans' cut walls (XPS paths, viewport scale from the file,

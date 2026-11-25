@@ -455,7 +455,8 @@ def final_decision(results, by_id: dict) -> tuple[str, str]:
     an incomplete check or the official register status alone."""
     status = {r.rule_id: next(f[7:] for f in r.flags if f.startswith("STATUS_")) for r in results}
     external = [r for r in results if "EXTERNAL" in r.flags]
-    if any(status[r.rule_id] == "CONFIRMED_DEFECT" and (by_id.get(r.rule_id) and by_id[r.rule_id].raw.get("reject_basis"))
+    if any(status[r.rule_id] == "CONFIRMED_DEFECT" and ("REJECT_BASIS" in r.flags or
+                                                       (by_id.get(r.rule_id) and by_id[r.rule_id].raw.get("reject_basis")))
            for r in external):
         return "REJECT_RECOMMENDATION", "נמצא ליקוי מהותי שאינו ניתן לתיקון במסגרת הבקשה"
     if external:
