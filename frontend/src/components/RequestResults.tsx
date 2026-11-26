@@ -88,7 +88,6 @@ export default function RequestResults({ c, report, onCite, onSelect }: Props) {
         </div>
         {runId && <div className="row no-print">
           <button className="sm" onClick={() => openBlob(`/api/runs/${runId}/defects.pdf`)}>דוח ליקויים PDF</button>
-          <button className="sm" onClick={() => openBlob(`/api/runs/${runId}/defects.docx`, `defects_${c.case_number}.docx`)}>Word</button>
         </div>}
       </div>
 

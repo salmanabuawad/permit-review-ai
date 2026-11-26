@@ -1,4 +1,4 @@
-"""External defects report — דוח ליקויים — for the applicant or architect: Hebrew, RTL, PDF and Word.
+"""External defects report — דוח ליקויים — for the applicant or architect: Hebrew, RTL, PDF.
 
 Only what the defects-report policy allows: confirmed defects and documented discrepancies that bear directly on the
 reviewed application (findings flagged EXTERNAL by services.run_checks), their evidence, the correction required and
@@ -206,85 +206,4 @@ def render_defects_pdf(rep: dict) -> bytes:
     story.append(_p("הדוח מפרט ליקויים ופערים מתועדים בלבד; אין לראות בהשמטת נושא אישור לתקינותו. "
                     "ההמלצה היא של מערכת הבדיקה ואינה החלטת רשות הרישוי.", W, 7.5, False, GREY))
     doc.build(story, onFirstPage=footer, onLaterPages=footer)
-    return buf.getvalue()
-
-
-# ------------------------------------------------------------------ Word (editable)
-
-def render_defects_docx(rep: dict) -> bytes:
-    from docx import Document
-    from docx.enum.text import WD_ALIGN_PARAGRAPH
-    from docx.oxml import OxmlElement
-    from docx.oxml.ns import qn
-    from docx.shared import Cm, Pt
-
-    d = Document()
-    for sec in d.sections:
-        sec.left_margin = sec.right_margin = Cm(1.6)
-        sec.top_margin = sec.bottom_margin = Cm(1.4)
-        sec._sectPr.append(OxmlElement("w:bidi"))
-    st = d.styles["Normal"]
-    st.font.name, st.font.size = "Arial", Pt(10)
-    st.element.rPr.rFonts.set(qn("w:cs"), "Arial")
-
-    def rtl(par, text, bold=False, size=None):
-        par.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-        par._p.get_or_add_pPr().append(OxmlElement("w:bidi"))
-        run = par.add_run(text)
-        run.bold = bold
-        rpr = run._r.get_or_add_rPr()
-        rpr.append(OxmlElement("w:rtl"))
-        if bold:
-            rpr.append(OxmlElement("w:bCs"))
-        if size:
-            run.font.size = Pt(size)
-            szcs = OxmlElement("w:szCs")
-            szcs.set(qn("w:val"), str(int(size * 2)))
-            rpr.append(szcs)
-        return par
-
-    def shade(cell, hex_):
-        tcpr = cell._tc.get_or_add_tcPr()
-        shd = OxmlElement("w:shd")
-        shd.set(qn("w:val"), "clear")
-        shd.set(qn("w:fill"), hex_.lstrip("#"))
-        tcpr.append(shd)
-
-    def table(rows: int, cols: int):
-        t = d.add_table(rows=rows, cols=cols)
-        t.style = "Table Grid"
-        t._tbl.tblPr.append(OxmlElement("w:bidiVisual"))     # columns run right to left
-        return t
-
-    c, rv = rep["case"], rep["revision"]
-    h = table(3, 1)
-    for cell in h.columns[0].cells:
-        shade(cell, NEUTRAL)
-    rtl(h.cell(0, 0).paragraphs[0], rep["title"], True, 15)
-    rtl(h.cell(1, 0).paragraphs[0], f"{(c['title'] or '')[:70]} · גוש {c['gush'] or '—'} חלקה {c['helka'] or '—'} · "
-                                    f"גרסת בדיקה {rv['run']} ({rv['at']}) · שלב: {rv['stage_he'] or '—'}", size=9)
-    rtl(h.cell(2, 0).paragraphs[0], f"המלצה: {rep['decision_he']}" + (f" — {rep['decision_why']}" if rep.get("decision_why") else ""), True, 11)
-    d.add_paragraph()
-    if not rep["items"]:
-        rtl(d.add_paragraph(), "לא נמצאו ליקויים בבדיקות שהושלמו.", True)
-    for it in rep["items"]:
-        rows = _rows(it)
-        t = table(len(rows) + 1, 2)
-        top = t.cell(0, 0).merge(t.cell(0, 1))
-        shade(top, RED if it["kind"] == "CONFIRMED_DEFECT" else ORANGE)
-        rtl(top.paragraphs[0], f"{KIND_HE[it['kind']]} {it['no']} — {it['title']}", True, 11)
-        for i, (k, v) in enumerate(rows, 1):
-            rtl(t.cell(i, 0).paragraphs[0], k, True, 9)          # with bidiVisual, column 0 is on the right
-            rtl(t.cell(i, 1).paragraphs[0], v, size=9)
-            t.cell(i, 0).width, t.cell(i, 1).width = Cm(3.2), Cm(14.6)
-        img = next((p for p in (_image(e) for e in it["evidence"]) if p), None)
-        if img:
-            d.add_picture(img, width=Cm(16))
-            rtl(d.add_paragraph(), "קטע מהמסמך המקורי (ללא שינוי)", size=8)
-        d.add_paragraph()
-    lim = table(1, 1)
-    shade(lim.cell(0, 0), NEUTRAL)
-    rtl(lim.cell(0, 0).paragraphs[0], "גבולות הדוח: " + rep["limitations_he"], size=9)
-    buf = io.BytesIO()
-    d.save(buf)
     return buf.getvalue()

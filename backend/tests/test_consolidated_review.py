@@ -10,7 +10,7 @@ from types import SimpleNamespace
 import pytest
 
 from app import services as S
-from app.defects_report import build_defects, render_defects_docx, render_defects_pdf
+from app.defects_report import build_defects, render_defects_pdf
 from app.rules import evidence as E
 
 from .test_evidence import pdf
@@ -237,13 +237,10 @@ def test_defects_report_no_defects_does_not_claim_compliance():
     assert not rep["items"] and rep["decision_he"] == "אין די ראיות להמלצה סופית" and "אין לראות בהשמטת נושא" in rep["limitations_he"]
 
 
-def test_defects_report_pdf_and_word_rtl():
+def test_defects_report_pdf_rtl():
     import pymupdf
     item = {"type": "item", "review": "CONFIRMED_DEFECT", "title_he": "טעות בטבלה", "found_he": "265.70 מול 279.14",
             "diff": "13.44 מ\"ר", "correction_he": "לעדכן את המאזן", "evidence": [{"type": "document", "file": "היתר 20210501", "quote": "x"}]}
     rep = build_defects(CASE, _run([_finding("H", ["STATUS_CONFIRMED_DEFECT", "EXTERNAL"], evidence=[item])]))
     text = "".join(p.get_text() for p in pymupdf.open(stream=render_defects_pdf(rep), filetype="pdf"))
     assert "13.44" in text and "10000612352-1" in text
-    docx = zipfile.ZipFile(io.BytesIO(render_defects_docx(rep))).read("word/document.xml").decode()
-    assert "<w:bidi/>" in docx and "<w:rtl/>" in docx and "w:bidiVisual" in docx and "טעות בטבלה" in docx
-    assert "FDE2E2" in docx                                                 # confirmed defect: light red
