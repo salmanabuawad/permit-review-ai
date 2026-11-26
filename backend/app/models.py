@@ -86,6 +86,8 @@ class PermitCase(Base):
     assigned_to: Mapped[str | None] = mapped_column(ForeignKey("users.id"))
     sla_due: Mapped[dt.datetime | None] = mapped_column(UTCDateTime())
     locked_version: Mapped[int | None] = mapped_column(Integer)
+    kind: Mapped[str] = mapped_column(String(20), default="application", server_default="application")  # application | design
+    owner_id: Mapped[str | None] = mapped_column(String(40))          # a design's architect (designs are private)
     created_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), default=_now)
     updated_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), default=_now, onupdate=_now)
 

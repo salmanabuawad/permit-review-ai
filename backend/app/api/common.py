@@ -110,6 +110,8 @@ def get_case(s: Session, p: Principal, case_id: str) -> PermitCase:
     c = s.get(PermitCase, case_id)
     if not c or c.tenant_id != p.tenant_id:          # tenant isolation
         raise HTTPException(404, "תיק לא נמצא")
+    if c.kind == "design" and c.owner_id != p.id and p.role != "sysadmin":   # a design is its architect's
+        raise HTTPException(404, "תיק לא נמצא")
     return c
 
 

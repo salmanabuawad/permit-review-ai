@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-11-26 — Architect360: pre-submission checks of private designs
+
+- A design is a case of kind `design` owned by its architect (migration 0017): kept out of the authority's case lists,
+  dashboard and metrics, and invisible (404) to everyone but its owner and the system administrator. Permission
+  `design.create` (planner, system administrator).
+- `POST /api/designs`, upload through the case files endpoint, `POST /api/designs/{id}/check` runs the same engine;
+  readiness = share of applicable checks that pass, blockers (violations, document gaps, declaration mismatches) with
+  measured / permitted values and the recommended fix, open checks — labelled an estimate, never compliance.
+  `GET /api/designs/compare?a=&b=`: per rule, better / worse / open in both.
+- Page "בדיקה לפני הגשה".
+
 ## 2026-11-26 — Professional feedback engine and regression cases (Permit360 §15)
 
 - Overriding a finding now records a classified feedback record (`feedback_records`, migration 0016): original and

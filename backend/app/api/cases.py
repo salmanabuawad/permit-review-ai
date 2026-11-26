@@ -8,7 +8,7 @@ router = APIRouter()
 
 @router.get("/api/cases")
 def list_cases(p: Principal = Depends(require("case.read")), s: Session = Depends(get_session)):
-    cs = s.scalars(select(PermitCase).where(PermitCase.tenant_id == p.tenant_id)
+    cs = s.scalars(select(PermitCase).where(PermitCase.tenant_id == p.tenant_id, PermitCase.kind != "design")
                    .order_by(PermitCase.created_at.desc()))
     return [case_dict(c, with_files=False) for c in cs]
 
@@ -195,7 +195,7 @@ def run(case_id: str, p: Principal = Depends(require("case.run")), s: Session = 
 def recheck(body: RecheckIn, p: Principal = Depends(require("case.run")), s: Session = Depends(get_session)):
     """Re-run the rule checks on many cases (e.g. after a rule was approved or changed).
     Locked cases and cases without documents are skipped with a reason; one failure does not stop the rest."""
-    q = select(PermitCase).where(PermitCase.tenant_id == p.tenant_id)
+    q = select(PermitCase).where(PermitCase.tenant_id == p.tenant_id, PermitCase.kind != "design")
     if body.case_ids is not None:
         if not body.case_ids:
             raise HTTPException(422, "לא נבחרו תיקים")

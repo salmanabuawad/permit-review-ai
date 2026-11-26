@@ -29,6 +29,7 @@ PERMISSIONS = {
     "case.upload":     {"sysadmin", "dept_manager", "secretariat", "reviewer", "planner"},
     "file.delete":     {"sysadmin", "dept_manager", "city_engineer"},
     "case.run":        {"sysadmin", "dept_manager", "reviewer"},
+    "design.create":   {"sysadmin", "planner"},                          # Architect360: private pre-submission designs
     "case.assign":     {"sysadmin", "dept_manager", "city_engineer"},
     # single-user deployment: the system administrator does the professional steps too
     "finding.decide":  {"sysadmin", "reviewer", "dept_manager", "city_engineer"},

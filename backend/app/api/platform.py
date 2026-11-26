@@ -130,13 +130,13 @@ def integrations():
 @router.get("/api/dashboard")
 def dashboard(p: Principal = Depends(require("dashboard.read")), s: Session = Depends(get_session)):
     t = p.tenant_id
-    by_status = dict(s.execute(select(PermitCase.status, func.count()).where(PermitCase.tenant_id == t)
+    by_status = dict(s.execute(select(PermitCase.status, func.count()).where(PermitCase.tenant_id == t, PermitCase.kind != "design")
                                .group_by(PermitCase.status)).all())
-    by_reviewer = dict(s.execute(select(PermitCase.assigned_to, func.count()).where(PermitCase.tenant_id == t)
+    by_reviewer = dict(s.execute(select(PermitCase.assigned_to, func.count()).where(PermitCase.tenant_id == t, PermitCase.kind != "design")
                                  .group_by(PermitCase.assigned_to)).all())
     now = dt.datetime.now(dt.timezone.utc)
     overdue = 0
-    for c in s.scalars(select(PermitCase).where(PermitCase.tenant_id == t)):
+    for c in s.scalars(select(PermitCase).where(PermitCase.tenant_id == t, PermitCase.kind != "design")):
         due = c.sla_due.replace(tzinfo=dt.timezone.utc) if c.sla_due and c.sla_due.tzinfo is None else c.sla_due
         if due and due < now and c.status not in ("REVIEWER_APPROVED", "CLOSED"):
             overdue += 1

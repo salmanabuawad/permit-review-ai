@@ -43,7 +43,7 @@ def case_timelines(s: Session, tenant: str) -> dict[str, list[tuple[str, dt.date
 
 def stage_stats(s: Session, tenant: str, now: dt.datetime | None = None, stuck_days: int = DEFAULT_STUCK_DAYS) -> dict:
     now = now or dt.datetime.now(dt.timezone.utc)
-    cases = {c.id: c for c in s.scalars(select(PermitCase).where(PermitCase.tenant_id == tenant))}
+    cases = {c.id: c for c in s.scalars(select(PermitCase).where(PermitCase.tenant_id == tenant, PermitCase.kind != "design"))}
     spent: dict[str, list[float]] = defaultdict(list)
     stuck = []
     for cid, events in case_timelines(s, tenant).items():

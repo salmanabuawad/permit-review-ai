@@ -16,6 +16,7 @@ import Login from './pages/Login'
 import Learning from './pages/Learning'
 import Users from './pages/Users'
 import Committees from './pages/Committees'
+import Architect from './pages/Architect'
 import ChangePassword from './components/ChangePassword'
 
 export interface Me { id: string; tenant_id: string; role: string; role_he: string; display_name: string; permissions: string[]; municipality_name?: string; is_demo?: boolean; username?: string | null; must_change_password?: boolean }
@@ -27,6 +28,7 @@ const NAV = [
   { to: '/authorities', label: 'בחירת רשות וניהול ידע', icon: 'database' },
   { to: '/', label: 'לוח בקרה', icon: 'dashboard', end: true },
   { to: '/cases', label: 'תיקי בקשות', icon: 'files' },
+  { to: '/architect', label: 'בדיקה לפני הגשה', icon: 'rules' },
   { to: '/rules', label: 'מאגר כללים', icon: 'rules', end: true },
   { to: '/rules/sources', label: 'סריקת מקורות', icon: 'radar' },
   { to: '/learning', label: 'למידה מהחלטות', icon: 'brain' },
@@ -101,7 +103,7 @@ export default function App() {
           </div>
           <div className="sidebar-section-label">סביבת עבודה</div>
           <nav aria-label="ניווט ראשי">
-            {NAV.filter(n => n.to === '/' ? can('dashboard.read') : n.to === '/audit' ? can('audit.read') : n.to === '/ai' ? can('ai.configure') : n.to === '/rules/sources' ? can('source.crawl') : n.to === '/learning' ? (can('learning.manage') || can('finding.decide')) : n.to === '/users' ? can('user.manage') : n.to === '/committees' ? can('source.crawl') : true).map(n => (
+            {NAV.filter(n => n.to === '/' ? can('dashboard.read') : n.to === '/audit' ? can('audit.read') : n.to === '/ai' ? can('ai.configure') : n.to === '/rules/sources' ? can('source.crawl') : n.to === '/learning' ? (can('learning.manage') || can('finding.decide')) : n.to === '/users' ? can('user.manage') : n.to === '/committees' ? can('source.crawl') : n.to === '/architect' ? can('design.create') : true).map(n => (
               <NavLink key={n.to} to={n.to} end={n.end} onClick={() => setMobileOpen(false)}>
                 <NavIcon name={n.icon} /><span className="nav-label">{n.label}</span>{n.tag && <span className="tag">{n.tag}</span>}
               </NavLink>
@@ -146,6 +148,7 @@ export default function App() {
                 <Route path="/audit" element={<Audit />} />
                 <Route path="/users" element={<Users />} />
                 <Route path="/committees" element={<Committees />} />
+                <Route path="/architect" element={<Architect />} />
               </Routes>
             ) : loadError ? <div className="notice warn" role="alert">לא ניתן לטעון את סביבת העבודה: {loadError} <button onClick={() => window.location.reload()}>נסה שוב</button></div> : <div className="empty" role="status">טוען…</div>}
           </main>
