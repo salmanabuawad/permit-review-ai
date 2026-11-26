@@ -1,4 +1,5 @@
 """Source monitor (crawl the official rule sources) and bulk recheck — no network: the fetcher is faked."""
+from tests.conftest import use_settings
 import pymupdf
 import pytest
 from fastapi.testclient import TestClient
@@ -216,7 +217,7 @@ def test_separate_crawler_queues_and_runs_crawls(env, monkeypatch):
     c, web = env
     sep = dataclasses.replace(S.settings, crawler_separate=True)
     monkeypatch.setattr(S, "settings", sep)
-    monkeypatch.setattr(main, "settings", sep)
+    use_settings(monkeypatch, sep)
     before = len(web.calls)
     r = c.post("/api/source-monitor/crawl?wait=true", headers=ENG)
     assert r.status_code == 200 and r.json()["status"] == "queued"

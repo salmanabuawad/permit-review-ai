@@ -1,6 +1,8 @@
 """App login: apr1 verification, signed sessions, the /api gate."""
 from fastapi.testclient import TestClient
 
+from tests.conftest import use_settings
+
 from app import login
 
 
@@ -27,8 +29,7 @@ def test_gate_and_login(tmp_path, monkeypatch):
     ht = tmp_path / "ht"
     ht.write_text("admin:" + login.apr1("test-pass-123", "abcdefgh") + "\n")
     monkeypatch.setenv("BBP_LOGIN_HTPASSWD", str(ht))
-    monkeypatch.setattr(main, "settings", settings)
-    monkeypatch.setattr(security, "settings", settings)
+    use_settings(monkeypatch, settings)
     login._fails.clear()
     c = TestClient(app)
     assert c.get("/api/health").status_code == 200

@@ -23,3 +23,12 @@ def _fixtures():
         import subprocess
         subprocess.run([sys.executable, str(ROOT / "scripts" / "make_fixtures.py")], check=True)
     yield
+
+
+def use_settings(monkeypatch, new):
+    """Replace the settings object in every app module that imported it (the API is split across modules)."""
+    import sys as _sys
+    from app.config import settings as current
+    for name, mod in list(_sys.modules.items()):
+        if (name == "app" or name.startswith("app.")) and getattr(mod, "settings", None) is current:
+            monkeypatch.setattr(mod, "settings", new)

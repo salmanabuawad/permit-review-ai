@@ -8,12 +8,12 @@ a copy of live data, regression tests passing on PostgreSQL, and a release note.
 | Step | Delivers | Status |
 |---|---|---|
 | 1.0 | PostgreSQL, user management, committee register and site probe, Permit360 assessment | **DONE 2026-11-26** |
-| 1.1 | Split `main.py` into module routers (no URL changes) | next |
-| 1.2 | Summary cache by evidence fingerprint (largest measured win) | next |
+| 1.1 | Split `main.py` into module routers (no URL changes) | **DONE 2026-11-26** (`app/api/`: identity, cases, rules, monitor, platform; 97 routes identical) |
+| 1.2 | Summary cache by evidence fingerprint (largest measured win) | **DONE 2026-11-26** (live gain to be measured on the next unchanged re-run) |
 | 1.3 | Single rule store: import the YAML rules into versioned DB rules with per-rule tests | |
 | 1.4 | Clause model and hierarchy; migrate curated passages, drafts and uploads into clauses | |
 | 1.5 | e5-small embeddings on the server CPU (approved) plus hybrid retrieval; Hebrew retrieval benchmark | |
-| 1.6 | Fetch committee candidate sources into snapshots and clauses (crawler) | |
+| 1.6 | Fetch committee candidate sources into snapshots and clauses (crawler) | snapshots + text **DONE 2026-11-26**; clause structure with 1.4 |
 | 1.7 | AI gateway: model registry, prompt registry, response cache, task router | |
 | 1.8 | Finding schema normalised (rule version, methodology, confidence, drawing reference) | |
 

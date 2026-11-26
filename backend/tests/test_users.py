@@ -1,4 +1,5 @@
 """User management: logins in the database, roles, membership, password changes and revocation."""
+from tests.conftest import use_settings
 import dataclasses
 
 import pytest
@@ -23,8 +24,7 @@ def env(tmp_path, monkeypatch):
     ht.write_text("admin:" + login.apr1(ADMIN_PW, "abcdefgh") + "\n")
     monkeypatch.setenv("BBP_LOGIN_HTPASSWD", str(ht))
     monkeypatch.setenv("BBP_LOGIN_USER_MAP", '{"admin":"u-ha-admin"}')
-    monkeypatch.setattr(main, "settings", settings)
-    monkeypatch.setattr(security, "settings", settings)
+    use_settings(monkeypatch, settings)
     login._fails.clear()
     yield app
     login._fails.clear()

@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-11-26 — API split into modules (Permit360 B-01)
+
+- `app/main.py` (≈ 1,800 lines) now only assembles the app (CORS, login gate, startup); the 95 endpoints moved
+  verbatim into `app/api/` routers — identity, cases, rules, monitor, platform — with shared schemas and helpers in
+  `app/api/common.py`. Route table checked identical (97 method/path pairs; no overlapping pair changed order).
+  Tests replace settings through `tests.conftest.use_settings`.
+
 ## 2026-11-26 — AI summary reused when nothing changed (Permit360 B-02)
 
 - The run's AI summary (≈ 94 % of run time, 25–47 s) is cached by the fingerprint of its exact prompt (findings,
