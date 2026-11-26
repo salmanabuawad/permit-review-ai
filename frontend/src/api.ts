@@ -47,9 +47,6 @@ function initialUser(): string {        // one user: the Hof Ashkelon system adm
   try { window.localStorage.setItem('bbp_user', DEFAULT_USER) } catch { /* private mode */ }
   return DEFAULT_USER
 }
-function localStorageGet(k: string): string | null {
-  try { return window.localStorage.getItem(k) } catch { return null }
-}
 export function setUser(u: string) {
   currentUser = u
   try { window.localStorage.setItem('bbp_user', u) } catch { /* ignore */ }
