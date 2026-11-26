@@ -43,9 +43,6 @@ export default function RequestResults({ c, report, onCite, onSelect }: Props) {
       discrepancies.push(...lines(f, ['DOCUMENTED_DISCREPANCY']))
     } else (statusOf(f) === 'CONFIRMED_DEFECT' ? defects : discrepancies).push(...lines(f, []))
   }
-  const by = (s: St) => report.findings.filter(f => statusOf(f) === s && !f.flags.includes('EXTERNAL'))
-  const future = by('FUTURE_STAGE'), open = [...by('UNRESOLVED'), ...by('NOT_CHECKED')], ok = by('PASS')
-  const internal = report.findings.filter(f => f.flags.includes('INTERNAL') && ['CONFIRMED_DEFECT', 'DOCUMENTED_DISCREPANCY'].includes(statusOf(f)))
   const rv = report.run.review
   const runId = c.last_run?.id
   let n = 0
@@ -72,13 +69,6 @@ export default function RequestResults({ c, report, onCite, onSelect }: Props) {
       </li>)
   }
 
-  const Folded = ({ id, title, lead, list }: { id: string; title: string; lead: string; list: Finding[] }) => list.length ? (
-    <details id={id} className="rr-sec internal">
-      <summary><h3>{title} <span className="count num">{list.length}</span></h3><span className="rr-lead">{lead}</span></summary>
-      <ul className="rr-ok">{list.map(f => <li key={f.id} onClick={() => onSelect(f.id)}>{topic(f)}
-        <span className="small muted"> — {plain(f.explanation_he).slice(0, 160)}</span></li>)}</ul>
-    </details>) : null
-
   return (
     <div className="rr">
       <div className="rr-top">
@@ -94,13 +84,9 @@ export default function RequestResults({ c, report, onCite, onSelect }: Props) {
       <div className="rr-cards">
         <a href="#rr-defects" className={`rr-card invalid${defects.length ? '' : ' zero'}`}><span className="n num">{defects.length}</span><span>ליקויים</span></a>
         <a href="#rr-disc" className={`rr-card disc${discrepancies.length ? '' : ' zero'}`}><span className="n num">{discrepancies.length}</span><span>פערים לבירור</span></a>
-        <a href="#rr-future" className="rr-card open"><span className="n num">{future.length}</span><span>שלב רישוי מאוחר</span></a>
-        <a href="#rr-open" className="rr-card open"><span className="n num">{open.length}</span><span>לא הושלמו</span></a>
-        <a href="#rr-OK" className="rr-card ok"><span className="n num">{ok.length}</span><span>תקין</span></a>
       </div>
       {rv && <p className={'rr-verdict' + (rv.decision === 'NO_DEFECTS_IDENTIFIED' ? ' good' : ' bad')}>
-        המלצה: {DECISION_HE[rv.decision] ?? rv.decision}{rv.decision_why ? ` — ${rv.decision_why}` : ''}
-        <span className="small muted"> · הושלמו {rv.coverage.completed} מתוך {rv.coverage.applicable} בדיקות</span></p>}
+        המלצה: {DECISION_HE[rv.decision] ?? rv.decision}{rv.decision_why ? ` — ${rv.decision_why}` : ''}</p>}
 
       {defects.length > 0 && <section id="rr-defects" className="rr-sec invalid">
         <h3>ליקויים <span className="count num">{defects.length}</span></h3>
@@ -114,11 +100,6 @@ export default function RequestResults({ c, report, onCite, onSelect }: Props) {
       </section>}
       {!defects.length && !discrepancies.length && <p className="rr-verdict good">לא נמצאו ליקויים בבדיקות שהושלמו.</p>}
 
-      <h3 className="rr-internal-title">רשומה פנימית — לא נכללת בדוח הליקויים</h3>
-      <Folded id="rr-future" title="דרישות לשלב רישוי מאוחר" lead="תנאים לבקרת תכן או למתן ההיתר — אינם ליקוי בשלב הנוכחי" list={future} />
-      <Folded id="rr-open" title="בדיקות שלא הושלמו" lead="אין די נתונים בבקשה או שהבדיקה אינה ממומשת עדיין" list={open} />
-      <Folded id="rr-internal" title="ממצאים פנימיים" lead="סטטוס רשמי במאגר ונתונים שאינם ראיה עצמאית" list={internal} />
-      <Folded id="rr-OK" title="תקין" lead="בדיקות שעברו" list={ok} />
       <p className="small muted rr-note">ההמלצה היא של מערכת הבדיקה ואינה החלטת רשות הרישוי. לחיצה על פריט מציגה את פירוטו המלא.</p>
     </div>
   )
