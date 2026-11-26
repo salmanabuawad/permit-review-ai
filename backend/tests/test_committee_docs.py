@@ -125,3 +125,15 @@ def test_retry_failed_extraction():
         assert snap.text_status == "failed"
         out = committee_docs.retry_failed_extractions(s, extract=lambda b, e: ["טקסט"])
         assert out == {"retried": 1, "ok": 1, "still_failed": 0} and snap.text_status == "ok" and snap.pages == 1
+
+
+def test_nul_bytes_are_removed():
+    seed(reset=True, samples=False)
+    files = {"https://v.example/a.pdf": ("application/pdf", b"%PDF-nul")}
+    fetch, _ = _site(files)
+    with SessionLocal() as s:
+        committees.import_register(s)
+        c = _committee(s, "https://v.example/", [{"url": "https://v.example/a.pdf", "title": "הנחיות", "kind": "guideline"}])
+        committee_docs.fetch_committee(s, c, fetch, sleep=lambda _: None, extract=lambda b, e: ["קו\x00 בניין"])
+        from app.models import CommitteePassage
+        assert s.scalars(select(CommitteePassage)).one().text_he == "קו בניין"

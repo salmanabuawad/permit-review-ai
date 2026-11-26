@@ -43,6 +43,11 @@ def store_root() -> Path:
     return p
 
 
+def clean(text: str) -> str:
+    """Text as PostgreSQL stores it: no NUL bytes (some PDFs contain them)."""
+    return (text or "").replace("\x00", "")
+
+
 def html_text(body: bytes) -> str:
     from .source_monitor import fetch as F
     t = F.decode_html(body)
@@ -120,6 +125,7 @@ def _save(s: Session, doc: CommitteeDocument, body: bytes, content_type: str, ex
     s.add(snap)
     s.flush()
     for i, t in enumerate(pages or [], 1):
+        t = clean(t)
         if t.strip():
             s.add(CommitteePassage(snapshot_id=snap.id, page=i, text_he=t[:200000]))
     doc.sha256 = sha
@@ -167,7 +173,7 @@ def fetch_committee(s: Session, c: PlanningCommittee, fetcher=None, sleep=None, 
             out["unchanged"] += 1
             continue
         if r.status != "ok":
-            doc.status, doc.message = "failed", (r.message or r.status)[:300]
+            doc.status, doc.message = "failed", clean(r.message or r.status)[:300]
             out["failed"] += 1
             continue
         doc.etag, doc.last_modified = (r.etag or None), (r.last_modified or None)
@@ -190,7 +196,7 @@ def fetch_committee(s: Session, c: PlanningCommittee, fetcher=None, sleep=None, 
                     if e in DOC_EXT and u not in known and (urlsplit(u).hostname or "") in allowed \
                             and any(w in (label + " " + u) for w in words):
                         own = next((k for k, ws in SOURCE_WORDS.items() if any(w in label for w in ws)), None)
-                        child = CommitteeDocument(committee_id=c.id, url=u[:1000], title=(label or "")[:300], kind=own or doc.kind,
+                        child = CommitteeDocument(committee_id=c.id, url=u[:1000], title=clean(label)[:300], kind=own or doc.kind,
                                                   found_on=doc.url[:1000], status="pending")
                         s.add(child)
                         s.flush()
@@ -231,6 +237,7 @@ def retry_failed_extractions(s: Session, extract=None, limit: int = 500) -> dict
             out["still_failed"] += 1
             continue
         for i, t in enumerate(pages, 1):
+            t = clean(t)
             if t.strip():
                 s.add(CommitteePassage(snapshot_id=snap.id, page=i, text_he=t[:200000]))
         snap.pages = len(pages)
