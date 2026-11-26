@@ -36,6 +36,9 @@ INFO_FILE_NO = re.compile(r"מידע להיתר מספר\s+(\d{8,12}-\d{1,2})")
 INFO_FILE_REF = re.compile(r"(\d{8,12}-\d{1,2})\s*:\s*מספר תיק המידע להיתר|מספר תיק המידע להיתר\s*:\s*(\d{8,12}-\d{1,2})")
 
 
+RZ_REQUEST = re.compile(r"^\d{11}-\d{1,2}$")       # a Rishui Zamin permit request number
+
+
 def _sha(b: bytes) -> str:
     return hashlib.sha256(b).hexdigest()
 
@@ -311,13 +314,48 @@ def analyze_package(uploads: list[tuple[str, bytes]], route, existing_numbers: s
                                    "origin": None, "sha256": doc["sha256"]})
         doc["applications"] = [a["application_number"] for a in targets]
 
+    # a package that holds ONE Rishui Zamin request form is one request: the information file, land extracts and
+    # pages without a request number are documents of that request, never requests of their own
+    forms = {n for d in pkg.documents if d.get("declared") for n in d["applications"] if n and RZ_REQUEST.match(n)}
+    primary = apps.get(next(iter(forms))) if len(forms) == 1 else None
+    if primary is not None:
+        info = {x for d in pkg.documents for x in (d.get("info_file_number"), d.get("info_file_ref")) if x}
+        info |= {x.split("-")[0] for x in info}
+        for key, a in list(apps.items()):
+            if a is primary or (a["application_number"] and RZ_REQUEST.match(a["application_number"])
+                                and a["application_number"] not in info):
+                continue
+            for d in a["documents"]:
+                if not any(x["ref"] == d["ref"] for x in primary["documents"]):
+                    primary["documents"].append(d)
+            for f, v in a["fields"].items():
+                primary["fields"].setdefault(f, v)
+            del apps[key]
+        # page-range pieces of one PDF (a form split into items) go back to the whole original document
+        whole, kept = {d["sha256"]: d for d in pkg.documents}, []
+        for d in primary["documents"]:
+            o = d.get("origin") or {}
+            if o.get("sha256") in whole:
+                src = whole[o["sha256"]]
+                d = {"ref": src["ref"], "name": src["name"], "doc_type": d.get("doc_type") or src.get("doc_type"),
+                     "doc_class": (src.get("classification") or {}).get("doc_class"),
+                     "classification": src.get("classification"), "origin": None, "sha256": src["sha256"]}
+            if not any(x["ref"] == d["ref"] for x in kept):
+                kept.append(d)
+        primary["documents"] = kept
+        for d in pkg.documents:
+            if d["applications"]:
+                d["applications"] = [primary["application_number"]]
+
     # supporting documents and drawings: attach by folder or index row, otherwise report unassigned
     for doc in pkg.documents:
         if doc["status"] != "ok" or doc["applications"]:
             continue
         row = by_file.get(doc["name"]) or by_folder.get(doc["group"])
         target = None
-        if row and row.get("application_number") in apps:
+        if primary is not None:
+            target = primary
+        elif row and row.get("application_number") in apps:
             target = apps[row.get("application_number")]
         elif doc["group"]:
             same = [a for a in apps.values() if any(d2["group"] == doc["group"] for d2 in pkg.documents

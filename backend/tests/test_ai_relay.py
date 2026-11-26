@@ -203,3 +203,15 @@ def test_document_classification_covers_every_type_and_rejects_others():
     assert kw["label"] == "ownership_docs"
     assert G._kw_classify({"filename": "חישוב שטחים ומס יחידות דיור.pdf", "text": ""})["label"] == "area_table"
     assert G._kw_classify({"filename": "חברת החשמל.pdf", "text": ""})["label"] == "electric_company_approval"
+
+
+def test_agent_sends_text_calls_to_a_loaded_twin_of_the_same_weights(monkeypatch):
+    """On a 6 GB GPU the vision preset is resident; the text preset of the same weights file must not try to load a
+    second copy (HTTP 500) — the call goes to the loaded twin."""
+    a = Agent("http://relay", "http://llm", "t")
+    monkeypatch.setattr(a, "_loaded", lambda: {"txt": ("w.gguf", "unloaded"), "vis": ("w.gguf", "loaded"),
+                                               "other": ("x.gguf", "loaded")})
+    assert json.loads(a._same_model(json.dumps({"model": "txt", "messages": []})))["model"] == "vis"
+    assert json.loads(a._same_model(json.dumps({"model": "other"})))["model"] == "other"     # already loaded
+    monkeypatch.setattr(a, "_loaded", lambda: {})
+    assert a._same_model('{"model": "txt"}') == '{"model": "txt"}'                          # not a router: unchanged

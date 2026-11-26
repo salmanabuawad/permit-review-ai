@@ -83,6 +83,40 @@ class Agent:
             log.warning("job %s: could not upload the response: %s", job_id, e)
             return 0
 
+    def _loaded(self) -> dict:
+        """{model id: (weights file, status)} from the router; empty when the server is not a router."""
+        try:
+            with urllib.request.urlopen(f"{self.local}/v1/models", timeout=5) as r:
+                out = {}
+                for m in json.loads(r.read()).get("data", []):
+                    a = (m.get("status") or {}).get("args") or []
+                    w = a[a.index("--model") + 1] if "--model" in a else None
+                    out[m["id"]] = (w, (m.get("status") or {}).get("value"))
+                return out
+        except (urllib.error.URLError, OSError, ValueError):
+            return {}
+
+    def _same_model(self, body: str) -> str:
+        """The router may hold one model on a small GPU. When the requested model is not loaded but another preset of
+        the SAME weights file is (e.g. the vision preset of the same model), send the call to the loaded one instead of
+        failing to load a second copy."""
+        try:
+            req = json.loads(body) if body else None
+        except ValueError:
+            return body
+        want = req.get("model") if isinstance(req, dict) else None
+        if not want:
+            return body
+        models = self._loaded()
+        w, st = models.get(want, (None, None))
+        if not w or st == "loaded":
+            return body
+        twin = next((k for k, (w2, st2) in models.items() if k != want and w2 == w and st2 == "loaded"), None)
+        if twin:
+            req["model"] = twin
+            return json.dumps(req)
+        return body
+
     # ---------------------------------------------------------------- work
     def serve(self, job: dict) -> int:
         """Runs one job and returns the HTTP status it was answered with."""
@@ -91,9 +125,9 @@ class Agent:
             log.warning("refused job %s: %s %s", job["id"], method, path)
             self._reply(job["id"], 403, b'{"error":{"message":"not allowed by the relay agent"}}')
             return 403
+        body = self._same_model(job.get("body") or "")
         req = urllib.request.Request(f"{self.local}/{path.lstrip('/')}", method=method,
-                                     data=(job.get("body") or "").encode() or None,
-                                     headers={"Content-Type": "application/json"})
+                                     data=body.encode() or None, headers={"Content-Type": "application/json"})
         try:
             lr = urllib.request.urlopen(req, timeout=self.local_timeout_s)
         except urllib.error.HTTPError as e:     # the model server's own error (e.g. unknown model) goes back as is

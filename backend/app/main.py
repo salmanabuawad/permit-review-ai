@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 
 import yaml
-from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Request, UploadFile
+from fastapi import BackgroundTasks, Depends, FastAPI, File, Form, Header, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import BaseModel
@@ -712,8 +712,27 @@ class ImportCommitIn(BaseModel):
     run_checks: bool = True
 
 
+def _classify_and_run(tenant: str, user: str, case_ids: list[str]) -> None:
+    """After an import: type each new request's documents with the local AI, then run the checks again."""
+    from .db import SessionLocal
+    for cid in case_ids:
+        with SessionLocal() as s2:
+            c = s2.get(PermitCase, cid)
+            if c is None or c.tenant_id != tenant:
+                continue
+            try:
+                services.classify_case_files(s2, c, user)
+                s2.flush()
+                services.run_checks(s2, c, user)
+                s2.commit()
+            except Exception as e:  # noqa: BLE001 — recorded; the request keeps its import result
+                s2.rollback()
+                audit.record(s2, tenant, user, "file.classify", "permit_case", cid, {"error": str(e)[:300]})
+                s2.commit()
+
+
 @app.post("/api/import/commit")
-def import_commit(body: ImportCommitIn, p: Principal = Depends(require("case.create")),
+def import_commit(body: ImportCommitIn, background: BackgroundTasks, p: Principal = Depends(require("case.create")),
                   s: Session = Depends(get_session)):
     import shutil
     from .intake.commit import commit_preview
@@ -736,6 +755,9 @@ def import_commit(body: ImportCommitIn, p: Principal = Depends(require("case.cre
     shutil.move(str(d), str(final))
     batch.storage_path = str(final)
     s.commit()
+    created = [r["case_id"] for r in result.get("results", []) if r.get("case_id") and r.get("status") in ("created", "updated")]
+    if created:
+        background.add_task(_classify_and_run, p.tenant_id, p.id, created)
     return result
 
 
