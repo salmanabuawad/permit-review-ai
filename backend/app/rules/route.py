@@ -161,6 +161,8 @@ def _select(r: dict, lot: str | None, use: str | None, land_use: str | None, lot
     zone = next((z for z in zones if z.get("lots") and _lot_in(lot, z["lots"])), None)
     if zone is None and land_use:
         zone = next((z for z in zones if any(u in land_use or land_use in u for u in z.get("land_use", []))), None)
+    if zone is None and use:                      # the plan's only zone for this use (e.g. every residential lot it
+        zone = next((z for z in zones if z.get("default_for_use") and z["default_for_use"] in use), None)   # defines)
     if zone is None:
         why = f"המגרש {lot} אינו באף אזור שזכויותיו במאגר" if lot and any(z.get("lots") for z in zones) \
             else "האזור שבו נמצא המגרש אינו ידוע (נדרש תשריט התכנית או נתוני GIS)"

@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026-11-26 — rights for 1/200/03/6 (Heletz) and 6/123/03/6 (Talmei Yafe)
+
+- Rights files from the plans' scanned tables; a zone can apply by use when the plan defines only one residential zone.
+
 ## 2026-11-26 — building provisions 633-0928358
 
 - `knowledge/building_provisions/hof_633_0928358.yaml`: council-wide building provisions (in force 05.04.2022, no

@@ -371,3 +371,14 @@ def test_building_provisions_plan_applies_from_2022_to_listed_residential_lots_o
                 if c.topic == "building_provisions"]                                                    # farm holding
     res = _hof("1/200/03/6", "237", submission_date=dt.date(2024, 1, 1))                                  # no rights file
     assert res.verdict == "NO_RIGHTS" and any("633-0928358" in n for n in res.law_notes)
+
+
+def test_talmei_yafe_and_heletz_rights():
+    st = {c.topic: (c.status, c.limit) for c in _hof("6/123/03/6", "440", total_main_m2=170.0).checks}
+    assert st["aggregate_main"] == ("WITHIN", 180) and st["aggregate_service"] == ("WITHIN", 100)
+    assert _hof("6/123/03/6", "440", total_main_m2=200.0).verdict == "WRONG_ROUTE"      # 200 > 180 m² main
+    assert _hof("6/123/03/6", "300").verdict == "NO_RIGHTS"                              # outside lots 401-469
+    assert _hof("1/200/03/6", "237").verdict == "NO_RIGHTS"                              # % of an unknown lot area
+    st = {c.topic: (c.status, c.limit) for c in _hof("1/200/03/6", "237", lot_area_m2=500.0).checks}
+    assert st["aggregate_main"] == ("DEVIATION_UNCLASSIFIED", 200.0)                     # 40% of 500 m² < 300
+    assert _hof("1/200/03/6", "237", main_use="מבנה חקלאי").verdict == "NO_RIGHTS"

@@ -1,0 +1,28 @@
+# Heletz (expansion) — plan 1/200/03/6 (1995; changes 200/03/6, the moshav's 1953 plan): a residential expansion of
+# 131 units. Scanned instructions from the council GIS, OCR checked against the page image: §8 proposed rights table
+# (p.4) and §6.1.2 (heights). The farm holdings stay under 200/03/6; every residential lot this plan defines is
+# "מגורים א'", so a residential lot defined by 1/200/03/6 takes this zone.
+plan: "1/200/03/6"
+aliases: ["1/200/03/6", "1-200-03-6"]
+source_id: HOF-PLAN-1-200-03-6
+effective_from: "1997-07-29"          # Y.P. 4549 (as listed in §1.6 of the 2022 building-provisions plan)
+effective_to: null
+amendment_check: "Since 05.04.2022 the council-wide building-provisions plan changes this plan's residential lots (heights, storage, parking, fences) — knowledge/building_provisions."
+applies_to_uses: ["מגורים"]
+zones:
+  - name: "מגורים א'"
+    default_for_use: "מגורים"
+    lot_min_m2: 492
+    units_max: 1
+    rights_pct:                       # % of the lot area, above the entrance level
+      main_pct: 40
+      service_above_pct: 5
+    rights: {service_below_m2: 0, floors_above_entrance: 2}
+    total_pct: 45
+    coverage_pct: 30
+    height_max_m: {sloped: 8.5, flat: 7.0}     # §6.1.2, from the highest kerb on the lot frontage
+    building_lines_m: {front: "per map", side: 3.0, rear: 3.0}
+quotes:
+  table: "מגורים א' | 492 | 1 | שימוש עיקרי 40 | שטחי שירות 5 | כיסוי קרקע 30 | סה\"כ 45 | 2 קומות | 8.5 מ' | קדמי לפי תשריט | צדדי 3.0 | אחורי 3.0"
+  height: "גובה הבניין עם גג שטוח לא יעלה על 7.0 מ', עם גג משופע לא יותר מ- 8.5 מ' מגובה אבן השפה הגבוהה ביותר בחזית המגרש"
+source_pages: [3, 4]

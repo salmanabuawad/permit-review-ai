@@ -1,0 +1,28 @@
+# Talmei Yafe (expansion) — plan 6/123/03/6 (in force 26.06.2008). Scanned instructions in the package (council GIS),
+# table §5 (printed p.13, rotated) read from the page image.
+plan: "6/123/03/6"
+aliases: ["6/123/03/6", "6-123-03-6"]
+source_id: HOF-PLAN-6-123-03-6
+effective_from: "2008-06-26"          # GIS: "פרסום תוקף ברשומות", 26/06/2008
+effective_to: null
+amendment_check: "Since 05.04.2022 the council-wide building-provisions plan changes this plan's residential lots (heights 10.5/9 m, storage, parking, fences) — knowledge/building_provisions."
+applies_to_uses: ["מגורים"]
+zones:
+  - name: "מגורים א' 2"
+    lots: ["401-469"]
+    lot_min_m2: 490
+    units_max: 1
+    rights:
+      main_m2: 180                    # above the entrance level; none below
+      service_above_m2: 50            # note (1): mamad ≤7.0, storage ≤12, covered parking ≤31 m²
+      service_below_m2: 50
+      total_m2: 280
+      floors_above_entrance: 2
+    coverage_pct: 36                  # note (2): covered parking not in coverage, but counted as service
+    floors_below: 1
+    height_max_m: {sloped: 9.0, flat: 7.0}     # note (3)
+    density_units_per_dunam: 2
+quotes:
+  table: "מגורים א' 2 | 401-469 | 490 | מעל: עיקרי 180, שירות 50 (1) | מתחת: שירות 50 | סה\"כ 280 | תכסית 36 (2) | 1 יח\"ד | 2 ליח\"ד לדונם | 7 (3) | 1 מתחת, 2 מעל"
+  notes: "(1) מיועד עבור ממ\"ד בשטח מירבי של 7.0 מ\"ר, מחסן בשטח מירבי של 12 מ\"ר, חניה מקורה בשטח מירבי של 31 מ\"ר. (3) גובה מירבי עבור גגות משופעים – 9.0 מ', עבור גגות שטוחים - 7.0 מ'."
+source_pages: [13]

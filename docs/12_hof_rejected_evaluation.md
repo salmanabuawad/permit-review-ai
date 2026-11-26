@@ -78,7 +78,9 @@ signatories' ID numbers):
 | 291/03/6 (2006) | Nitzan | 9 | single-family lots: 55% main, 25% + 10% service **of the lot area**; lots 601-671: 350 / 60 / 100 m²; other two-family lots: main per lot 178-357 m² by §13ב, service by formula |
 | 2/166/03/6 (1984) | Kochav Michael | 5 | farm plot: ≤3 units, ≤400 m² total (before the main/service split); professionals' zone ≤220 m² — the zone of a lot is on the map, not in the register |
 | ד/820, ד/821, ד/822, 156/03/6 (1972) | Nir Israel, Bracha, Gea, Hodiya | 25 | parcellation plans: rights "according to the outline plan" (§12). Marked as by-reference; the regional outline plan is **not in the package** (the later plans listed — 633-0575639, 633-0966986 — postdate the submissions; 307/02/6 is a road plan; 633-0415778 covers non-agricultural uses) |
-| 1/200/03/6, 2/156/03/6 | Heletz, Hodiya extension | 9 | no plan instructions in the package |
+| 1/200/03/6 (1997) | Heletz expansion | 5 | added later: מגורים א' — lot ≥492 m², 1 unit, 40% main + 5% service of the lot area (45%), coverage 30%, 2 floors, 8.5 m sloped / 7.0 m flat, side and rear 3.0 m; every residential lot it defines is in this zone |
+| 6/123/03/6 (2008) | Talmei Yafe expansion | 4 | added later: מגורים א' 2, lots 401-469 — 180 m² main + 50 above + 50 below service (280 total), coverage 36%, 1 unit, 2 floors + 1 below, 9.0 m sloped / 7.0 m flat |
+| 2/156/03/6 | Hodiya extension | 4 | no plan instructions in the package |
 
 Engine support added with them: rights by lot range, by land use and by main use (a barn or an antenna gets no
 residential rights); rights as a percentage of the lot area (NOT_CHECKED until the lot area is known); per-lot main
@@ -137,3 +139,10 @@ Re-run of the 13 (development): the provisions apply to 6 requests (082, 085, 09
 farm holding — not covered). Reason topics in engine scope 4 of 12: DETECTED 1 (route), FLAGGED 3 (the three height
 reasons — storey/parking/roof-terrace walls — with the limits that apply), MISSED 0, unsupported 0. The rest need the
 drawings or are outside any plan check (ownership, unauthorised use, encroachment, incomplete submission).
+
+### 1/200/03/6 and 6/123/03/6 (added for the recent requests)
+
+CASE_000094 (Talmei Yafe lot 440, 2022, new house): 179.61 m² main ≤ 180 and 97.8 m² service ≤ 100 — within; per-floor
+rights and the 2022 building provisions stay open (drawings). CASE_000082 (Heletz lot 237): 326.5 m² main needs a lot of
+at least ~816 m² at 40% (minimum lot 492 m²) — open until the lot area is known. CASE_000114 is an addition (not
+compared with whole-lot rights). Scores unchanged: 1 detected, 3 flagged, 0 missed, 0 unsupported.

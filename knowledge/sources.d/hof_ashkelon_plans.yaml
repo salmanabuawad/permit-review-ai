@@ -75,3 +75,19 @@ sources:
   jurisdiction: hof-ashkelon
   sha256: 327daa3785722c59024da3ea2c71a950b185987f89db2c504f2f7809818ebc38
   notes: "Building provisions only, no building area. Not for farm holdings; in Zikim only lots 1-104 of 6/120/03/6 — never lot 368 (633-0723718)."
+- id: HOF-PLAN-1-200-03-6
+  category: STATUTORY_PLAN
+  title_he: "תכנית 1/200/03/6 — חלץ, הרחבה (הוראות), סעיף 8 טבלת זכויות"
+  url: https://mg2.gis-net.co.il/authoritydata/HofAshkelon/takanon/1_200_03_6.pdf
+  edition: "בתוקף מ-29/07/1997 (י.פ. 4549)"
+  verification: VERIFIED_READ
+  jurisdiction: hof-ashkelon
+  sha256: 840cebcb55b449f41aed89b3a411e6c6b0a9406822803464ec5ef6faada8164d
+- id: HOF-PLAN-6-123-03-6
+  category: STATUTORY_PLAN
+  title_he: "תכנית 6/123/03/6 — תלמי יפה, הרחבה (הוראות), סעיף 5 טבלת זכויות"
+  url: https://mg2.gis-net.co.il/authoritydata/HofAshkelon/takanon/6_123_03_6.pdf
+  edition: "בתוקף מ-26/06/2008 (GIS)"
+  verification: VERIFIED_READ
+  jurisdiction: hof-ashkelon
+  sha256: 2a3e58c55b95732f5ae1fd07f7b40e54890578031594cd279cb3b1593898628f
