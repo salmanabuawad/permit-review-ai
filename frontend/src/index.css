@@ -536,3 +536,13 @@ th, td { padding: 7px 10px; }
 .rr-internal-title { margin-top: 12px; }
 @media (max-width:1180px) { .app { grid-template-columns: 200px minmax(0,1fr); } .content { padding: 12px 16px 28px; } }
 @media (max-width:760px) { .app { display: block; } .content { padding: 10px 10px 24px; } }
+
+/* active authority — prominent */
+.authority-badge { display:flex; flex-direction:column; justify-content:center; gap:1px; background:#eef6fa; border:1px solid #c7dfe9; border-inline-start:5px solid #167ca0; border-radius:10px; padding:4px 12px 5px; min-width:0; max-width:min(520px,60vw); }
+.authority-badge.demo { background:#fff8ec; border-color:#f4e5cd; border-inline-start-color:#d99a2b; }
+.authority-label { font-size:10.5px; font-weight:700; color:#167ca0; letter-spacing:.3px; }
+.authority-badge.demo .authority-label { color:#9a6a1c; }
+.authority-badge strong, .authority-badge select { font-size:17px; font-weight:800; color:#12324d; line-height:1.3; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.authority-badge select { appearance:auto; background:transparent; border:0; box-shadow:none; padding:0 0 0 4px; min-height:0; cursor:pointer; max-width:100%; font-family:inherit; }
+.authority-badge select:focus { box-shadow:0 0 0 2px rgba(22,124,160,.25); border-radius:6px; }
+@media (max-width:760px) { .authority-badge strong, .authority-badge select { font-size:15px; } .topbar-policy { display:none; } }

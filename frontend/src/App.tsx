@@ -108,9 +108,13 @@ export default function App() {
           )}
           <header className="topbar">
             <button className="mobile-menu" aria-label="פתיחת תפריט" onClick={() => setMobileOpen(true)}>☰</button>
-            <div className="topbar-location"><span className="topbar-eyebrow">סביבת עבודה / {org}</span><strong>{isDemo ? 'סביבת הדגמה' : 'סביבת עבודה מקצועית'}</strong></div>
+            <div className={'authority-badge' + (isDemo ? ' demo' : '')}>
+              <span className="authority-label">{isDemo ? 'סביבת הדגמה' : 'רשות פעילה'}</span>
+              {me && workspaces.length > 1
+                ? <select aria-label="בחירת רשות" value={me.tenant_id} onChange={e=>{setAuthority(e.target.value);window.location.assign('/')}}>{workspaces.map(a=><option key={a.id} value={a.id}>{a.name_he}</option>)}</select>
+                : <strong>{org}</strong>}
+            </div>
             <span className="spacer" />
-            {me && <select aria-label="בחירת רשות" value={me.tenant_id} onChange={e=>{setAuthority(e.target.value);window.location.assign('/')}}>{workspaces.map(a=><option key={a.id} value={a.id}>{a.name_he}</option>)}</select>}
             <span className="topbar-policy"><span className="live-dot" /> כל תוצר הוא המלצה בלבד — ההחלטה בסמכות בעל תפקיד מוסמך</span>
             <span className="small muted">משתמש: {me?.display_name ?? '—'}</span>
             <button className="sm" onClick={logout}>יציאה</button>
