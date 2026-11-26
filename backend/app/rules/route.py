@@ -316,7 +316,7 @@ def check_declared(p: Proposal, r: dict) -> list[Check]:
                              f"שינוי של {ch:+.2f} מ׳ " + ("בתחום הגמישות שבהנחיות (באישור מהנדס הוועדה)." if ok
                                                       else "מעבר לגמישות שבהנחיות — נדרשת הקלה."),
                              ch, None, "מ׳", source_id=(r.get("local_guidelines") or {}).get("source_id"), confirmable=True))
-    if re.search(r"הקלה|הקלות", p.request_text) and p.selected_route == "REGULAR":
+    if re.search(r"(?<!ללא )(?<!בלי )(?<!ללא\s)הקל(?:ה|ות)\b", p.request_text) and p.selected_route == "REGULAR":
         out.append(Check("declared_relief", "הקלה המוזכרת בבקשה", "RELIEF",
                          "בתיאור הבקשה מוזכרת הקלה, אך הבקשה הוגשה במסלול ללא הקלות.", confirmable=True))
     return out
@@ -378,7 +378,14 @@ def validate(p: Proposal, rights_folder: Path | None = None, law_path: Path | No
     law, law_ok, lnote = load_law(p.submission_date, law_path)
     short = check_short_track(p)
     if rights is None:
-        return RouteResult(p.application_id, p.selected_route, "UNKNOWN", "NO_RIGHTS", False, short, [rnote, lnote])
+        # without the plan's rights only what the request itself declares can be judged (e.g. a relief it names
+        # while filed without reliefs) — that needs no rights file
+        declared = check_declared(p, {})
+        decisive = [c for c in declared if c.status == "RELIEF"]
+        if decisive and p.selected_route == "REGULAR":
+            return RouteResult(p.application_id, p.selected_route, "NOT_REGULAR", "WRONG_ROUTE",
+                               all(c.confirmable for c in decisive), short + declared, [rnote, lnote])
+        return RouteResult(p.application_id, p.selected_route, "UNKNOWN", "NO_RIGHTS", False, short + declared, [rnote, lnote])
     checks = short + check_aggregate(p, rights) + check_floors(p, rights, law) + check_declared(p, rights)
     checks += [classify_setback(sb, law) for sb in p.setbacks]
     if p.lot_area_m2 is not None and rights.get("lot_min_m2"):

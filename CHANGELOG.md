@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-11-26 — blind run on 136 rejected Hof Ashkelon applications
+
+- `scripts/evaluate_rejected.py` (+ `_score.py`): engine on the blind set only, inputs hashed and screened (committee
+  letters, decision wording, application numbers excluded), frozen before the labels are read from the evaluation
+  store. Results and limits: `docs/12_hof_rejected_evaluation.md`.
+- Route engine: a relief named in a regular-route request is judged without a rights file; "ללא הקלות" is not a relief.
+
 ## 2026-11-26 — V9 unified integration
 
 Details, results and blockers: `docs/11_v9_integration.md`. Baseline tag `pre-v9-baseline`.

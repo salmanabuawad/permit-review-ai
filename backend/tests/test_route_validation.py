@@ -288,3 +288,13 @@ def test_resolver_insufficient_without_floors():
     ctx = _ctx({"submission_date": "2021-09-29", "plans_declared": ["תמא 39"], "main_use": "מגורים",
                 "licensing_route": "REGULAR", "main_area_m2": 219.45, "service_area_m2": 128.35, "floors": 3})
     assert E.r_licensing_route(ctx).review == "NOT_CHECKED" and E.r_floor_rights(ctx).review == "NOT_CHECKED"
+
+
+def test_declared_relief_is_judged_without_a_rights_file():
+    """A relief named in the request while filed without reliefs is a wrong route even when the plan's rights are not
+    in the knowledge base; the words 'without reliefs' are not a relief."""
+    base = dict(application_id="X", submission_date=dt.date(2022, 1, 1), plans=["NO-SUCH-PLAN"], selected_route="REGULAR")
+    res = R.validate(R.Proposal(**base, request_text="תוספת חדר + הקלה בקו בניין צידי"))
+    assert res.verdict == "WRONG_ROUTE" and res.confirmed
+    res = R.validate(R.Proposal(**base, request_text="תוספת חדר ללא הקלות"))
+    assert res.verdict == "NO_RIGHTS" and not [c for c in res.checks if c.topic == "declared_relief"]
