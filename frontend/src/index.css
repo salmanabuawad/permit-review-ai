@@ -561,3 +561,6 @@ tr.muted td { color: var(--muted); }
 .filters-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
 .filters-row input { min-width: 200px; }
 .source-list { list-style: none; padding: 0; margin: 4px 0 8px; display: grid; gap: 3px; }
+.doc-table { margin: 4px 0 8px; }
+.doc-table td, .doc-table th { padding: 4px 8px; }
+.hit { padding: 6px 0; border-top: 1px solid var(--line); }

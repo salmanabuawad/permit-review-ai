@@ -1749,3 +1749,65 @@ def committees_probe(body: ProbeIn, account: User = Depends(_platform_admin), s:
                  {"count": n, "ids": (body.ids or [])[:50]})
     s.commit()
     return {"queued": n}
+
+
+@app.post("/api/committees/fetch")
+def committees_fetch(body: ProbeIn, account: User = Depends(_platform_admin), s: Session = Depends(get_session)):
+    """Queue fetching of the committees' candidate sources (crawler process, public sites, one request per second)."""
+    from . import committees
+    n = committees.queue_fetches(s, body.ids)
+    audit.record(s, account.tenant_id, account.id, "committee.fetch.queue", "planning_committee", None,
+                 {"count": n, "ids": (body.ids or [])[:50]})
+    s.commit()
+    return {"queued": n}
+
+
+@app.get("/api/committees/{committee_id}/documents")
+def committee_documents(committee_id: str, p: Principal = Depends(require("source.crawl")), s: Session = Depends(get_session)):
+    from .models import CommitteeDocument, CommitteeSnapshot
+    out = []
+    for d in s.scalars(select(CommitteeDocument).where(CommitteeDocument.committee_id == committee_id).order_by(CommitteeDocument.id)):
+        snaps = list(s.scalars(select(CommitteeSnapshot).where(CommitteeSnapshot.document_id == d.id).order_by(CommitteeSnapshot.id)))
+        last = snaps[-1] if snaps else None
+        out.append({"id": d.id, "url": d.url, "title": d.title, "kind": d.kind, "found_on": d.found_on, "status": d.status,
+                    "message": d.message, "checked_at": d.checked_at.isoformat() if d.checked_at else None,
+                    "versions": len(snaps), "snapshot": last and {"id": last.id, "sha256": last.sha256, "content_type": last.content_type,
+                                                                  "size": last.size, "pages": last.pages, "text_status": last.text_status,
+                                                                  "fetched_at": last.fetched_at.isoformat()}})
+    return out
+
+
+@app.get("/api/committees/passages")
+def committee_passages(q: str, committee_id: str | None = None, p: Principal = Depends(require("source.crawl")),
+                       s: Session = Depends(get_session)):
+    """Search the text fetched from committee sites (unverified candidates)."""
+    from .models import CommitteeDocument, CommitteePassage, CommitteeSnapshot, PlanningCommittee
+    q = (q or "").strip()
+    if len(q) < 2:
+        raise HTTPException(422, "יש להזין לפחות 2 תווים")
+    stmt = (select(CommitteePassage, CommitteeSnapshot, CommitteeDocument, PlanningCommittee)
+            .join(CommitteeSnapshot, CommitteePassage.snapshot_id == CommitteeSnapshot.id)
+            .join(CommitteeDocument, CommitteeSnapshot.document_id == CommitteeDocument.id)
+            .join(PlanningCommittee, CommitteeDocument.committee_id == PlanningCommittee.id)
+            .where(CommitteePassage.text_he.contains(q, autoescape=True), CommitteeDocument.sha256 == CommitteeSnapshot.sha256))
+    if committee_id:
+        stmt = stmt.where(PlanningCommittee.id == committee_id)
+    out = []
+    for x, snap, d, c in s.execute(stmt.limit(50)):
+        i = x.text_he.find(q)
+        out.append({"committee": c.name_he, "committee_id": c.id, "document": d.title or d.url, "url": d.url, "kind": d.kind,
+                    "page": x.page, "snapshot_id": snap.id, "excerpt": x.text_he[max(0, i - 200): i + 300],
+                    "verification": "UNVERIFIED"})
+    return out
+
+
+@app.get("/api/committees/snapshots/{snapshot_id}/file")
+def committee_snapshot_file(snapshot_id: int, p: Principal = Depends(require("source.crawl")), s: Session = Depends(get_session)):
+    from fastapi.responses import FileResponse
+    from .committee_docs import store_root
+    from .models import CommitteeSnapshot
+    snap = s.get(CommitteeSnapshot, snapshot_id)
+    path = store_root() / snap.path if snap else None
+    if not snap or not path.resolve().is_relative_to(store_root().resolve()) or not path.exists():
+        raise HTTPException(404, "הקובץ לא נמצא")
+    return FileResponse(path, media_type=snap.content_type, filename=Path(snap.path).name)

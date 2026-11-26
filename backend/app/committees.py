@@ -8,6 +8,7 @@ Knowledge status (kb_status):
   NOT_STARTED       listed only
   SITE_PROBED       the committee's site was read; nothing usable found yet
   SOURCES_FOUND     candidate regulation / guideline sources found (unverified)
+  DOCUMENTS_FETCHED candidate sources fetched into versioned, searchable snapshots (still unverified)
   BLOCKED           the site refused or could not be reached
   IN_SYSTEM         an authority of this system is linked; its own knowledge base is the reference
 """
@@ -27,8 +28,8 @@ from .config import settings
 from .models import CommitteeSettlement, Municipality, PlanningCommittee
 
 REGISTER = "committees/gov_il_local_committees.json"
-STATUSES = ("NOT_STARTED", "SITE_PROBED", "SOURCES_FOUND", "BLOCKED", "IN_SYSTEM")
-STATUS_HE = {"NOT_STARTED": "טרם התחיל", "SITE_PROBED": "אתר נסרק — לא נמצאו מקורות", "SOURCES_FOUND": "נמצאו מקורות מועמדים",
+STATUSES = ("NOT_STARTED", "SITE_PROBED", "SOURCES_FOUND", "DOCUMENTS_FETCHED", "BLOCKED", "IN_SYSTEM")
+STATUS_HE = {"NOT_STARTED": "טרם התחיל", "SITE_PROBED": "אתר נסרק — לא נמצאו מקורות", "SOURCES_FOUND": "נמצאו מקורות מועמדים", "DOCUMENTS_FETCHED": "מסמכים נקלטו (טרם אומתו)",
              "BLOCKED": "האתר חסום / לא זמין", "IN_SYSTEM": "רשות פעילה במערכת"}
 VENDORS = ("BarTech", "Complot", "other", "unknown")
 REGIONAL = " (ועדה מרחבית)"
@@ -132,6 +133,13 @@ def listing(s: Session) -> dict:
     for m in s.scalars(select(Municipality).where(Municipality.committee_id.is_not(None))):
         orgs.setdefault(m.committee_id, []).append(m)
     rows = [as_dict(s, c, orgs) for c in s.scalars(select(PlanningCommittee).order_by(PlanningCommittee.district, PlanningCommittee.name_he))]
+    from .models import CommitteeDocument
+    docs: dict[str, dict] = {}
+    for cid, st, n in s.execute(select(CommitteeDocument.committee_id, CommitteeDocument.status, func.count())
+                                .group_by(CommitteeDocument.committee_id, CommitteeDocument.status)):
+        docs.setdefault(cid, {})[st] = n
+    for r in rows:
+        r["documents"] = docs.get(r["id"], {})
     count = lambda key: {k: sum(1 for r in rows if r[key] == k) for k in dict.fromkeys(r[key] for r in rows)}  # noqa: E731
     return {"committees": rows, "totals": {"committees": len(rows), "by_district": count("district"), "by_vendor": count("vendor"),
                                            "by_status": count("kb_status"), "regional": sum(r["kind"] == "regional" for r in rows)},
@@ -315,35 +323,53 @@ def _finish(s: Session, c: PlanningCommittee, summary: dict, blocked: bool = Fal
         known = {x["url"] for x in kept}
         c.sources = kept + [x for x in (sources or []) if x["url"] not in known]
         c.kb_detail = {**(c.kb_detail or {}), "auto_fields": sorted(auto)}
-        c.kb_status = "SOURCES_FOUND" if c.sources else "SITE_PROBED"
+        fetched = c.kb_status == "DOCUMENTS_FETCHED"
+        c.kb_status = "DOCUMENTS_FETCHED" if fetched else "SOURCES_FOUND" if c.sources else "SITE_PROBED"
     c.kb_detail = {**(c.kb_detail or {}), "probe": {**summary, "state": "done"}}
     c.updated_at = c.last_probed_at
     s.commit()
     return summary
 
 
-def queue_probes(s: Session, ids: list[str] | None = None) -> int:
-    """Mark committees for the crawler to probe (all when ids is None)."""
+def queue_jobs(s: Session, job: str, ids: list[str] | None = None, only=None) -> int:
+    """Mark committees for a crawler job ('probe' or 'fetch'); all when ids is None. `only` filters committees."""
     q = select(PlanningCommittee)
     if ids:
         q = q.where(PlanningCommittee.id.in_(ids))
     n = 0
     for c in s.scalars(q):
-        if ((c.kb_detail or {}).get("probe") or {}).get("state") not in ("queued", "running"):
-            c.kb_detail = {**(c.kb_detail or {}), "probe": {"state": "queued", "queued_at": dt.datetime.now(dt.timezone.utc).isoformat()}}
+        if only and not only(c):
+            continue
+        if ((c.kb_detail or {}).get(job) or {}).get("state") not in ("queued", "running"):
+            prev = (c.kb_detail or {}).get(job) or {}
+            c.kb_detail = {**(c.kb_detail or {}), job: {**{k: v for k, v in prev.items() if k != "error"},
+                                                         "state": "queued", "queued_at": dt.datetime.now(dt.timezone.utc).isoformat()}}
             n += 1
     s.commit()
     return n
 
 
-def claim_probe(session_factory) -> str | None:
+def queue_probes(s: Session, ids: list[str] | None = None) -> int:
+    return queue_jobs(s, "probe", ids)
+
+
+def queue_fetches(s: Session, ids: list[str] | None = None) -> int:
+    """Committees with candidate sources only."""
+    return queue_jobs(s, "fetch", ids, only=lambda c: bool(c.sources))
+
+
+def claim(session_factory, job: str) -> str | None:
     with session_factory() as s:
         for c in s.scalars(select(PlanningCommittee).order_by(PlanningCommittee.district, PlanningCommittee.name_he)):
-            if ((c.kb_detail or {}).get("probe") or {}).get("state") == "queued":
-                c.kb_detail = {**c.kb_detail, "probe": {**c.kb_detail["probe"], "state": "running"}}
+            if ((c.kb_detail or {}).get(job) or {}).get("state") == "queued":
+                c.kb_detail = {**c.kb_detail, job: {**c.kb_detail[job], "state": "running"}}
                 s.commit()
                 return c.id
     return None
+
+
+def claim_probe(session_factory) -> str | None:
+    return claim(session_factory, "probe")
 
 
 def run_probe(session_factory, cid: str, fetcher=None, sleep=None) -> None:
@@ -355,4 +381,25 @@ def run_probe(session_factory, cid: str, fetcher=None, sleep=None) -> None:
             s.rollback()
             c = s.get(PlanningCommittee, cid)
             c.kb_detail = {**(c.kb_detail or {}), "probe": {"state": "failed", "error": f"{type(e).__name__}: {e}"[:300]}}
+            s.commit()
+
+
+def run_fetch(session_factory, cid: str, fetcher=None, sleep=None, extract=None) -> None:
+    from .committee_docs import committee_counts, fetch_committee
+    with session_factory() as s:
+        c = s.get(PlanningCommittee, cid)
+        try:
+            out = fetch_committee(s, c, fetcher, sleep, extract)
+            counts = committee_counts(s, c.id)
+            c = s.get(PlanningCommittee, cid)
+            if (counts["by_status"].get("ok") or 0) + (counts["by_status"].get("unchanged") or 0):
+                c.kb_status = "DOCUMENTS_FETCHED"
+            c.kb_detail = {**(c.kb_detail or {}), "fetch": {"state": "done", "at": dt.datetime.now(dt.timezone.utc).isoformat(),
+                                                             "last_run": out, **counts}}
+            c.updated_at = dt.datetime.now(dt.timezone.utc)
+            s.commit()
+        except Exception as e:                          # noqa: BLE001 — recorded; the worker goes on
+            s.rollback()
+            c = s.get(PlanningCommittee, cid)
+            c.kb_detail = {**(c.kb_detail or {}), "fetch": {"state": "failed", "error": f"{type(e).__name__}: {e}"[:300]}}
             s.commit()

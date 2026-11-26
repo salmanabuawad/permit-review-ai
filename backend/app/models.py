@@ -601,3 +601,46 @@ class CommitteeSettlement(Base):
     __tablename__ = 'committee_settlements'
     committee_id: Mapped[str] = mapped_column(ForeignKey('planning_committees.id', ondelete='CASCADE'), primary_key=True)
     name_he: Mapped[str] = mapped_column(String(200), primary_key=True)
+
+
+class CommitteeDocument(Base):
+    """A document or page a committee publishes, found by the site probe (or linked from such a page).
+    Committee-level knowledge, before any authority uses the system: candidates, never rules."""
+    __tablename__ = 'committee_documents'
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    committee_id: Mapped[str] = mapped_column(ForeignKey('planning_committees.id', ondelete='CASCADE'), index=True)
+    url: Mapped[str] = mapped_column(String(1000))
+    title: Mapped[str | None] = mapped_column(String(300))
+    kind: Mapped[str] = mapped_column(String(20))                    # guideline | plan | bylaw | procedure
+    found_on: Mapped[str | None] = mapped_column(String(1000))      # page that linked it (None: the probe's list)
+    status: Mapped[str] = mapped_column(String(20), default='pending')   # pending | ok | unchanged | skipped | failed
+    message: Mapped[str | None] = mapped_column(String(300))
+    http_status: Mapped[int | None] = mapped_column(Integer)
+    etag: Mapped[str | None] = mapped_column(String(200))
+    last_modified: Mapped[str | None] = mapped_column(String(100))
+    sha256: Mapped[str | None] = mapped_column(String(64))          # current version
+    checked_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime())
+    __table_args__ = (UniqueConstraint('committee_id', 'url'),)
+
+
+class CommitteeSnapshot(Base):
+    """One immutable version of a committee document (content-addressed file + extracted text)."""
+    __tablename__ = 'committee_snapshots'
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    document_id: Mapped[int] = mapped_column(ForeignKey('committee_documents.id', ondelete='CASCADE'), index=True)
+    sha256: Mapped[str] = mapped_column(String(64), index=True)
+    content_type: Mapped[str] = mapped_column(String(120))
+    size: Mapped[int] = mapped_column(Integer)
+    path: Mapped[str] = mapped_column(String(300))                   # relative to storage/_sources/committees
+    pages: Mapped[int] = mapped_column(Integer, default=0)
+    text_status: Mapped[str] = mapped_column(String(20))             # ok | empty (scanned?) | failed | none
+    fetched_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), default=_now)
+
+
+class CommitteePassage(Base):
+    """Text of one page / sheet of a committee snapshot, searchable; unverified."""
+    __tablename__ = 'committee_passages'
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    snapshot_id: Mapped[int] = mapped_column(ForeignKey('committee_snapshots.id', ondelete='CASCADE'), index=True)
+    page: Mapped[int] = mapped_column(Integer)
+    text_he: Mapped[str] = mapped_column(Text)

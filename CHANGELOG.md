@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-11-26 — Committee candidate sources fetched into searchable snapshots
+
+- The crawler fetches each committee's candidate sources (from the site probe) into `committee_documents` /
+  `committee_snapshots` / `committee_passages` (migration 0011): only the committee's own site (or its BarTech /
+  Complot host), at most 40 requests per committee per run, one per second; documents linked from a source page are
+  followed one level; changed documents become new versions (ETag / Last-Modified, then SHA-256); identical files are
+  stored and extracted once. Text extraction of third-party PDF / Office files runs in a child process with memory,
+  CPU and time limits (`safe_extract.py`). Legacy .doc / .xls and links to other sites are recorded, not fetched.
+- Committees page: "קליטת מסמכי המקורות", documents with versions and pages per committee, opening a stored file, and
+  search across all fetched text. Everything is marked unverified; nothing becomes a rule.
+
 ## 2026-11-26 — KORTEX Permit360: assessment and architecture (documents only)
 
 - `docs/permit360/`: system assessment with measured baseline, functionality inventory and gaps, target architecture
