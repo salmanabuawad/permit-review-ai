@@ -232,8 +232,21 @@ function Files({ c, onChange, locked }: { c: Case; onChange: () => Promise<void>
     try { await api.upload(`/api/cases/${c.id}/files`, fd); toast('הקובץ נקלט'); setFile(null); await onChange() }
     catch (e: any) { toast(e.message, true) } finally { setBusy(false) }
   }
+  const classify = async () => {
+    setBusy(true)
+    try {
+      const r = await api.post<any>(`/api/cases/${c.id}/classify-documents`)
+      toast(r.changes.length ? `סווגו מחדש ${r.changes.length} מסמכים (AI מקומי); הבדיקה הורצה מחדש` : 'הסיווג לא השתנה; הבדיקה הורצה מחדש')
+      await onChange()
+    } catch (e: any) { toast(e.message, true) } finally { setBusy(false) }
+  }
   return (
     <>
+      {can('case.run') && !locked && (
+        <div className="row" style={{ marginBottom: 8 }}>
+          <button className="sm" disabled={busy} onClick={classify}>{busy ? 'מסווג…' : 'סיווג מסמכים (AI מקומי)'}</button>
+        </div>
+      )}
       {can('case.upload') && !locked && (
         <div className="card" style={{ background: 'var(--surface-2)', boxShadow: 'none' }}>
           <h3>העלאת קובץ (PDF / DXF / DWG / Excel)</h3>

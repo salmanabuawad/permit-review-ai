@@ -53,6 +53,40 @@ DOC_TYPES_HE = {
 }
 
 
+def classify_case_files(s: Session, case: PermitCase, user: str, gateway: AIGateway | None = None) -> list[dict]:
+    """Re-type every document of a request with the AI gateway (local model through the relay; keyword fallback):
+    the text of a PDF, the converted sheets of a DWFX, the file name of a DWG. The result is applied and audited."""
+    import pymupdf
+    gw = gateway or gateway_for(s, case.tenant_id)
+    changes = []
+    for f in case.files:
+        if f.lifecycle != "ACTIVE":
+            continue
+        text = ""
+        try:
+            src = Path(f.storage_path) if f.kind == "pdf" else (converted_pdf_path(f) if f.kind == "dwfx" else None)
+            if src and Path(src).exists():
+                with pymupdf.open(src) as d:
+                    text = "\n".join(p.get_text() for p in list(d)[:3])
+        except Exception:  # noqa: BLE001 — unreadable: classify on the name
+            text = ""
+        ai = gw.route("Classification", "CASE_DOCUMENT", {"filename": f.filename, "text": text[:20000]},
+                      log=gateway_logger(s, case.tenant_id, case.id, user))
+        out = ai.output if ai.outcome in ("OK", "FALLBACK") and isinstance(ai.output, dict) else {}
+        label, conf = out.get("label"), float(out.get("confidence") or 0)
+        model = (ai.provider_id or "") not in ("local_keyword", "-")
+        if f.kind in ("dwfx", "dwg") and label not in ("survey_map", "architectural_plan", "sections_elevations"):
+            label = None                          # a drawing package is a plan or a survey, never a letter
+        f.suggested_doc_type = label
+        if label in DOC_TYPES_HE and label != f.doc_type and conf >= (0.5 if model else 0.6):
+            changes.append({"file": f.filename, "from": f.doc_type, "to": label, "confidence": conf,
+                            "provider": ai.provider_id})
+            audit.record(s, case.tenant_id, user, "file.classify", "case_file", f.id,
+                         {"from": f.doc_type, "to": label, "confidence": conf, "provider": ai.provider_id})
+            f.doc_type = label
+    return changes
+
+
 def ai_provider_settings(s: Session, tenant: str) -> dict:
     m = s.get(Municipality, tenant)
     return dict(((m.settings or {}).get("ai") or {}).get("providers") or {}) if m else {}

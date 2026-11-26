@@ -193,3 +193,13 @@ def test_drawing_reader_frees_the_gpu_before_reading(monkeypatch):
         raise urllib.error.URLError("no router")
     monkeypatch.setattr(AG.urllib.request, "urlopen", down)
     r._free_gpu()                                            # no exception
+
+
+def test_document_classification_covers_every_type_and_rejects_others():
+    from app.ai import gateway as G
+    from app.services import DOC_TYPES_HE
+    assert set(G.DOC_TYPE_DESCRIPTIONS) == set(DOC_TYPES_HE)
+    kw = G._kw_classify({"filename": "גוש 2832 חלקה 27.pdf", "text": "נסח רישום מקרקעין"})
+    assert kw["label"] == "ownership_docs"
+    assert G._kw_classify({"filename": "חישוב שטחים ומס יחידות דיור.pdf", "text": ""})["label"] == "area_table"
+    assert G._kw_classify({"filename": "חברת החשמל.pdf", "text": ""})["label"] == "electric_company_approval"

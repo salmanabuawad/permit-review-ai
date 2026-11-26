@@ -511,6 +511,17 @@ def run_metrics_view(run_id: str, p: Principal = Depends(require("dashboard.read
             "open_required_checks": cov.get("open"), "full_compliance_possible": cov.get("full_compliance_possible")}
 
 
+@app.post("/api/cases/{case_id}/classify-documents")
+def classify_documents(case_id: str, p: Principal = Depends(require("case.run")), s: Session = Depends(get_session)):
+    """Re-type the request's documents with the local AI (keyword fallback), then re-run the checks."""
+    c = get_case(s, p, case_id)
+    changes = services.classify_case_files(s, c, p.id)
+    s.flush()
+    run = services.run_checks(s, c, p.id)
+    s.commit()
+    return {"changes": changes, "run_id": run.id}
+
+
 @app.get("/api/runs/{run_id}/defects.pdf")
 def defects_file(run_id: str, p: Principal = Depends(require("case.read")), s: Session = Depends(get_session)):
     from urllib.parse import quote

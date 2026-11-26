@@ -44,16 +44,43 @@ class ProviderError(RuntimeError):
 # ----------------------------------------------------------------- provider implementations
 
 DOC_KEYWORDS = {
-    "application_form": [r"בקשה\s+להיתר", r"טופס\s+בקשה"],
-    "survey_map": [r"מפת\s+מדידה", r"מודד\s+מוסמך"],
-    "permit_info": [r"מידע\s+להיתר"],
-    "area_table": [r"טבלת\s+שטחים", r"שטח\s+עיקרי"],
+    "application_form": [r"בקשה\s+להיתר", r"טופס\s+בקשה", r"פרטי\s+הבקשה", r"permitRequest"],
+    "survey_map": [r"מפת\s+מדידה", r"מודד\s+מוסמך", r"מפה\s+מצבית", r"תכנית\s+מדידה"],
+    "permit_info": [r"מידע\s+להיתר", r"תיק\s+(ה)?מידע"],
+    "area_table": [r"טבלת\s+שטחים", r"חישוב\s+שטחים", r"שטח\s+עיקרי"],
     "existing_building_photos": [r"תמונ(ה|ות)\s+(של\s+)?(ה)?בניין", r"צילום"],
     "building_master_plan": [r"תכנית\s+כוללת", r"תוספות\s+עתידיות"],
-    "ownership_docs": [r"נסח\s+טאבו", r"נסח\s+רישום"],
+    "ownership_docs": [r"נסח\s+טאבו", r"נסח\s+רישום", r"נסח\s+מקרקעין", r"גוש\s+\d+\s+חלקה\s+\d+", r"חוזה\s+(חכירה|שכירות)",
+                       r"הסכם\s+משבצת", r"רמ\"?י", r"מורשי\s+חתימה", r"תעודת\s+רישום"],
     "consents": [r"הסכמ(ה|ות)\s+בעלי", r"הסכמת\s+השכנים"],
-    "architectural_plan": [r"תכנית\s+הגשה", r"גרמושק"],
+    "architectural_plan": [r"תכנית\s+הגשה", r"גרמושק", r"PERMIT", r"hagasha"],
     "sections_elevations": [r"חתך", r"חזית\s+(צפונית|דרומית|מזרחית|מערבית|קדמית|אחורית)"],
+    "electric_company_approval": [r"חברת\s+(ה)?חשמל", r"חח\"?י"],
+    "antiquities_approval": [r"רשות\s+העתיקות", r"עתיקות"],
+    "professional_license": [r"רי?שיון\s+מקצועי", r"תעודת\s+רישום\s+(ב)?אדריכל", r"פנקס\s+המהנדסים"],
+    "planning_regulation": [r"הוראות\s+התכנית", r"תקנון", r"מידע\s+תכנוני", r"נספח\s+בינוי"],
+    "committee_protocol": [r"פרוטוקול\s+(ישיבת|ועדת)", r"החלטות\s+ועדת", r"ישיבה\s+מספר"],
+}
+DOC_TYPE_DESCRIPTIONS = {
+    "application_form": "טופס הבקשה להיתר (רישוי זמין) והצהרות המבקש / עורך הבקשה",
+    "survey_map": "מפת מדידה / מפה מצבית של מודד מוסמך",
+    "permit_info": "תיק מידע להיתר",
+    "architectural_plan": "תכנית ההגשה (גרמושקה) — קומות, חתכים, חזיתות",
+    "area_table": "חישוב שטחים / טבלת שטחים",
+    "existing_building_photos": "צילומי מצב קיים",
+    "building_master_plan": "תכנית כוללת / בינוי לבניין",
+    "ownership_docs": "מסמכי זכויות בקרקע: נסח, חוזה חכירה / משבצת, אישור רמ\"י, מורשי חתימה",
+    "consents": "הסכמות בעלי זכויות / שכנים",
+    "sections_elevations": "חתכים וחזיתות כמסמך נפרד",
+    "committee_protocol": "פרוטוקול או החלטת ועדה",
+    "disabled_committee_approval": "אישור ועדת נכים",
+    "inspection_report": "דו\"ח פיקוח",
+    "electric_company_approval": "אישור חברת החשמל",
+    "antiquities_approval": "אישור רשות העתיקות",
+    "professional_license": "רישיון / תעודת רישום של עורך הבקשה או מתכנן",
+    "reg36_notice_proof": "אסמכתא להודעה לבעלים (תקנה 36)",
+    "planning_regulation": "מסמך תכנוני: הוראות תכנית, נספח בינוי, מידע תכנוני",
+    "other": "אחר — אישור גורם, קבלה, מינוי, הצהרת מתכנן שלד וכד'",
 }
 
 
@@ -171,8 +198,10 @@ def _ungrounded_numbers(text: str, facts: str) -> list[str]:
 
 def _ollama(task: str, model: str, payload: dict) -> dict:
     prompt = {
-        "Classification": "סווג את סוג המסמך לאחת הקטגוריות: " + ", ".join(DOC_KEYWORDS) +
-                          ". החזר JSON {\"label\":...,\"confidence\":0..1}. טקסט:\n" + payload.get("text", "")[:4000],
+        "Classification": "סווג מסמך מתוך תיק בקשה להיתר בנייה לאחד מסוגי המסמכים הבאים (קוד: תיאור):\n" +
+                          "\n".join(f"{k}: {v}" for k, v in DOC_TYPE_DESCRIPTIONS.items()) +
+                          "\nהחזר JSON בלבד: {\"label\": <קוד>, \"confidence\": 0..1}.\nשם הקובץ: " +
+                          payload.get("filename", "") + "\nטקסט:\n" + payload.get("text", "")[:4000],
         "ReportDraft": report_prompt(payload)[0],
     }[task]
     try:
@@ -188,9 +217,12 @@ def _ollama(task: str, model: str, payload: dict) -> dict:
         return {"text": text, "citations": cited}   # plain text: the report is not Markdown
     if task == "Classification":
         try:
-            return json.loads(out)
+            res = json.loads(out)
         except json.JSONDecodeError as exc:
             raise ProviderError("ollama returned non-JSON") from exc
+        if not isinstance(res, dict) or res.get("label") not in DOC_TYPE_DESCRIPTIONS:
+            raise ProviderError(f"label outside the document types: {str(res)[:80]}")
+        return res
     return {"text": out}
 
 
