@@ -52,6 +52,12 @@ def run_once() -> bool:
     if due:
         log.info("scheduled crawl(s) queued: %s", due)
         return True
+    from . import hierarchy                               # idle: cut fetched pages into clauses
+    with SessionLocal() as s:
+        n = hierarchy.extract_clauses(s, limit=300)
+    if n:
+        log.info("clauses %d", n)
+        return True
     from . import embeddings                              # idle: embed fetched text, a bounded batch at a time
     if embeddings.available():
         with SessionLocal() as s:

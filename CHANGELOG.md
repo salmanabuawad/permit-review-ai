@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-11-26 — Regulatory hierarchy, Hebrew terminology and clauses (Permit360 1.4)
+
+- `jurisdictions` (migration 0014): IL → 6 districts → 131 committees → the system's authorities, built from the
+  committee register at startup. Retrieval for an authority covers its own chain only; scopes are retrieval
+  boundaries, not legal precedence.
+- `terminology`: 25 concepts with their Hebrew forms (spellings, plurals, abbreviations); matching tolerates Hebrew
+  prefix letters; legally different concepts stay apart (internal vs building height, main vs service area, parking vs
+  covered parking). Editors (`rule.edit`) add forms; `GET/POST /api/terminology`.
+- `regulatory_clauses`: fetched committee pages are cut along their legal numbering (1. / 1.1 / א. / (א) / סעיף),
+  with parent, depth, offsets, verbatim text and topics; incremental, in the crawler's idle time. All UNVERIFIED.
+- `GET /api/knowledge/clauses?q=` searches the authority's chain with synonym expansion; `GET /api/knowledge/hierarchy`
+  shows the chain with clause counts. Authorities page: hierarchy chips and clause search.
+
 ## 2026-11-26 — Rule version history (Permit360 1.3 complete)
 
 - `rule_versions` (migration 0013): every saved version of a rule edited in the rules screen (create, edit, delete,

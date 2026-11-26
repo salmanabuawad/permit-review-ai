@@ -700,3 +700,45 @@ def _append_rule_versions(session, flush_context, instances):
         import copy
         session.add(RuleVersion(tenant_id=d.tenant_id, rule_id=d.rule_id, version=str(d.version), data=copy.deepcopy(d.data),
                                 deleted=bool(d.deleted), saved_by=d.updated_by or d.created_by))
+
+
+class Jurisdiction(Base):
+    """A node of the regulatory hierarchy: NATIONAL → DISTRICT → PLANNING_COMMITTEE → LOCAL_AUTHORITY.
+    Scopes are retrieval boundaries, not legal precedence."""
+    __tablename__ = 'jurisdictions'
+    id: Mapped[str] = mapped_column(String(80), primary_key=True)   # IL · district:<name> · committee:<id> · authority:<tenant>
+    kind: Mapped[str] = mapped_column(String(30), index=True)
+    name_he: Mapped[str] = mapped_column(String(200))
+    parent_id: Mapped[str | None] = mapped_column(ForeignKey('jurisdictions.id'), index=True)
+    committee_id: Mapped[str | None] = mapped_column(ForeignKey('planning_committees.id'))
+    municipality_id: Mapped[str | None] = mapped_column(ForeignKey('municipalities.id'))
+
+
+class Term(Base):
+    """Hebrew regulatory terminology: a surface form and the concept it names. Forms of one concept are synonyms for
+    search and tagging; different concepts are never merged, even when the words are alike."""
+    __tablename__ = 'terminology'
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    concept: Mapped[str] = mapped_column(String(60), index=True)
+    term: Mapped[str] = mapped_column(String(120))
+    label_he: Mapped[str | None] = mapped_column(String(120))        # the concept's display name (on one row per concept)
+    note_he: Mapped[str | None] = mapped_column(String(300))
+    created_by: Mapped[str] = mapped_column(String(40), default='system')
+    __table_args__ = (UniqueConstraint('concept', 'term'),)
+
+
+class RegulatoryClause(Base):
+    """A clause cut from a source page along its legal numbering; original wording kept verbatim. Unverified until a
+    professional confirms it; never an executable rule by itself."""
+    __tablename__ = 'regulatory_clauses'
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    jurisdiction_id: Mapped[str] = mapped_column(ForeignKey('jurisdictions.id'), index=True)
+    passage_id: Mapped[int] = mapped_column(ForeignKey('committee_passages.id', ondelete='CASCADE'), index=True)
+    number: Mapped[str | None] = mapped_column(String(40))
+    parent_id: Mapped[int | None] = mapped_column(ForeignKey('regulatory_clauses.id', ondelete='CASCADE'))
+    depth: Mapped[int] = mapped_column(Integer, default=0)
+    start: Mapped[int] = mapped_column(Integer)
+    end: Mapped[int] = mapped_column(Integer)
+    text_he: Mapped[str] = mapped_column(Text)
+    topics: Mapped[list] = mapped_column(JSON, default=list)
+    verification: Mapped[str] = mapped_column(String(20), default='UNVERIFIED')

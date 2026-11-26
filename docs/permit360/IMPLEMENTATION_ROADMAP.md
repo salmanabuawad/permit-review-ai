@@ -11,7 +11,7 @@ a copy of live data, regression tests passing on PostgreSQL, and a release note.
 | 1.1 | Split `main.py` into module routers (no URL changes) | **DONE 2026-11-26** (`app/api/`: identity, cases, rules, monitor, platform; 97 routes identical) |
 | 1.2 | Summary cache by evidence fingerprint (largest measured win) | **DONE 2026-11-26** (live gain to be measured on the next unchanged re-run) |
 | 1.3 | Rules: per-rule fixtures + validation gate; `rule_versions` history | **DONE 2026-11-26** (fixtures on 5 rules so far; more to add) |
-| 1.4 | Clause model and hierarchy; migrate curated passages, drafts and uploads into clauses | |
+| 1.4 | Clause model and hierarchy | **DONE 2026-11-26** for committee sources (hierarchy, terminology, clauses, scoped search); curated YAML passages / uploads into clauses: next |
 | 1.5 | e5-small embeddings on the server CPU (approved) plus hybrid retrieval; Hebrew retrieval benchmark | embeddings + hybrid search **DONE**; benchmark pending a question set |
 | 1.6 | Fetch committee candidate sources into snapshots and clauses (crawler) | snapshots + text **DONE 2026-11-26**; clause structure with 1.4 |
 | 1.7 | AI gateway: model registry, prompt registry, response cache, task router | |

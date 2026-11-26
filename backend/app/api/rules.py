@@ -1,4 +1,6 @@
 """API: rules, sources, knowledge base and the regulatory registry."""
+import re
+
 from fastapi import APIRouter
 
 from .common import *  # noqa: F401,F403 — shared imports, schemas and helpers
@@ -197,3 +199,62 @@ def regulatory_entry(body: reg.EntryIn, p: Principal = Depends(require("rule.app
     audit.record(s, p.tenant_id, p.id, "regulatory.entry.approve", "regulatory_entry", r.id, {"source_sha256": r.data["source_sha256"]})
     s.commit()
     return reg.serial(r)
+
+
+# ------------------------------------------------------------------ hierarchy, terminology, clauses (Permit360 1.4)
+
+class TermIn(BaseModel):
+    concept: str
+    term: str
+    note_he: str | None = None
+
+
+@router.get("/api/knowledge/clauses")
+def knowledge_clauses(q: str, p: Principal = Depends(require("case.read")), s: Session = Depends(get_session)):
+    """Clauses in the current authority's chain (authority → committee → district → national), query expanded with
+    the synonyms of the concepts it names. Unverified knowledge; never a rule by itself."""
+    from .. import hierarchy
+    if len((q or "").strip()) < 2:
+        raise HTTPException(422, "יש להזין לפחות 2 תווים")
+    if s.get(hierarchy.Jurisdiction, f"authority:{p.tenant_id}") is None:
+        hierarchy.build(s)
+        s.commit()
+    return hierarchy.search(s, p.tenant_id, q)
+
+
+@router.get("/api/knowledge/hierarchy")
+def knowledge_hierarchy(p: Principal = Depends(require("case.read")), s: Session = Depends(get_session)):
+    from .. import hierarchy
+    from ..models import RegulatoryClause
+    scope = hierarchy.chain(s, p.tenant_id)
+    counts = dict(s.execute(select(RegulatoryClause.jurisdiction_id, func.count()).where(RegulatoryClause.jurisdiction_id.in_(scope),
+                  RegulatoryClause.verification != "EMPTY").group_by(RegulatoryClause.jurisdiction_id)).all())
+    return [{"id": j.id, "kind": j.kind, "name_he": j.name_he, "clauses": counts.get(j.id, 0)}
+            for j in (s.get(hierarchy.Jurisdiction, x) for x in scope) if j]
+
+
+@router.get("/api/terminology")
+def terminology(p: Principal = Depends(require("case.read")), s: Session = Depends(get_session)):
+    from ..models import Term
+    out: dict = {}
+    for t in s.scalars(select(Term).order_by(Term.concept, Term.id)):
+        c = out.setdefault(t.concept, {"concept": t.concept, "label_he": None, "terms": []})
+        c["label_he"] = c["label_he"] or t.label_he
+        c["terms"].append(t.term)
+    return list(out.values())
+
+
+@router.post("/api/terminology", status_code=201)
+def terminology_add(body: TermIn, p: Principal = Depends(require("rule.edit")), s: Session = Depends(get_session)):
+    """Add a surface form to a concept (or a new concept). Shared vocabulary for search and topic tagging."""
+    from ..models import Term
+    concept, term = body.concept.strip(), body.term.strip()
+    if not re.fullmatch(r"[a-z][a-z0-9_]{1,59}", concept) or not (1 < len(term) <= 120):
+        raise HTTPException(422, "מושג: אותיות לטיניות קטנות וקו תחתון; מונח: 2–120 תווים")
+    if s.scalars(select(Term).where(Term.concept == concept, Term.term == term)).first():
+        raise HTTPException(409, "המונח כבר קיים")
+    first = not s.scalars(select(Term).where(Term.concept == concept)).first()
+    s.add(Term(concept=concept, term=term, label_he=term if first else None, note_he=body.note_he, created_by=p.id))
+    audit.record(s, p.tenant_id, p.id, "terminology.add", "term", concept, {"term": term})
+    s.commit()
+    return {"concept": concept, "term": term}

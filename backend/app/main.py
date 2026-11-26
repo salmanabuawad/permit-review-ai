@@ -25,6 +25,9 @@ def _startup():
     from . import committees
     with SessionLocal() as s0:                      # national committee register, loaded once
         committees.ensure_imported(s0)
+        from . import hierarchy                     # national → district → committee → authority, and terminology
+        hierarchy.build(s0)
+        s0.commit()
     if settings.typing_worker:
         import threading
         threading.Thread(target=_typing_worker, daemon=True, name="typing-worker").start()
