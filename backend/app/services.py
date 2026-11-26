@@ -53,6 +53,19 @@ DOC_TYPES_HE = {
 }
 
 
+def priority_case_ids(s: Session) -> list[str]:
+    """Requests a user put first (municipality settings "priority_cases"), while they are not ready."""
+    out = []
+    for m in s.scalars(select(Municipality)):
+        out += list(((m.settings or {}).get("priority_cases")) or [])
+    return out
+
+
+def _priority_first(s: Session, files: list) -> list:
+    pri = set(priority_case_ids(s))
+    return sorted(files, key=lambda f: (f.case_id not in pri, f.uploaded_at))
+
+
 def untyped_files(case: PermitCase) -> set[str]:
     """Documents of an imported request still waiting for their type from the local AI (converted drawings too)."""
     if case.source != "import":
@@ -171,9 +184,9 @@ def converted_pdf_path(cf: CaseFile) -> Path | None:
 def claim_dwfx_conversion(s: Session) -> CaseFile | None:
     """The oldest DWFX waiting for conversion (or whose claim expired), marked as taken by the agent."""
     now = dt.datetime.now(dt.timezone.utc)
-    for cf in s.scalars(select(CaseFile).where(CaseFile.kind == "dwfx", CaseFile.lifecycle == "ACTIVE",
+    for cf in _priority_first(s, list(s.scalars(select(CaseFile).where(CaseFile.kind == "dwfx", CaseFile.lifecycle == "ACTIVE",
                                                CaseFile.ingest_status == "PENDING_CONVERSION")
-                        .order_by(CaseFile.uploaded_at)):
+                        .order_by(CaseFile.uploaded_at)))):
         conv = dict((cf.ingest_report or {}).get("conversion") or {})
         claimed = conv.get("claimed_at")
         if claimed and (now - dt.datetime.fromisoformat(claimed)).total_seconds() < DWFX_CLAIM_TTL_S:
@@ -210,9 +223,9 @@ def complete_dwfx_conversion(s: Session, cf: CaseFile, pdf_bytes: bytes | None, 
 def claim_drawing_read(s: Session) -> CaseFile | None:
     """The oldest converted DWFX plan that the AI PC has not read yet (or whose claim expired)."""
     now = dt.datetime.now(dt.timezone.utc)
-    for cf in s.scalars(select(CaseFile).where(CaseFile.kind == "dwfx", CaseFile.lifecycle == "ACTIVE",
+    for cf in _priority_first(s, list(s.scalars(select(CaseFile).where(CaseFile.kind == "dwfx", CaseFile.lifecycle == "ACTIVE",
                                                CaseFile.doc_type == "architectural_plan", CaseFile.ingest_status == "OK")
-                        .order_by(CaseFile.uploaded_at)):
+                        .order_by(CaseFile.uploaded_at)))):
         rep = cf.ingest_report or {}
         read = dict(rep.get("drawing_read") or {})
         if read.get("state") == "done":

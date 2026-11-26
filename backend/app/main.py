@@ -55,6 +55,17 @@ def _typing_worker(interval_s: float = 20.0) -> None:
             with SessionLocal() as s:
                 todo = [(c.id, c.tenant_id) for c in s.scalars(select(PermitCase).where(PermitCase.source == "import"))
                         if services.untyped_files(c)]
+                # a prioritized request that is not ready yet gets the local model to itself
+                pri = services.priority_case_ids(s)
+                for m in s.scalars(select(Municipality)):          # priorities end when the request is ready
+                    keep = [cid for cid in (m.settings or {}).get("priority_cases") or []
+                            if (c := s.get(PermitCase, cid)) is not None and not services.processing_status(c)["ready"]]
+                    if keep != ((m.settings or {}).get("priority_cases") or []):
+                        m.settings = {**(m.settings or {}), "priority_cases": keep}
+                        s.commit()
+                        pri = services.priority_case_ids(s)
+                if pri:
+                    todo = [x for x in todo if x[0] in pri]
             for cid, tenant in todo:
                 with SessionLocal() as s2:
                     c = s2.get(PermitCase, cid)
@@ -545,6 +556,18 @@ def run_metrics_view(run_id: str, p: Principal = Depends(require("dashboard.read
     cov = rev.get("coverage") or {}
     return {"metrics": (r.summary or {}).get("metrics"), "review_counts": rev.get("counts"),
             "open_required_checks": cov.get("open"), "full_compliance_possible": cov.get("full_compliance_possible")}
+
+
+@app.post("/api/cases/{case_id}/priority")
+def prioritize(case_id: str, p: Principal = Depends(require("case.run")), s: Session = Depends(get_session)):
+    """Put this request first: its typing, conversions and drawing reads go before every other request's."""
+    c = get_case(s, p, case_id)
+    m = s.get(Municipality, c.tenant_id)
+    pri = [x for x in ((m.settings or {}).get("priority_cases") or []) if x != c.id]
+    m.settings = {**(m.settings or {}), "priority_cases": [c.id] + pri}
+    audit.record(s, c.tenant_id, p.id, "case.priority", "permit_case", c.id, {})
+    s.commit()
+    return {"priority_cases": m.settings["priority_cases"]}
 
 
 @app.post("/api/cases/{case_id}/classify-documents")
