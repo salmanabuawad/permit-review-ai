@@ -133,3 +133,12 @@ export const fmtDate = (iso: string | null | undefined) => {
   const d = new Date(iso)
   return d.toLocaleString('he-IL', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
+
+const AUTHORITY_COLORS = ['#167ca0', '#c26a12', '#2e7d32', '#6a3fb5', '#b23a48', '#0f766e', '#8a5a00', '#1e4fa8', '#a03a8c', '#4b6b1f']
+/** Stable color per authority, so each workspace is recognizable at a glance. */
+export function authorityColor(id?: string | null) {
+  if (!id) return AUTHORITY_COLORS[0]
+  let h = 0
+  for (const ch of id) h = (h * 31 + ch.charCodeAt(0)) >>> 0
+  return AUTHORITY_COLORS[h % AUTHORITY_COLORS.length]
+}

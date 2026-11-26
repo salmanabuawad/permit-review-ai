@@ -538,11 +538,20 @@ th, td { padding: 7px 10px; }
 @media (max-width:760px) { .app { display: block; } .content { padding: 10px 10px 24px; } }
 
 /* active authority — prominent */
-.authority-badge { display:flex; flex-direction:column; justify-content:center; gap:1px; background:#eef6fa; border:1px solid #c7dfe9; border-inline-start:5px solid #167ca0; border-radius:10px; padding:4px 12px 5px; min-width:0; max-width:min(520px,60vw); }
+.authority-badge { display:flex; flex-direction:column; justify-content:center; gap:1px; background:color-mix(in srgb, var(--auth,#167ca0) 9%, #fff); border:1px solid color-mix(in srgb, var(--auth,#167ca0) 30%, #fff); border-inline-start:6px solid var(--auth,#167ca0); border-radius:10px; padding:4px 12px 5px; min-width:0; max-width:min(520px,60vw); }
 .authority-badge.demo { background:#fff8ec; border-color:#f4e5cd; border-inline-start-color:#d99a2b; }
-.authority-label { font-size:10.5px; font-weight:700; color:#167ca0; letter-spacing:.3px; }
+.authority-label { font-size:10.5px; font-weight:700; color:var(--auth,#167ca0); letter-spacing:.3px; }
 .authority-badge.demo .authority-label { color:#9a6a1c; }
 .authority-badge strong, .authority-badge select { font-size:17px; font-weight:800; color:#12324d; line-height:1.3; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .authority-badge select { appearance:auto; background:transparent; border:0; box-shadow:none; padding:0 0 0 4px; min-height:0; cursor:pointer; max-width:100%; font-family:inherit; }
 .authority-badge select:focus { box-shadow:0 0 0 2px rgba(22,124,160,.25); border-radius:6px; }
 @media (max-width:760px) { .authority-badge strong, .authority-badge select { font-size:15px; } .topbar-policy { display:none; } }
+
+/* per-authority color */
+.topbar { border-bottom:3px solid var(--auth,#167ca0); }
+.sidebar nav a.active { box-shadow: inset -4px 0 0 var(--auth,#4bd7c2); }
+.auth-dot { display:inline-block; width:12px; height:12px; border-radius:50%; flex-shrink:0; }
+/* authority name above every page title */
+.page-head h1::before, .dashboard-hero h1::before { content: var(--auth-name, ''); display: block; width: fit-content; max-width: 100%; font-size: 12.5px; font-weight: 700; letter-spacing: 0; line-height: 1.2; color: #fff; background: var(--auth, #167ca0); border-radius: 6px; padding: 3px 9px; margin-bottom: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dashboard-hero h1::before { box-shadow: 0 0 0 1px rgba(255,255,255,.35); }
+@media print { .page-head h1::before { color: #000; background: none; border: 1px solid #999; } }

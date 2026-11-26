@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { api, setAuthority } from '../api'
+import { api, setAuthority, authorityColor } from '../api'
 import { useApp } from '../App'
 
 const states: Record<string,string>={DISCOVERY_PENDING:'איתור מקורות',CRAWLING:'סריקת מקורות',CANDIDATES_READY:'נקלטו מועמדים לאימות',NEEDS_OFFICIAL_DIRECTORY:'מקור רשמי לא אותר / חסום',CRAWL_INCOMPLETE:'סריקה חלקית',FAILED:'שגיאה — נדרשת סריקה חוזרת'}
@@ -16,7 +16,7 @@ export default function Authorities(){
   const upload=async()=>{setBusy(true);setResults([]);try{for(const file of files){const fd=new FormData();fd.append('file',file);try{const r=await api.upload<any>('/api/source-monitor/upload',fd);setResults(x=>[...x,`${file.name}: ${r.change_state==='unchanged'?'כבר קיים':'נקלט כידע לא מאומת'}`])}catch(e:any){setResults(x=>[...x,`${file.name}: ${e.message}`])}}setFiles([]);await search()}finally{setBusy(false)}}
   return <>
     <div className="page-head"><div><h1>רשויות ובסיס ידע</h1><p>בחירת סביבת עבודה, איתור מקורות רשמיים וקליטת מסמכים לכל רשות מורשית.</p></div></div>
-    <div className="card" style={{padding:16,marginBottom:16}}><h3>הרשויות שלי</h3>{(data?.authorities??[]).map((a:any)=><div key={a.id} className="card-head" style={{flexWrap:'wrap'}}><b>{a.name_he}</b><span className="small muted">{states[a.onboarding?.state]||'סביבת עבודה קיימת'}</span><span className="spacer"/>{a.id===me?.tenant_id?<span className="chip ok">פעילה</span>:<button onClick={()=>activate(a.id)}>בחירה</button>}</div>)}
+    <div className="card" style={{padding:16,marginBottom:16}}><h3>הרשויות שלי</h3>{(data?.authorities??[]).map((a:any)=><div key={a.id} className="card-head" style={{flexWrap:'wrap'}}><span className="auth-dot" style={{background:authorityColor(a.id)}}/><b>{a.name_he}</b><span className="small muted">{states[a.onboarding?.state]||'סביבת עבודה קיימת'}</span><span className="spacer"/>{a.id===me?.tenant_id?<span className="chip ok">פעילה</span>:<button onClick={()=>activate(a.id)}>בחירה</button>}</div>)}
     {data?.can_create&&<form onSubmit={e=>{e.preventDefault();create()}} style={{display:'flex',gap:8,flexWrap:'wrap',marginTop:16}}><label>שם הרשות <input required maxLength={200} value={name} onChange={e=>setName(e.target.value)} placeholder="שם רשמי בעברית"/></label><label>מזהה רשות (לא חובה) <input dir="ltr" pattern="[a-z][a-z0-9-]{2,39}" value={id} onChange={e=>setId(e.target.value)} placeholder="authority-id"/></label><button className="primary" disabled={busy}>הוספת רשות ואיתור מקורות</button></form>}</div>
     <div className="card" style={{padding:16,marginBottom:16}}><h3>בסיס ידע — {me?.municipality_name}</h3><p>מסמכים שנקלטו אינם כללים מחייבים עד אימות מקור ותחולה ואישור מקצועי. הידע הקיים נשמר.</p>
     {can('source.crawl')&&<><button onClick={async()=>{try{await api.post(`/api/authorities/${me?.tenant_id}/discover`);toast('איתור מקורות הופעל');refresh()}catch(e:any){toast(e.message,true)}}}>איתור מקורות רשמיים מחדש</button>{' '}<Link to="/rules/sources">מעקב סריקות וטיוטות</Link>

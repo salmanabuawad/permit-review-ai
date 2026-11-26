@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import { NavLink, Route, Routes } from 'react-router-dom'
-import { api, selectedAuthority, setAuthority } from './api'
+import { api, selectedAuthority, setAuthority, authorityColor } from './api'
 import Authorities from './pages/Authorities'
 import Dashboard from './pages/Dashboard'
 import Cases from './pages/Cases'
@@ -77,13 +77,13 @@ export default function App() {
   const can = (p: string) => !!me?.permissions.includes(p)
   const isDemo = me?.is_demo ?? me?.tenant_id === 'demo'
   const org = me?.municipality_name || me?.tenant_id || 'סביבת רישוי'
-  useEffect(() => { document.title = `בדיקת היתרי בנייה — ${isDemo ? 'סביבת הדגמה' : org}` }, [org, isDemo])
+  useEffect(() => { document.title = `${isDemo ? 'סביבת הדגמה' : org} — בדיקת היתרי בנייה` }, [org, isDemo])
 
   if (needLogin) return <Login />
 
   return (
     <AppCtx.Provider value={{ me, meta, can, toast }}>
-      <div className="app">
+      <div className="app" style={{ ['--auth' as any]: isDemo ? '#d99a2b' : authorityColor(me?.tenant_id), ['--auth-name' as any]: JSON.stringify(isDemo ? 'סביבת הדגמה' : org) }}>
         {mobileOpen && <button className="mobile-overlay" aria-label="סגירת תפריט" onClick={() => setMobileOpen(false)} />}
         <aside className={'sidebar' + (mobileOpen ? ' mobile-open' : '')}>
           <div className="brand-lockup">
