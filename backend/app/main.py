@@ -40,6 +40,37 @@ app.add_middleware(CORSMiddleware, allow_origins=list(settings.cors_origins), al
 @app.on_event("startup")
 def _startup():
     run_migrations()
+    if settings.typing_worker:
+        import threading
+        threading.Thread(target=_typing_worker, daemon=True, name="typing-worker").start()
+
+
+def _typing_worker(interval_s: float = 20.0) -> None:
+    """Types imported documents with the local AI and re-runs their request's checks. Durable: whatever an app restart
+    interrupted (or an import / a conversion / the reviewer marked) is picked up on the next pass."""
+    import time
+    from .db import SessionLocal
+    while True:
+        try:
+            with SessionLocal() as s:
+                todo = [(c.id, c.tenant_id) for c in s.scalars(select(PermitCase).where(PermitCase.source == "import"))
+                        if services.untyped_files(c)]
+            for cid, tenant in todo:
+                with SessionLocal() as s2:
+                    c = s2.get(PermitCase, cid)
+                    if c is None:
+                        continue
+                    try:
+                        services.classify_case_files(s2, c, "ai-typing", only=services.untyped_files(c), commit_each=True)
+                        services.run_checks(s2, c, "ai-typing")
+                        s2.commit()
+                    except Exception as e:  # noqa: BLE001 — recorded; retried on the next pass
+                        s2.rollback()
+                        audit.record(s2, tenant, "ai-typing", "file.classify", "permit_case", cid, {"error": str(e)[:300]})
+                        s2.commit()
+        except Exception:  # noqa: BLE001 — the worker never dies
+            pass
+        time.sleep(interval_s)
 
 
 PERMIT_TYPES = {
@@ -311,25 +342,6 @@ def agent_conversion_source(file_id: str, s: Session = Depends(get_session)):
     return FileResponse(f.storage_path, media_type="application/octet-stream", filename=f"{f.id}.dwfx")
 
 
-def _after_conversion(file_id: str) -> None:
-    """A converted drawing now has text: type it with the local AI (a survey package is often named like a plan) and
-    re-run the request's checks."""
-    from .db import SessionLocal
-    with SessionLocal() as s2:
-        f = s2.get(CaseFile, file_id)
-        if f is None or f.ingest_status != "OK":
-            return
-        try:
-            services.classify_case_files(s2, f.case, "ai-agent", only={f.id}, commit_each=True)
-            s2.flush()
-            services.run_checks(s2, f.case, "ai-agent")
-            s2.commit()
-        except Exception as e:  # noqa: BLE001 — recorded; the conversion result stands
-            s2.rollback()
-            audit.record(s2, f.tenant_id, "ai-agent", "file.classify", "case_file", file_id, {"error": str(e)[:300]})
-            s2.commit()
-
-
 @app.post("/api/agent/conversions/{file_id}/result", dependencies=[Depends(_agent)])
 async def agent_conversion_result(file_id: str, request: Request, background: BackgroundTasks,
                                   s: Session = Depends(get_session),
@@ -348,8 +360,9 @@ async def agent_conversion_result(file_id: str, request: Request, background: Ba
     services.complete_dwfx_conversion(s, f, body if ok else None, info if isinstance(info, dict) else {},
                                       None if ok else (body.decode("utf-8", "replace")[:500] or "conversion failed"))
     s.commit()
-    if f.ingest_status == "OK":
-        background.add_task(_after_conversion, f.id)
+    if f.ingest_status == "OK":                    # the sheets now have text / an image: type the file again
+        f.ingest_report = {k: v for k, v in (f.ingest_report or {}).items() if k != "ai_typed"}
+        s.commit()
     return {"file_id": f.id, "ingest_status": f.ingest_status}
 
 
@@ -542,8 +555,7 @@ def classify_documents(case_id: str, background: BackgroundTasks, p: Principal =
     c = get_case(s, p, case_id)
     for f in c.files:                              # the report shows "not ready" until each document is typed again
         f.ingest_report = {k: v for k, v in (f.ingest_report or {}).items() if k != "ai_typed"}
-    s.commit()
-    background.add_task(_classify_and_run, p.tenant_id, p.id, [c.id])
+    s.commit()                                     # the typing worker picks them up
     return {"queued": True, "documents": len(c.files)}
 
 
@@ -740,25 +752,6 @@ class ImportCommitIn(BaseModel):
     run_checks: bool = True
 
 
-def _classify_and_run(tenant: str, user: str, case_ids: list[str]) -> None:
-    """After an import: type each new request's documents with the local AI, then run the checks again."""
-    from .db import SessionLocal
-    for cid in case_ids:
-        with SessionLocal() as s2:
-            c = s2.get(PermitCase, cid)
-            if c is None or c.tenant_id != tenant:
-                continue
-            try:
-                services.classify_case_files(s2, c, user, commit_each=True)
-                s2.flush()
-                services.run_checks(s2, c, user)
-                s2.commit()
-            except Exception as e:  # noqa: BLE001 — recorded; the request keeps its import result
-                s2.rollback()
-                audit.record(s2, tenant, user, "file.classify", "permit_case", cid, {"error": str(e)[:300]})
-                s2.commit()
-
-
 @app.post("/api/import/commit")
 def import_commit(body: ImportCommitIn, background: BackgroundTasks, p: Principal = Depends(require("case.create")),
                   s: Session = Depends(get_session)):
@@ -783,10 +776,7 @@ def import_commit(body: ImportCommitIn, background: BackgroundTasks, p: Principa
     shutil.move(str(d), str(final))
     batch.storage_path = str(final)
     s.commit()
-    created = [r["case_id"] for r in result.get("results", []) if r.get("case_id") and r.get("status") in ("created", "updated")]
-    if created:
-        background.add_task(_classify_and_run, p.tenant_id, p.id, created)
-    return result
+    return result                                  # the typing worker types the new documents within seconds
 
 
 @app.get("/api/import/batches")

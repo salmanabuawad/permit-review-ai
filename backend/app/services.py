@@ -53,6 +53,14 @@ DOC_TYPES_HE = {
 }
 
 
+def untyped_files(case: PermitCase) -> set[str]:
+    """Documents of an imported request still waiting for their type from the local AI (converted drawings too)."""
+    if case.source != "import":
+        return set()
+    return {f.id for f in case.files if f.lifecycle == "ACTIVE" and f.kind in ("pdf", "dwfx")
+            and f.ingest_status != "PENDING_CONVERSION" and not (f.ingest_report or {}).get("ai_typed")}
+
+
 def processing_status(case: PermitCase) -> dict:
     """Whether the request's report is ready: nothing may still be converting, waiting to be read on the AI PC, or
     waiting for its document type from the local AI. {"ready": bool, "pending": [Hebrew lines]}"""
