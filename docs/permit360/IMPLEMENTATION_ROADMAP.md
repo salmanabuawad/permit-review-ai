@@ -19,6 +19,8 @@ a copy of live data, regression tests passing on PostgreSQL, and a release note.
 
 ## Phase 2: Preventive intelligence
 
+**Status 2026-11-26:** PDG v1 + revision report, professional feedback engine + regression cases, Architect360 workspace — DONE. XPLAN live verification — open (REMAINING_BLOCKERS #4).
+
 **PDG v1 + revision report DONE 2026-11-26** (rule-level inputs exact; document-level dependencies coarse).
 
 PDG v1 (file → derivation → fact → evaluation → finding), incremental review with a revision report, drawing version
@@ -27,11 +29,15 @@ Architect360 workspace (the same engine on unsubmitted designs), and XPLAN live 
 
 ## Phase 3: Permit lifecycle
 
+**Status 2026-11-26:** Process360 workflow (templates, tasks, SLAs, escalation, bottlenecks), Building360 passport (bitemporal, standing, sources), management dashboard — DONE. External integrations — blocked (REMAINING_BLOCKERS #5).
+
 Process360 workflow templates, tasks, SLAs and escalation; Building360 passport (property, building and unit model,
 bitemporal facts, import of the lot ledger); management dashboards with root-cause views; integrations as agreements
 allow.
 
 ## Phase 4: Construction intelligence
+
+**Status 2026-11-26:** inspections base (milestones, approved vs observed, passport, photos, inspector role) — DONE. Mobile, LiDAR / point clouds, BIM — later.
 
 Construction360: inspections, a mobile inspection app, approved-versus-observed comparison, BIM / IFC, point clouds.
 

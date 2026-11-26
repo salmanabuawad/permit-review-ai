@@ -42,3 +42,20 @@ result (`validation/results/20210885.*`); see docs/09 and docs/12 for the case-l
 
 - Cache the summary by evidence fingerprint: an unchanged re-run should drop from about 30 s to about 3 s.
 - Revision runs: only changed drawings are re-read; the gain depends on the share of drawings changed.
+
+## Measurements after the Permit360 build (2026-11-26, live server)
+
+| Metric | Value | Conditions |
+|---|---|---|
+| keyword search over committee text | median 23 ms, p95 67 ms | 8 Hebrew queries, ~16,000 pages, trigram index |
+| hierarchy clause search (authority chain, synonym expansion) | median 29 ms, p95 123 ms | ~27,600 clauses cut so far |
+| semantic search (e5-small, exact scan, pgvector) | median 108 ms, p95 114 ms | 6,752 vectors embedded so far (of 63,935) |
+| embedding model load | 3.6 s, once per process | server CPU |
+| embedding throughput | ≈ 4.4 chunks / s (≈ 256 tokens) | 2 CPU threads |
+| hybrid value example | "הנחיות מרחביות מרפסות": keyword 0 hits, semantic 50 | |
+| AI summary on an unchanged re-run | reused from cache (0 tokens) instead of 25–47 s | first live re-run will record `llm.cached` |
+| dependency-graph parity (demo) | unchanged re-run: every rule's inputs identical, 0 violations | `test_pdg.py` |
+
+Not yet measured: semantic latency at the full 64k vectors (exact scan grows linearly; an HNSW index only after a
+benchmark shows no recall loss), Recall@K / MRR (needs a question set with expected clauses), defect precision /
+recall (needs professionally verified ground truth).
