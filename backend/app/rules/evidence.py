@@ -323,7 +323,7 @@ def drawing_facts(files) -> tuple[dict, dict]:
         drawing = {"file": f.filename, "views": read.get("views") or {}, "parking": read.get("parking") or [],
                    "solar": read.get("solar") or {}, "shed": read.get("shed") or [], "height": read.get("height"),
                    "area_geometry": read.get("area_geometry"), "screening": read.get("screening"),
-                   "floor_geometry": read.get("floor_geometry"),
+                   "floor_geometry": read.get("floor_geometry"), "elevation_geometry": read.get("elevation_geometry"),
                    "evidence": {}}
         facts = {}
         h = read.get("height") or {}
@@ -344,6 +344,15 @@ def drawing_facts(files) -> tuple[dict, dict]:
             drawing["evidence"]["building_height_m"] = [{
                 "type": "document", "file": f.filename, "page": r0.get("sheet"), "method": "קריאת שרטוט (מודל תמונה מקומי)",
                 "quote": f"רום רכס הגג בחתך/חזית: +{h['value_m']:.2f} (נקרא פעמיים){also}{zero}; גג {('רעפים' if h.get('roof_type') == 'tiled' else 'שטוח' if h.get('roof_type') == 'flat' else 'לא זוהה')}"}]
+        eg = (read.get("elevation_geometry") or {}).get("summary") or {}
+        if eg.get("max_top_above_lowest_slab_m") is not None and eg.get("sections_measured"):
+            facts["building_height_geometric_m"] = eg["max_top_above_lowest_slab_m"]
+            facts["building_height_geometric_u_m"] = round((eg.get("uncertainty_m") or 0) + (eg.get("finish_allowance_m") or 0), 3)
+            drawing["evidence"]["building_height_geometric_m"] = [{
+                "type": "measurement", "file": f.filename, "page": None,
+                "method": "מדידה גאומטרית בחתכים (elevation_geometry)",
+                "quote": f"הנקודה הגבוהה בחתכים: {eg['max_top_above_lowest_slab_m']:.2f} מ׳ מעל פני פלטת קומת הקרקע "
+                         f"({eg['sections_measured']} חתכים, {eg.get('slab_levels_max')} מפלסי פלטה, קומה {', '.join(f'{x:.2f}' for x in eg.get('floor_to_floor_m', []))} מ׳)"}]
         return drawing, facts
     return {}, {}
 

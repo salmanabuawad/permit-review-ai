@@ -111,8 +111,13 @@ def read(src: Path, model: str = MODEL, url: str = LLM) -> dict:
             p.pop("outline_cm", None)            # kept small: the outline is reproducible from the file
     except Exception as exc:  # noqa: BLE001
         floors = {"error": str(exc)[:300]}
+    try:
+        import elevation_geometry
+        elevations = elevation_geometry.measure(src)
+    except Exception as exc:  # noqa: BLE001
+        elevations = {"error": str(exc)[:300]}
     doc = pymupdf.open(str(src), filetype="xps")
-    out = {"model": model, "area_geometry": geometry, "floor_geometry": floors, "sheets": [], "views": {}, "parking": [], "solar": {}, "shed": [], "height": None,
+    out = {"model": model, "area_geometry": geometry, "floor_geometry": floors, "elevation_geometry": elevations, "sheets": [], "views": {}, "parking": [], "solar": {}, "shed": [], "height": None,
            "levels_read": [], "calls": 0}
     elev_tiles = []
     for sno, page in enumerate(doc, 1):

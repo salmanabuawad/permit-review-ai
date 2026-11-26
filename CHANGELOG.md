@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-11-26 — ElevationEngine (section geometry)
+
+- `agent/elevation_geometry.py`: slab levels, floor-to-floor heights and the highest drawn point of each section, from
+  the vector geometry and the viewport scale (no label reading); run by the AI-PC drawing reader.
+- Height check: when the label read and the section geometry are both under the limit, the height passes on measured
+  evidence (a single stray read is shown as unsupported); geometry over the limit never passes.
+- Zikim: floor-to-floor 3.06-3.08 m, 2 slab levels; top 6.90 m (311-312), 6.32 m (319-320, 339-340) above the
+  ground-floor slab. 339-340 height: UNRESOLVED -> PASS.
+
 ## 2026-11-26 — V9 update: regulation resolver, component and relief validation, blind sanitizer
 
 - `ApplicableRegulationResolver` (sources, applicability, limit conflicts by legal relation, cached; in every run's internal

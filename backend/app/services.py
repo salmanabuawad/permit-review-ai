@@ -627,11 +627,33 @@ def guard_single_read_height(results, rules, drawing_facts: dict, declared: dict
     """The height checked is the highest ridge read (never too low), but a value read only once cannot confirm a
     violation: when the twice-read ridge is within the limit, the excess is unresolved until the sheet is checked."""
     corroborated = drawing_facts.get("building_height_corroborated_m")
-    if corroborated is None or "building_height_m" in declared:
+    geo, geo_u = drawing_facts.get("building_height_geometric_m"), drawing_facts.get("building_height_geometric_u_m") or 0.0
+    if "building_height_m" in declared or (corroborated is None and geo is None):
         return 0
     operands = {x.id: x.check.get("operand") or "" for x in rules}
     n = 0
     for r in results:
+        if (geo is not None and operands.get(r.rule_id, "").endswith(".building_height_m") and r.threshold is not None
+                and (corroborated if corroborated is not None else geo) <= r.threshold and geo + geo_u <= r.threshold):
+            # two independent sources under the limit: the label read (twice) and the section geometry
+            lab = corroborated if corroborated is not None else drawing_facts.get("building_height_m")
+            stray = drawing_facts.get("building_height_m")
+            r.status = r.computed_result = "PASS"
+            r.explanation_he = (f"גובה לפי תווית מפלס הרכס: +{lab:.2f} מ׳; לפי מדידה גאומטרית בחתכים: {geo:.2f} מ׳ "
+                                f"(±{geo_u:.2f}) מעל פני פלטת קומת הקרקע — שניהם ≤ {r.threshold:.2f} מ׳, במרווח "
+                                f"{r.threshold - max(lab, geo) - geo_u:.2f} מ׳"
+                                + (f"; קריאה בודדת של +{stray:.2f} אינה נתמכת בגאומטריה" if stray and stray > r.threshold else "")
+                                + ". נקודת הייחוס של מגבלת הגובה ביחס לפלטה לא אומתה מול המדידה; שינוי התוצאה מחייב הפרש "
+                                "גדול מהמרווח.")
+            r.flags = [f for f in r.flags if f not in ("NEEDS_DRAWING_READ",)] + ["MEASURED"]
+            r.evidence = list(r.evidence or []) + [{"type": "measurement", "method": "elevation_geometry",
+                                                    "quote": f"{geo:.2f} m above the ground-floor slab, ±{geo_u:.2f}"}]
+            n += 1
+    if corroborated is None:
+        return n
+    for r in results:
+        if "PASS" == r.status and "MEASURED" in r.flags:
+            continue
         if (operands.get(r.rule_id, "").endswith(".building_height_m") and "FAIL" in (r.status, r.computed_result)
                 and r.threshold is not None and corroborated <= r.threshold):
             r.status = r.computed_result = "UNCERTAIN"

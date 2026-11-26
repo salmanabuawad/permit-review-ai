@@ -174,3 +174,24 @@ def test_single_read_height_never_confirms_a_violation():
     assert guard_single_read_height([r2], rules, {"building_height_m": 13.2, "building_height_corroborated_m": 9.6}, {}) == 0
     assert r2.status == "FAIL"
     assert guard_single_read_height([r2], rules, facts, {"building_height_m": 13.2}) == 0      # declared: not ours
+
+
+def test_geometric_height_settles_a_stray_reading():
+    """339-340: labels +6.85 (twice), one stray +13.20, section geometry 6.32 m — both independent sources are under
+    9 m, so the height passes on measured evidence; geometry above the limit never passes."""
+    from types import SimpleNamespace as NS
+    from app.services import guard_single_read_height
+    rules = [NS(id="HA-633-HEIGHT", check={"operand": "declared.building_height_m"})]
+    mk = lambda: NS(rule_id="HA-633-HEIGHT", status="FAIL", computed_result="FAIL", threshold=9.0, explanation_he="",
+                    flags=["NEEDS_DRAWING_READ"], evidence=[])
+    r = mk()
+    facts = {"building_height_m": 13.2, "building_height_corroborated_m": 6.85, "building_height_geometric_m": 6.32,
+             "building_height_geometric_u_m": 0.124}
+    assert guard_single_read_height([r], rules, facts, {}) >= 1
+    assert r.status == "PASS" and "MEASURED" in r.flags and "+13.20" in r.explanation_he and "6.32" in r.explanation_he
+    r2 = mk()
+    guard_single_read_height([r2], rules, {**facts, "building_height_geometric_m": 9.5}, {})
+    assert r2.status == "UNCERTAIN"                                   # geometry over the limit: never a pass
+    r3 = mk()
+    guard_single_read_height([r3], rules, {k: v for k, v in facts.items() if "geometric" not in k}, {})
+    assert r3.status == "UNCERTAIN"                                   # no geometry: the stray read stays unresolved
