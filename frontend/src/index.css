@@ -200,20 +200,20 @@ body { background: var(--bg); }
 .sidebar-footer small { display:block; color:#86a5bb; margin:4px 17px 0 0; }
 .sidebar-footer-dot,.live-dot,.status-dot-label i { display:inline-block; background:#42c4a1; border-radius:50%;width:7px;height:7px;margin-left:7px;box-shadow:0 0 0 3px rgba(66,196,161,.14); }
 .main { background:var(--bg); }
-.topbar { min-height:77px; padding:13px 31px; box-shadow:0 2px 15px rgba(17,42,71,.025); gap:16px; }
+.topbar { min-height:58px; padding:8px 28px; box-shadow:0 2px 15px rgba(17,42,71,.025); gap:16px; }
 .topbar-location { display:flex;flex-direction:column;gap:0;line-height:1.4; }
 .topbar-location strong { font-size:17px; }
 .topbar-eyebrow { font-size:11px;color:#8291a6; }
 .topbar-policy { color:#426b62;background:#f0f8f6;border:1px solid #dbeee8;border-radius:99px;padding:5px 11px;font-size:12px; }
-.content { padding:29px 34px 60px; max-width:1700px; margin:0 auto; }
+.content { padding:16px 28px 48px; max-width:1700px; margin:0 auto; }
 .demo-banner { background:#fff8ec;border-bottom:1px solid #f4e5cd;color:#7a5a2b;padding:7px 32px;font-size:12px; }
-.card { padding:21px 24px; border-radius:var(--radius); box-shadow:var(--shadow); }
-.card-head { margin-bottom:17px; }
+.card { padding:14px 20px; border-radius:var(--radius); box-shadow:var(--shadow); }
+.card-head { margin-bottom:10px; }
 .card h3 { font-size:16px; letter-spacing:-.2px; }
-.card + .card { margin-top:18px; }
+.card + .card { margin-top:14px; }
 .grid { gap:19px; }
-.page-head { margin:2px 0 22px;align-items:center; }
-.page-head h1 { font-size:26px;letter-spacing:-.5px; }
+.page-head { margin:0 0 12px;align-items:center; }
+.page-head h1 { font-size:22px;letter-spacing:-.4px; }
 .page-head p { font-size:13px;margin-top:6px; }
 h1 { font-size:26px; } h2 { font-size:19px; }
 button,.btn { border-radius:10px;min-height:38px;transition:background .15s,border-color .15s,box-shadow .15s; }
@@ -487,3 +487,14 @@ button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible {o
 .card-sub h4 { margin: 6px 0 0; font-size: .92rem; }
 .card-sub ol, .card-sub ul { margin: 0; padding-inline-start: 20px; display: grid; gap: 4px; }
 .card-sub textarea { width: 100%; font: inherit; }
+
+/* compact case view */
+.stepper.compact { margin:0 0 12px; }
+.stepper.compact li { padding-top:24px; font-size:.78rem; }
+.stepper.compact li::before { width:20px; height:20px; font-size:11px; border-width:2px; }
+.stepper.compact li::after { top:9px; }
+.case-results .card-head { margin-bottom:0; row-gap:8px; }
+.case-results .actions { display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
+details.ai-sum { margin-top:8px; }
+details.ai-sum > summary { cursor:pointer; font-size:12px; color:var(--brand); list-style-position:inside; }
+details.ai-sum[open] > div.notice { margin-top:6px; }

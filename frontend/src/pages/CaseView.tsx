@@ -111,12 +111,12 @@ export default function CaseView() {
         {can('case.run') && <button className="primary" onClick={run} disabled={busy || locked || !hasFiles}>{busy ? 'מריץ…' : c.last_run ? 'בדיקה חוזרת' : 'הרצת בדיקה'}</button>}
       </div>
 
-      <ol className="stepper" aria-label="שלבי הטיפול בתיק">
+      <ol className="stepper compact" aria-label="שלבי הטיפול בתיק">
         {steps.map((s, i) => <li key={i} className={s.done ? 'done' : i === current ? 'current' : ''}>{s.label}</li>)}
       </ol>
 
       {c.last_run && report && (
-        <div className="card" style={{ marginBottom: 14 }}>
+        <div className="card case-results" style={{ marginBottom: 14 }}>
           <div className="card-head">
             <h3>תוצאות בדיקה — גרסה <span className="num">{report.run.version}</span></h3>
             <span className="small muted">{fmtDate(report.run.at)} · <span className="num">{report.run.duration_ms}</span> מ״ש · ruleset <span className="mono">{report.run.ruleset_hash.slice(0, 10)}</span></span>
@@ -124,8 +124,19 @@ export default function CaseView() {
             <div className="counts">
               {(['FAIL', 'UNCERTAIN', 'PASS', 'NA'] as const).map(s => <span key={s}><StatusChip s={s} /> <span className="num">{counts[s]}</span></span>)}
             </div>
+            <div className="actions no-print">
+              <span className="small muted">ייצוא:</span>
+              <button className="sm" onClick={() => openBlob(`/api/runs/${c.last_run!.id}/defects.pdf`).catch(e => toast(e.message, true))}>
+                PDF — דוח ליקויים
+              </button>
+              {can('case.run') && !locked && <button className="sm" onClick={() => workflow('RETURNED_FOR_COMPLETION', { note: 'החזרה להשלמות' })}>החזרה להשלמות</button>}
+              {can('case.run') && !locked && c.status !== 'WAITING_EXTERNAL' && <button className="sm" onClick={() => workflow('WAITING_EXTERNAL', { note: 'הועבר לגורם חוץ' })}>ממתין לגורם חוץ</button>}
+              {can('case.run') && !locked && c.status === 'WAITING_EXTERNAL' && <button className="sm" onClick={() => workflow('IN_REVIEW', { note: 'חזר מגורם חוץ' })}>חזרה לבדיקה</button>}
+              {can('case.lock') && !locked && <button className="sm primary" disabled={pending > 0} title={pending ? `${pending} ממצאים ממתינים להחלטה` : ''} onClick={() => workflow('LOCK')}>אישור ונעילת גרסה</button>}
+              {locked && <span className="chip ok">נעול — גרסה {c.locked_version}</span>}
+            </div>
           </div>
-          {report.run.ai_summary && <details className="notice info small"><summary style={{ cursor: 'pointer' }}>סיכום אוטומטי וקטעי ידע</summary>
+          {report.run.ai_summary && <details className="ai-sum"><summary>סיכום אוטומטי וקטעי ידע</summary><div className="notice info small">
             <div style={{ whiteSpace: 'pre-line' }}>{report.run.ai_summary}</div>
             {(report.run.kb_passages ?? []).length > 0 && <div style={{ marginTop: 6 }}>
               <b>קטעי ידע שנמסרו לסיכום</b> (מהתכניות והנחיות הוועדה של התיק; לעיון — אינם ממצאים):
@@ -133,19 +144,7 @@ export default function CaseView() {
                 <div key={k.id}><span className="mono">[{k.id}]</span> {k.section} — {k.source_title_he}{k.page ? `, עמ׳ ${k.page}` : ''}
                   {k.cited && <span className="chip ok" style={{ marginInlineStart: 4 }}>צוטט בסיכום</span>}
                   {k.url && <> · <a href={k.url} target="_blank" rel="noreferrer">מקור</a></>}</div>))}
-            </div>}</details>}
-          <div className="card-head no-print" style={{ marginTop: 10, marginBottom: 0 }}>
-            <span className="small muted">ייצוא:</span>
-            <button className="sm" onClick={() => openBlob(`/api/runs/${c.last_run!.id}/defects.pdf`).catch(e => toast(e.message, true))}>
-              PDF — דוח ליקויים
-            </button>
-            <span className="spacer" />
-            {can('case.run') && !locked && <button className="sm" onClick={() => workflow('RETURNED_FOR_COMPLETION', { note: 'החזרה להשלמות' })}>החזרה להשלמות</button>}
-            {can('case.run') && !locked && c.status !== 'WAITING_EXTERNAL' && <button className="sm" onClick={() => workflow('WAITING_EXTERNAL', { note: 'הועבר לגורם חוץ' })}>ממתין לגורם חוץ</button>}
-            {can('case.run') && !locked && c.status === 'WAITING_EXTERNAL' && <button className="sm" onClick={() => workflow('IN_REVIEW', { note: 'חזר מגורם חוץ' })}>חזרה לבדיקה</button>}
-            {can('case.lock') && !locked && <button className="sm primary" disabled={pending > 0} title={pending ? `${pending} ממצאים ממתינים להחלטה` : ''} onClick={() => workflow('LOCK')}>אישור ונעילת גרסה</button>}
-            {locked && <span className="chip ok">נעול — גרסה {c.locked_version}</span>}
-          </div>
+            </div>}</div></details>}
         </div>
       )}
 
