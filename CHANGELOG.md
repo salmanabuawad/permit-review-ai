@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-11-26 — Normalised findings, V11 check statuses and accuracy gates (Permit360 1.8)
+
+- `finding_schema.py` and `GET /api/runs/{id}/findings/normalised`: every finding with measured / permitted /
+  difference, method, evidence category (declared value, drawing dimension, geometric measurement, document presence),
+  drawing and source references, rule version, confidence, recommended action, professional validation; the V11 check
+  status (PASS, CONFIRMED_VIOLATION, DOCUMENT_INCONSISTENCY, DECLARATION_MISMATCH, DISCRETIONARY_REVIEW_REQUIRED,
+  UNRESOLVED, NOT_APPLICABLE, EXECUTION_ERROR); the ten accuracy gates as PASS / FAIL / NOT_EVALUATED (temporal
+  applicability, exceptions and reliefs are not modelled per finding yet and say so); coverage against the run's full
+  inventory and the independent-measurement share. A violation is CONFIRMED only when every mandatory gate passes.
+- Case view, tab "בקרת דיוק" (internal). The external report's logic is unchanged.
+
 ## 2026-11-26 — Model registry, prompt registry, task routing (Permit360 1.7)
 
 - `knowledge/ai_models.yaml`: the 17 local models with source, licence, SHA-256, quantisation and host, from the AI PC's

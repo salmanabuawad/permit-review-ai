@@ -15,7 +15,7 @@ a copy of live data, regression tests passing on PostgreSQL, and a release note.
 | 1.5 | e5-small embeddings on the server CPU (approved) plus hybrid retrieval; Hebrew retrieval benchmark | embeddings + hybrid search **DONE**; benchmark pending a question set |
 | 1.6 | Fetch committee candidate sources into snapshots and clauses (crawler) | snapshots + text **DONE 2026-11-26**; clause structure with 1.4 |
 | 1.7 | AI gateway: model registry, prompt registry, response cache, task router | **DONE 2026-11-26** (validation per model waits for the benchmark) |
-| 1.8 | Finding schema normalised (rule version, methodology, confidence, drawing reference) | |
+| 1.8 | Finding schema normalised (rule version, methodology, confidence, drawing reference) | **DONE 2026-11-26** (read model + accuracy gates; external report unchanged) |
 
 ## Phase 2: Preventive intelligence
 
