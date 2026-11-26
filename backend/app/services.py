@@ -707,6 +707,9 @@ def run_checks(s: Session, case: PermitCase, user: str, gateway: AIGateway | Non
     for r in results:
         d = r.as_dict()
         s.add(Finding(tenant_id=case.tenant_id, run_id=run.id, **d))
+    from . import pdg                              # dependency graph: exact inputs per rule, parity with the last run
+    pdg_summary = pdg.record(s, run, rules, facts, load_sources(), bool(tenant and tenant.is_demo), results,
+                             pdg.context_fingerprint(run.input_hashes, case.declared, drawing_fact_values, register_status))
     counts: dict = {}
     for r in results:
         counts.setdefault(r.report, {}).setdefault(r.status, 0)
@@ -745,7 +748,7 @@ def run_checks(s: Session, case: PermitCase, user: str, gateway: AIGateway | Non
                                    else "מקור ג׳ של בדיקת השטחים (שחזור מתכניות הקומות) לא בוצע."),
                                   "בדיקות שלא הושלמו: " + str(review_counts.get("UNRESOLVED", 0) + review_counts.get("NOT_CHECKED", 0)) + "."]},
                    "metrics": metrics,
-                   "ai_summary": (draft.output or {}).get("text") if draft.outcome in ("OK", "FALLBACK") else None,
+                   "pdg": pdg_summary, "ai_summary": (draft.output or {}).get("text") if draft.outcome in ("OK", "FALLBACK") else None,
                    "ai_summary_outcome": draft.outcome, "ai_provider": draft.provider_id,
                    # passages given to the summary; `cited` = the summary refers to it by its id
                    "kb_passages": [{**{k: v for k, v in p.items() if k != "text_he"}, "cited": p["id"] in cited}

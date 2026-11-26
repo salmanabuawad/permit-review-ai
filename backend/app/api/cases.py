@@ -592,3 +592,12 @@ def run_findings_normalised(run_id: str, p: Principal = Depends(require("case.re
     rules = {r.id: r.raw for r in services.rules_for_tenant(s, p.tenant_id, include_deleted=True)}
     rows = [FS.normalise(f, rules.get(f.rule_id), latest) for f in run.findings]
     return {"run_id": run.id, "version": run.version, "latest": latest, "coverage": FS.coverage(rows), "findings": rows}
+
+
+@router.get("/api/runs/{run_id}/revision")
+def run_revision(run_id: str, p: Principal = Depends(require("case.read")), s: Session = Depends(get_session)):
+    """What changed since the case's previous run: files, findings (new / corrected / unchanged / newly unresolved /
+    newly applicable) and the exact inputs behind each change; plus the run's dependency-graph summary."""
+    from .. import pdg
+    run = _run(s, p, run_id)
+    return {**pdg.revision(s, run), "pdg": (run.summary or {}).get("pdg")}

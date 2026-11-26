@@ -742,3 +742,16 @@ class RegulatoryClause(Base):
     text_he: Mapped[str] = mapped_column(Text)
     topics: Mapped[list] = mapped_column(JSON, default=list)
     verification: Mapped[str] = mapped_column(String(20), default='UNVERIFIED')
+
+
+class PdgNode(Base):
+    """Permit Dependency Graph node of a run (v1: one per rule evaluation) with its exact inputs and output."""
+    __tablename__ = 'pdg_nodes'
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    tenant_id: Mapped[str] = mapped_column(ForeignKey('municipalities.id'), index=True)
+    run_id: Mapped[str] = mapped_column(ForeignKey('check_runs.id', ondelete='CASCADE'), index=True)
+    kind: Mapped[str] = mapped_column(String(30))
+    key: Mapped[str] = mapped_column(String(120))
+    fingerprint: Mapped[str] = mapped_column(String(64), index=True)
+    inputs: Mapped[dict] = mapped_column(JSON, default=dict)
+    output: Mapped[dict] = mapped_column(JSON, default=dict)

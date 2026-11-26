@@ -19,6 +19,8 @@ a copy of live data, regression tests passing on PostgreSQL, and a release note.
 
 ## Phase 2: Preventive intelligence
 
+**PDG v1 + revision report DONE 2026-11-26** (rule-level inputs exact; document-level dependencies coarse).
+
 PDG v1 (file → derivation → fact → evaluation → finding), incremental review with a revision report, drawing version
 comparison (geometry fingerprints), the professional feedback engine (corrections become regression candidates),
 Architect360 workspace (the same engine on unsubmitted designs), and XPLAN live verification.

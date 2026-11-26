@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-11-26 — Permit Dependency Graph v1 and revision reports (Permit360 phase 2)
+
+- Every run records one graph node per rule evaluation (`pdg_nodes`, migration 0015): the exact facts the engine read
+  (recorded while evaluating), the rule's version and definition hash, and a fingerprint of the run's post-processing
+  context (input files, declarations, drawing values, register status). The context is coarse on purpose: any
+  document change counts as a change for every rule until per-document dependencies are traced.
+- Parity check on every run: a rule with the same fingerprint as in the previous run but a different result is
+  recorded as a missing dependency (`summary.pdg.parity_violations`) and is never reused.
+- `GET /api/runs/{id}/revision`: files added / changed / removed; findings new / corrected / unchanged / newly
+  unresolved / newly applicable, each with the inputs whose values changed (or the rule definition, e.g. an approval).
+  Case view, tab "השוואה לגרסה קודמת".
+- Measured on the demo case: an unchanged re-run — every rule's inputs identical, no parity violation.
+
 ## 2026-11-26 — Normalised findings, V11 check statuses and accuracy gates (Permit360 1.8)
 
 - `finding_schema.py` and `GET /api/runs/{id}/findings/normalised`: every finding with measured / permitted /
