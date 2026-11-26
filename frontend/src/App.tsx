@@ -13,6 +13,7 @@ import Integrations from './pages/Integrations'
 import Audit from './pages/Audit'
 import ImportCases from './pages/ImportCases'
 import Login from './pages/Login'
+import Learning from './pages/Learning'
 
 export interface Me { id: string; tenant_id: string; role: string; role_he: string; display_name: string; permissions: string[]; municipality_name?: string; is_demo?: boolean }
 interface Ctx { me: Me | null; meta: any; can: (p: string) => boolean; toast: (m: string, err?: boolean) => void }
@@ -25,6 +26,7 @@ const NAV = [
   { to: '/cases', label: 'תיקי בקשות', icon: 'files' },
   { to: '/rules', label: 'מאגר כללים', icon: 'rules', end: true },
   { to: '/rules/sources', label: 'סריקת מקורות', icon: 'radar' },
+  { to: '/learning', label: 'למידה מהחלטות', icon: 'brain' },
   { to: '/sources', label: 'מקורות ובסיס ידע', icon: 'database' },
   { to: '/ai', label: 'הגדרות AI', icon: 'brain' },
   { to: '/integrations', label: 'ממשקים', icon: 'links', tag: 'מתוכנן' },
@@ -90,7 +92,7 @@ export default function App() {
           </div>
           <div className="sidebar-section-label">סביבת עבודה</div>
           <nav aria-label="ניווט ראשי">
-            {NAV.filter(n => n.to === '/' ? can('dashboard.read') : n.to === '/audit' ? can('audit.read') : n.to === '/ai' ? can('ai.configure') : n.to === '/rules/sources' ? can('source.crawl') : true).map(n => (
+            {NAV.filter(n => n.to === '/' ? can('dashboard.read') : n.to === '/audit' ? can('audit.read') : n.to === '/ai' ? can('ai.configure') : n.to === '/rules/sources' ? can('source.crawl') : n.to === '/learning' ? can('learning.manage') : true).map(n => (
               <NavLink key={n.to} to={n.to} end={n.end} onClick={() => setMobileOpen(false)}>
                 <NavIcon name={n.icon} /><span className="nav-label">{n.label}</span>{n.tag && <span className="tag">{n.tag}</span>}
               </NavLink>
@@ -118,6 +120,7 @@ export default function App() {
               <Routes>
                 <Route path="/" element={<Dashboard />} />
                 <Route path="/authorities" element={<Authorities />} />
+                <Route path="/learning" element={<Learning />} />
                 <Route path="/cases" element={<Cases />} />
                 <Route path="/cases/import" element={<ImportCases />} />
                 <Route path="/cases/:id" element={<CaseView />} />

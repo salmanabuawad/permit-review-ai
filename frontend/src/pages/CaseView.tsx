@@ -7,6 +7,7 @@ import SheetViewer from '../components/SheetViewer'
 import { StatusChip } from '../components/FindingCard'
 import FindingsPanel from '../components/FindingsPanel'
 import SourceDrawer from '../components/SourceDrawer'
+import DecisionPanel from '../components/DecisionPanel'
 
 const LIFECYCLE_HE: Record<string, string> = { ACTIVE: 'פעיל', ARCHIVED: 'בארכיון', DELETED: 'נמחק' }
 const INGEST_HE: Record<string, string> = {
@@ -24,7 +25,7 @@ export default function CaseView() {
   const [geoLoading, setGeoLoading] = useState(true)
   const [sel, setSel] = useState<string | null>(null)
   const [cite, setCite] = useState<Citation | null>(null)
-  const [tab, setTab] = useState<'findings' | 'files' | 'data' | 'extracted' | 'history'>('findings')
+  const [tab, setTab] = useState<'findings' | 'files' | 'data' | 'extracted' | 'history' | 'decision'>('findings')
   const [busy, setBusy] = useState(false)
   const [runs, setRuns] = useState<any[]>([])
 
@@ -164,6 +165,7 @@ export default function CaseView() {
             <button className={tab === 'data' ? 'active' : ''} onClick={() => setTab('data')}>נתוני התיק</button>
             <button className={tab === 'extracted' ? 'active' : ''} onClick={() => setTab('extracted')}>נתונים מחולצים</button>
             <button className={tab === 'history' ? 'active' : ''} onClick={() => setTab('history')}>גרסאות</button>
+            <button className={tab === 'decision' ? 'active' : ''} onClick={() => setTab('decision')}>החלטת ועדה</button>
           </div>
 
           {tab === 'findings' && (
@@ -173,6 +175,7 @@ export default function CaseView() {
           {tab === 'files' && <Files c={c} onChange={reloadFiles} locked={locked} />}
           {tab === 'data' && <CaseData c={c} onChange={load} locked={locked} />}
           {tab === 'extracted' && <Extracted caseId={c.id} />}
+          {tab === 'decision' && <DecisionPanel c={c} />}
           {tab === 'history' && (
             <table>
               <thead><tr><th>גרסה</th><th>מועד</th><th>תוצאות</th><th>Ruleset</th></tr></thead>

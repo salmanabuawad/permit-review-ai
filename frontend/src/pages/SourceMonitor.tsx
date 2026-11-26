@@ -10,7 +10,7 @@ const FETCH_HE: Record<string, [string, string]> = {
 }
 const CHANGE_HE: Record<string, [string, string]> = { new: ['חדש', 'warn'], changed: ['השתנה', 'warn'], unchanged: ['ללא שינוי', 'outline'] }
 const KIND_HE: Record<string, string> = { page: 'עמוד אינדקס', document: 'מסמך', manual: 'הועלה ידנית' }
-const DRAFT_KIND_HE: Record<string, string> = { numeric_limit: 'מגבלה מספרית', required_document: 'מסמך נדרש', prohibition: 'איסור' }
+const DRAFT_KIND_HE: Record<string, string> = { numeric_limit: 'מגבלה מספרית', required_document: 'מסמך נדרש', prohibition: 'איסור', committee_reason: 'נימוק ועדה' }
 const DRAFT_STATUS_HE: Record<string, string> = { open: 'ממתין', for_authoring: 'לכתיבת כלל', dismissed: 'נדחה', superseded: 'לא קיים בגרסה החדשה' }
 
 const fmtDT = (iso?: string | null) => iso ? new Date(iso).toLocaleString('he-IL', { dateStyle: 'short', timeStyle: 'short' }) : '—'

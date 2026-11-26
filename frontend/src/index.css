@@ -479,3 +479,11 @@ tr.selected td { background: #eef4ff; }
 button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible {outline:3px solid var(--brand-2);outline-offset:3px;}
 @media(max-width:1050px){.case-filters{grid-template-columns:repeat(2,minmax(0,1fr));}.case-filters>label:first-child{grid-column:1/-1;}}
 @media(max-width:600px){.case-overview{grid-template-columns:repeat(2,minmax(0,1fr));}.case-filters{grid-template-columns:1fr;}.case-filters>label:first-child{grid-column:auto;}.case-overview>div{padding:12px;}}
+
+/* committee decision and learning (case tab) */
+.decision { display: grid; gap: 14px; padding: 4px 2px; }
+.card-sub { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; display: grid; gap: 8px; }
+.card-sub h3 { margin: 0; font-size: 1rem; }
+.card-sub h4 { margin: 6px 0 0; font-size: .92rem; }
+.card-sub ol, .card-sub ul { margin: 0; padding-inline-start: 20px; display: grid; gap: 4px; }
+.card-sub textarea { width: 100%; font: inherit; }

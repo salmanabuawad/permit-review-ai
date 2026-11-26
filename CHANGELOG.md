@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-11-26 — Learning from decided cases; crawls on demand behind a restricted crawler
+
+- The administrator loads a whole case (normal import) and the committee's decision (file or text, "החלטת ועדה" tab).
+  Once the review is ready the decision is compared with it by topic: confirmed, missed, not raised. The decision text
+  enters the authority's knowledge base (document, snapshot, searchable passages), the precedent shows on requests with
+  a shared plan or block, and per-rule statistics show on the "למידה מהחלטות" page. Missed reasons become
+  `committee_reason` rule drafts — a rule takes effect only after the administrator approves it. The decision is never
+  an engine input. Migration 0007 (`learning_records`).
+- Crawls run on demand only by default; the administrator may set daily or weekly per authority. Crawling and
+  authority onboarding run only in the crawler process (OS user `permit-crawler`), whose outbound traffic the firewall
+  limits to public addresses on 80/443 and the local DNS. Failed or interrupted jobs show as failed, never retried.
+
 ## 2026-11-26 — Multi-authority workspaces and regulatory knowledge onboarding
 
 - Authority memberships (migration 0006): the login account is separate from its actor in each authority; the browser

@@ -513,3 +513,22 @@ class CandidatePassage(Base):
     snapshot_id: Mapped[int] = mapped_column(ForeignKey('source_snapshots.id'))
     page: Mapped[int] = mapped_column(Integer)
     text_he: Mapped[str] = mapped_column(Text)
+
+
+class LearningRecord(Base):
+    """A decided case the administrator loaded to learn from: the committee's decision against the engine's findings.
+    What it teaches goes to the knowledge base as precedent and unverified passages at once; missing checks become
+    rule drafts that take effect only after professional approval."""
+    __tablename__ = "learning_records"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    tenant_id: Mapped[str] = mapped_column(ForeignKey("municipalities.id"), index=True)
+    case_id: Mapped[str] = mapped_column(ForeignKey("permit_cases.id", ondelete="CASCADE"), index=True)
+    decision_id: Mapped[int] = mapped_column(ForeignKey("committee_decisions.id", ondelete="CASCADE"))
+    source_document_id: Mapped[int | None] = mapped_column(ForeignKey("source_documents.id"))
+    status: Mapped[str] = mapped_column(String(20), default="pending")     # pending | done | failed
+    outcome: Mapped[str] = mapped_column(String(40))
+    reasons: Mapped[list] = mapped_column(JSON, default=list)              # [{no, text_he, topics}]
+    result: Mapped[dict] = mapped_column(JSON, default=dict)
+    created_by: Mapped[str] = mapped_column(String(40))
+    created_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), default=_now)
+    processed_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime())

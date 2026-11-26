@@ -136,6 +136,9 @@ def _typing_worker(interval_s: float = 20.0) -> None:
                         s2.rollback()
                         audit.record(s2, tenant, "ai-typing", "file.classify", "permit_case", cid, {"error": str(e)[:300]})
                         s2.commit()
+            with SessionLocal() as s3:                         # decided cases: learn once the review is ready
+                from . import learning
+                learning.process_pending(s3)
         except Exception:  # noqa: BLE001 — the worker never dies
             pass
         time.sleep(interval_s)
@@ -1172,6 +1175,55 @@ def source_crawl(wait: bool = False, p: Principal = Depends(require("source.craw
         raise HTTPException(409, str(e)) from e
     with SessionLocal() as s:
         return _crawl_dict(s.get(SourceCrawl, cid))
+
+
+# ------------------------------------------------------------------ learning from decided cases
+
+@app.post("/api/cases/{case_id}/decision")
+async def case_decision(case_id: str, file: UploadFile | None = File(None), text: str | None = Form(None),
+                        outcome: str | None = Form(None), p: Principal = Depends(require("learning.manage")),
+                        s: Session = Depends(get_session)):
+    """The committee's decision on a case the administrator loaded to learn from (a file, or the pasted text)."""
+    from . import learning
+    c = get_case(s, p, case_id)
+    if file is not None and file.filename:
+        body = await file.read(source_service.load_config()["max_bytes"] + 1)
+        name = file.filename
+    elif text and text.strip():
+        body, name = text.strip().encode("utf-8"), f"decision_{c.case_number}.txt"
+    else:
+        raise HTTPException(422, "יש לצרף את קובץ ההחלטה או להדביק את נוסחה")
+    if len(body) > source_service.load_config()["max_bytes"]:
+        raise HTTPException(413, "הקובץ גדול מדי")
+    try:
+        rec = learning.record_decision(s, c, p.id, name, body, outcome or None)
+        learning.process(s, rec)                       # at once when the review is ready; else the worker does it
+    except ValueError as e:
+        raise HTTPException(422, str(e)) from e
+    s.commit()
+    return learning.record_dict(rec, c)
+
+
+@app.get("/api/cases/{case_id}/decision")
+def case_decision_get(case_id: str, p: Principal = Depends(require("case.read")), s: Session = Depends(get_session)):
+    from . import learning
+    from .models import LearningRecord
+    c = get_case(s, p, case_id)
+    rec = s.scalars(select(LearningRecord).where(LearningRecord.case_id == c.id, LearningRecord.status != "superseded")
+                    .order_by(LearningRecord.id.desc())).first()
+    return {"record": learning.record_dict(rec, c) if rec else None, "precedents": learning.precedents(s, c),
+            "outcomes": learning.DECISION_OUTCOMES_HE}
+
+
+@app.get("/api/learning")
+def learning_overview(p: Principal = Depends(require("learning.manage")), s: Session = Depends(get_session)):
+    from . import learning
+    from .models import LearningRecord
+    recs = list(s.scalars(select(LearningRecord).where(LearningRecord.tenant_id == p.tenant_id,
+                                                       LearningRecord.status != "superseded")
+                          .order_by(LearningRecord.id.desc())))
+    return {"records": [learning.record_dict(r, s.get(PermitCase, r.case_id)) for r in recs],
+            "rule_stats": learning.rule_stats(s, p.tenant_id), "topics": learning.TOPIC_HE}
 
 
 class ScheduleIn(BaseModel):
