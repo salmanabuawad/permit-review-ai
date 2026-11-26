@@ -793,3 +793,38 @@ class RegressionCase(Base):
     expect: Mapped[str] = mapped_column(String(20))
     feedback_id: Mapped[str] = mapped_column(String(32))
     created_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), default=_now)
+
+
+class WorkflowTemplate(Base):
+    """An authority's permit process: ordered steps with role, SLA (days) and dependencies (Process360)."""
+    __tablename__ = 'workflow_templates'
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    tenant_id: Mapped[str] = mapped_column(ForeignKey('municipalities.id'), index=True)
+    name_he: Mapped[str] = mapped_column(String(200))
+    steps: Mapped[list] = mapped_column(JSON, default=list)   # [{key, name_he, role, sla_days, depends_on, decision}]
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), default=_now)
+
+
+class WorkflowTask(Base):
+    """One step of a case's process. Starts only after its dependencies are done; a legally required decision is
+    completed only by an authorised role, never automatically."""
+    __tablename__ = 'workflow_tasks'
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    tenant_id: Mapped[str] = mapped_column(ForeignKey('municipalities.id'), index=True)
+    case_id: Mapped[str] = mapped_column(ForeignKey('permit_cases.id', ondelete='CASCADE'), index=True)
+    template_id: Mapped[int] = mapped_column(ForeignKey('workflow_templates.id'))
+    step_key: Mapped[str] = mapped_column(String(60))
+    name_he: Mapped[str] = mapped_column(String(200))
+    role: Mapped[str] = mapped_column(String(40))
+    depends_on: Mapped[list] = mapped_column(JSON, default=list)
+    decision: Mapped[bool] = mapped_column(Boolean, default=False)
+    sla_days: Mapped[int] = mapped_column(Integer, default=0)
+    status: Mapped[str] = mapped_column(String(20), default='waiting')   # waiting | ready | in_progress | done | skipped
+    assignee: Mapped[str | None] = mapped_column(String(40))
+    ready_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime())
+    started_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime())
+    due_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime())
+    done_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime())
+    done_by: Mapped[str | None] = mapped_column(String(40))
+    note: Mapped[str | None] = mapped_column(Text)

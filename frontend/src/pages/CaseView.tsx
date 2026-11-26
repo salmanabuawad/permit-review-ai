@@ -11,6 +11,7 @@ import DecisionPanel from '../components/DecisionPanel'
 import ScopePanel from '../components/ScopePanel'
 import AccuracyPanel from '../components/AccuracyPanel'
 import RevisionPanel from '../components/RevisionPanel'
+import ProcessPanel from '../components/ProcessPanel'
 
 const LIFECYCLE_HE: Record<string, string> = { ACTIVE: 'פעיל', ARCHIVED: 'בארכיון', DELETED: 'נמחק' }
 const INGEST_HE: Record<string, string> = {
@@ -28,7 +29,7 @@ export default function CaseView() {
   const [geoLoading, setGeoLoading] = useState(true)
   const [sel, setSel] = useState<string | null>(null)
   const [cite, setCite] = useState<Citation | null>(null)
-  const [tab, setTab] = useState<'findings' | 'files' | 'data' | 'extracted' | 'history' | 'decision' | 'scope' | 'accuracy' | 'revision'>('findings')
+  const [tab, setTab] = useState<'findings' | 'files' | 'data' | 'extracted' | 'history' | 'decision' | 'scope' | 'accuracy' | 'revision' | 'process'>('findings')
   const [busy, setBusy] = useState(false)
   const [runs, setRuns] = useState<any[]>([])
 
@@ -171,6 +172,7 @@ export default function CaseView() {
             <button className={tab === 'scope' ? 'active' : ''} onClick={() => setTab('scope')}>תחולה</button>
             <button className={tab === 'accuracy' ? 'active' : ''} onClick={() => setTab('accuracy')}>בקרת דיוק</button>
             <button className={tab === 'revision' ? 'active' : ''} onClick={() => setTab('revision')}>השוואה לגרסה קודמת</button>
+            {c.kind !== 'design' && <button className={tab === 'process' ? 'active' : ''} onClick={() => setTab('process')}>תהליך</button>}
           </div>
 
           {tab === 'findings' && (
@@ -184,6 +186,7 @@ export default function CaseView() {
           {tab === 'scope' && <ScopePanel c={c} />}
           {tab === 'accuracy' && <AccuracyPanel c={c} />}
           {tab === 'revision' && <RevisionPanel c={c} />}
+          {tab === 'process' && <ProcessPanel c={c} />}
           {tab === 'history' && (
             <table>
               <thead><tr><th>גרסה</th><th>מועד</th><th>תוצאות</th><th>Ruleset</th></tr></thead>

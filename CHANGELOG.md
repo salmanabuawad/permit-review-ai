@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-11-26 — Process360: permit workflow, tasks, SLAs and escalation
+
+- `workflow_templates` / `workflow_tasks` (migration 0018). Default template: intake → completeness → engineering,
+  regulatory and external approvals in parallel → committee decision → permit conditions → permit issuance, each with
+  a role and an SLA in days; an authority's administrator saves its own template (validated: keys, roles, dependencies,
+  no cycles); running cases keep the tasks they started with.
+- A step becomes ready when its dependencies are done; only its role (or a manager) acts on it; a legally required
+  decision (committee, permit) is completed only by its role or the system administrator, with a note, and cannot be
+  skipped. Due date counted from readiness; overdue tasks; escalation to the department manager past twice the SLA.
+- Bottlenecks per step: open, overdue, average waiting (ready → started) and working (started → done) days.
+- UI: case tab "תהליך", page "משימות" (mine / overdue).
+
 ## 2026-11-26 — Architect360: pre-submission checks of private designs
 
 - A design is a case of kind `design` owned by its architect (migration 0017): kept out of the authority's case lists,

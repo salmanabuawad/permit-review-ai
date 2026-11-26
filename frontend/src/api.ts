@@ -34,6 +34,7 @@ export interface Case {
   stage: string; gush: string | null; helka: string | null; address: string | null; zone: string | null
   applicable_plans: string[]; declared: Record<string, any>; status: string; assigned_to: string | null
   sla_due: string | null; locked_version: number | null; created_at: string
+  kind?: string; owner_id?: string | null
   last_run: null | { id: string; version: number; summary: any; at: string; duration_ms: number; locked: boolean }
   processing?: { ready: boolean; pending: string[] }
   files?: CaseFile[]

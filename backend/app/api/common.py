@@ -125,7 +125,7 @@ def case_dict(c: PermitCase, with_files=True) -> dict:
          "last_run": None if not last else {"id": last.id, "version": last.version, "summary": last.summary,
                                             "at": last.started_at.isoformat(), "duration_ms": last.duration_ms,
                                             "locked": last.locked},
-         "processing": services.processing_status(c)}
+         "processing": services.processing_status(c), "kind": c.kind or "application", "owner_id": c.owner_id}
     if with_files:
         d["files"] = [{"id": f.id, "filename": f.filename, "doc_type": f.doc_type, "kind": f.kind,
                        "suggested_doc_type": f.suggested_doc_type, "sha256": f.sha256, "size_bytes": f.size_bytes,
