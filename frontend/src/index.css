@@ -104,7 +104,8 @@ tr.clickable:hover td { background: #f7faff; }
 .stepper li.current::before { border-color: var(--brand); color: var(--brand); }
 
 /* case workspace */
-.workspace { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(380px, 1fr); gap: 14px; align-items: start; }
+.workspace { display: grid; grid-template-columns: minmax(380px, 1fr) minmax(0, 1.25fr); gap: 14px; align-items: start; }
+.workspace > section[aria-label="תשריט"] { order: 2; }   /* findings first (right side in RTL), drawing second */
 .viewer { position: relative; background: #fbfdff; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
 .viewer svg { display: block; width: 100%; height: 520px; cursor: grab; }
 .viewer .legend { display: flex; flex-wrap: wrap; gap: 8px 14px; padding: 8px 10px; border-top: 1px solid var(--line); background: #fff; font-size: .8rem; }
