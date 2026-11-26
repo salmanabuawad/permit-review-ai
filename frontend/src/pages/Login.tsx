@@ -21,20 +21,19 @@ export default function Login() {
   }
 
   return (
-    <main className="login-page">
-      <form className="login-card" onSubmit={submit}>
-        <div className="login-mark" aria-hidden="true">ח</div>
+    <div className="login-center">
+      <form className="login" onSubmit={submit}>
         <h1>בדיקת היתרי בנייה</h1>
-        <p className="muted">הוועדה המקומית לתכנון ובנייה חוף אשקלון</p>
-        <label>שם משתמש
+        <div className="hint">כניסה לצוות הוועדה המקומית חוף אשקלון</div>
+        <label className="f">שם משתמש
           <input autoComplete="username" value={username} onChange={e => setUsername(e.target.value)} required autoFocus dir="ltr" />
         </label>
-        <label>סיסמה
+        <label className="f">סיסמה
           <input type="password" autoComplete="current-password" value={password} onChange={e => setPassword(e.target.value)} required dir="ltr" />
         </label>
-        {err && <div className="login-error" role="alert">{err}</div>}
+        {err && <div className="login-err" role="alert">{err}</div>}
         <button className="primary" type="submit" disabled={busy}>{busy ? 'מתחבר…' : 'כניסה'}</button>
       </form>
-    </main>
+    </div>
   )
 }

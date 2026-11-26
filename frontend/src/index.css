@@ -491,14 +491,13 @@ tr.selected td { background: #eef4ff; }
 .rr-internal-title { margin: 22px 0 6px; font-size: 14px; color: var(--na); border-top: 1px solid var(--line, #e2e5ea); padding-top: 12px; }
 .rr-sec.internal h3 { color: var(--na); font-size: 14px; }
 
-/* sign-in */
-.login-page { min-height: 100vh; display: grid; place-items: center; padding: 16px; background: linear-gradient(160deg, var(--brand) 0%, #10304f 55%, var(--brand-2) 100%); }
-.login-card { width: min(380px, 100%); background: #fff; border-radius: 16px; padding: 32px 28px; display: grid; gap: 14px; box-shadow: 0 18px 48px rgba(0,0,0,.25); }
-.login-card h1 { margin: 4px 0 0; font-size: 1.35rem; color: var(--brand); }
-.login-card p { margin: 0 0 6px; font-size: .9rem; }
-.login-card label { display: grid; gap: 6px; font-size: .9rem; font-weight: 600; color: #243b53; }
-.login-card input { padding: 10px 12px; font-size: 1rem; border: 1px solid var(--line); border-radius: 8px; }
-.login-card input:focus { outline: 2px solid var(--brand-2); outline-offset: 1px; }
-.login-card button.primary { padding: 11px; font-size: 1rem; margin-top: 4px; }
-.login-mark { width: 48px; height: 48px; border-radius: 13px; display: grid; place-items: center; background: linear-gradient(145deg,#26a4b2,#66d2c7); font-size: 26px; font-weight: 800; color: #082f46; }
-.login-error { background: #fdecec; color: #9b1c1c; border: 1px solid #f5c2c2; border-radius: 8px; padding: 8px 10px; font-size: .9rem; }
+/* sign-in — same layout as the other Kortexd apps: grey page, plain white card */
+.login-center { min-height: 100vh; display: grid; place-items: center; padding: 16px; background: #f4f6f7; color: #18303f; }
+.login { width: min(380px, 100%); display: grid; gap: 14px; background: #fff; border: 1px solid #d7dfe3; border-radius: 10px; padding: 28px; }
+.login h1 { margin: 0; font-size: 24px; font-weight: 700; }
+.login .hint { margin-top: -8px; font-size: 12.8px; color: #5c6f7b; }
+.login label.f { display: grid; gap: 4px; font-size: 13.6px; color: #5c6f7b; }
+.login input { background: #f4f6f7; border: 1px solid #d7dfe3; border-radius: 6px; padding: 7px 10px; font-size: 15.2px; color: #18303f; }
+.login input:focus { outline: 2px solid var(--brand-2); outline-offset: 0; background: #fff; }
+.login button.primary { width: 100%; border-radius: 6px; padding: 7px 14px; font-size: 15px; font-weight: 600; }
+.login-err { font-size: 13.6px; color: #b42318; }
