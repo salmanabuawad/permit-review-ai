@@ -51,7 +51,15 @@ def run_once() -> bool:
     due = service.queue_due(SessionLocal)                 # only authorities whose administrator set a schedule
     if due:
         log.info("scheduled crawl(s) queued: %s", due)
-    return bool(due)
+        return True
+    from . import embeddings                              # idle: embed fetched text, a bounded batch at a time
+    if embeddings.available():
+        with SessionLocal() as s:
+            out = embeddings.index(s, max_chunks=64)
+        if out.get("embedded") or out.get("chunks_made"):
+            log.info("embeddings %s", out)
+            return True
+    return False
 
 
 def main(interval_s: float = 10.0) -> None:

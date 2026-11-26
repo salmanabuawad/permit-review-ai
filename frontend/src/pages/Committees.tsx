@@ -67,8 +67,9 @@ export default function Committees() {
       <button disabled={sq.trim().length < 2}>חיפוש</button>{hits && <button type="button" onClick={() => setHits(null)}>ניקוי</button>}
     </form>
     {hits && <div className="card" style={{ marginBottom: 10 }}>
-      <div className="small muted" style={{ marginBottom: 6 }}>{hits.length} תוצאות (עד 50) — טקסט שנקלט מאתרי הוועדות; טרם אומת ואינו כלל</div>
+      <div className="small muted" style={{ marginBottom: 6 }}>{hits.length} תוצאות (עד 50; חיפוש משולב — מילה מדויקת ומשמעות) — טקסט שנקלט מאתרי הוועדות; טרם אומת ואינו כלל</div>
       {hits.map((h, i) => <div key={i} className="hit"><b>{h.committee}</b> · <a href={h.url} target="_blank" rel="noreferrer">{h.document}</a> · עמ׳ {h.page}
+        {(h.found_by ?? []).map((f: string) => <span key={f} className="chip outline" style={{ marginInlineStart: 4 }}>{f === 'semantic' ? `לפי משמעות${h.similarity ? ' ' + h.similarity : ''}` : 'מילה מדויקת'}</span>)}
         <div className="small" style={{ whiteSpace: 'pre-wrap' }}>…{h.excerpt}…</div></div>)}
       {!hits.length && <div className="empty">לא נמצא</div>}
     </div>}

@@ -12,7 +12,7 @@ import uuid
 
 from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy.types import TypeDecorator
+from sqlalchemy.types import TypeDecorator, UserDefinedType
 
 from .db import Base
 
@@ -644,3 +644,23 @@ class CommitteePassage(Base):
     snapshot_id: Mapped[int] = mapped_column(ForeignKey('committee_snapshots.id', ondelete='CASCADE'), index=True)
     page: Mapped[int] = mapped_column(Integer)
     text_he: Mapped[str] = mapped_column(Text)
+
+
+class PGVector(UserDefinedType):
+    """pgvector column type (PostgreSQL); values are '[x,y,…]' strings, so SQLAlchemy casts to vector, not VARCHAR."""
+    cache_ok = True
+
+    def get_col_spec(self, **kw):
+        return "vector(384)"
+
+
+class CommitteeChunk(Base):
+    """A window of a committee passage's text with its embedding (PostgreSQL: vector(384); tests: JSON text)."""
+    __tablename__ = 'committee_chunks'
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    passage_id: Mapped[int] = mapped_column(ForeignKey('committee_passages.id', ondelete='CASCADE'), index=True)
+    ord: Mapped[int] = mapped_column(Integer)
+    start: Mapped[int] = mapped_column(Integer)
+    end: Mapped[int] = mapped_column(Integer)
+    model: Mapped[str | None] = mapped_column(String(80), index=True)     # embedding model id; None = not embedded yet
+    embedding: Mapped[str | None] = mapped_column(Text().with_variant(PGVector(), "postgresql"))   # via embeddings.index

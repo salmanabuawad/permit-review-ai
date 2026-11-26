@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-11-26 — Local embeddings and hybrid search (Permit360 1.5, first part)
+
+- Model: intfloat/multilingual-e5-small (MIT), ONNX, revision 614241f, file hashes checked, provenance recorded next to
+  the model (`/opt/permit-review-ai/models/…/PROVENANCE.json`); runs on the server CPU (onnxruntime 1.32, tokenizers
+  0.22.1, 2 threads). Owner approval: 2026-11-26.
+- Committee text is split into ~700-character windows with overlap (`committee_chunks`, migration 0012, pgvector
+  `vector(384)` on PostgreSQL) and embedded incrementally by the crawler worker when it has nothing else to do
+  (guidelines and plans first); every vector carries its model id, so vectors of different models are never compared.
+- Search over committee text is hybrid: exact keyword and nearest-meaning chunks fused by reciprocal rank; each hit
+  says what found it. Without the model files it falls back to keyword search. Exact vector search; an approximate
+  index only after a benchmark.
+- Measured: ≈ 4.4 chunks / s (≈ 256 tokens) on 2 CPU threads; a Hebrew sanity check ranks the right passage first.
+  No retrieval benchmark yet (needs a question set with expected clauses).
+
 ## 2026-11-26 — Per-rule fixtures (Permit360 B-03, revised)
 
 - A rule may carry `tests: [{facts, expect, note?}]`. The engine runs them on validation (`run_rule_tests`), so an edit
