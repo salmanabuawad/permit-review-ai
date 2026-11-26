@@ -114,7 +114,7 @@ def run_case(case: Path) -> dict:
     out.pop("application_id", None)
     return {"case": case.name, "route_filed": p.selected_route, "plans": p.plans, "verdict": res.verdict,
             "confirmed": res.confirmed, "checks": [{k: c[k] for k in ("topic", "status", "confirmable")} for c in out["checks"]],
-            "notes": out.get("notes"), "summary_he": R.summary_he(res), "documents": docs,
+            "notes": out.get("law_notes"), "summary_he": R.summary_he(res), "documents": docs,
             "drawings_available": any(d["category"] == "cad_originals" for d in docs),
             "documents_used": sum(d["used"] for d in docs)}
 

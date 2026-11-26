@@ -1,0 +1,60 @@
+# Statutory plans of Hof Ashkelon read for building rights (knowledge/rights/hof_*.yaml). Scans from the council GIS,
+# OCR locally (tesseract heb) and checked against the page images. OCR texts are not stored: they include signatories'
+# ID numbers.
+sources:
+- id: HOF-PLAN-2-228-03-6
+  category: STATUTORY_PLAN
+  title_he: "תכנית 2/228/03/6 — נתיב העשרה, איחוד וחלוקה והרחבת נחלות (הוראות)"
+  url: https://mg2.gis-net.co.il/authoritydata/HofAshkelon/takanon/2_228_03_6.pdf
+  edition: "בתוקף מ-04/11/2009 (GIS)"
+  verification: VERIFIED_READ
+  jurisdiction: hof-ashkelon
+  sha256: 56d97cb4ddfa31ce85c389dad757390e726e27d4c956f08d27b6d93d463516b9
+- id: HOF-PLAN-291-03-6
+  category: STATUTORY_PLAN
+  title_he: "תכנית 291/03/6 — ניצן (הוראות), סעיפים 13ב ו-14"
+  url: https://mg2.gis-net.co.il/authoritydata/HofAshkelon/takanon/291_03_6.pdf
+  edition: "בתוקף מ-23/05/2006 (GIS)"
+  verification: VERIFIED_READ
+  jurisdiction: hof-ashkelon
+  sha256: 3c57a2d61c1a87277ad73fcaffb68bbbbdc95ec316081927ffeec279fe5526e7
+- id: HOF-PLAN-2-166-03-6
+  category: STATUTORY_PLAN
+  title_he: "תכנית 2/166/03/6 — כוכב מיכאל (הוראות), סעיפים 23-24"
+  url: https://mg2.gis-net.co.il/authoritydata/HofAshkelon/takanon/2_166_03_6.pdf
+  edition: "בתוקף מ-10/12/1984 (GIS)"
+  verification: VERIFIED_READ
+  jurisdiction: hof-ashkelon
+  sha256: 236548f6216f8c9588b6f774f2d0372acb68cf6372603787752fbcca17a2d6d0
+- id: HOF-PLAN-D-820
+  category: STATUTORY_PLAN
+  title_he: "תכנית ד/820 — ניר ישראל, תכנית חלוקה (זכויות לפי תכנית המתאר)"
+  url: https://mg2.gis-net.co.il/authoritydata/HofAshkelon/takanon/d_820.pdf
+  edition: "בתוקף מ-23/11/1972 (GIS)"
+  verification: VERIFIED_READ
+  jurisdiction: hof-ashkelon
+  sha256: a0af64af73c66f397a19647190b94b50ab8444674284142882dfbec5b04c92ff
+- id: HOF-PLAN-D-821
+  category: STATUTORY_PLAN
+  title_he: "תכנית ד/821 — ברכיה, תכנית חלוקה (זכויות לפי תכנית המתאר)"
+  url: https://mg2.gis-net.co.il/authoritydata/HofAshkelon/takanon/h_d_821.pdf
+  edition: "בתוקף מ-23/11/1972 (GIS)"
+  verification: VERIFIED_READ
+  jurisdiction: hof-ashkelon
+  sha256: 2658ab029b3ba06d4d67c1ee2b198fd46354711e17e333e0c6c08baca2d162a9
+- id: HOF-PLAN-D-822
+  category: STATUTORY_PLAN
+  title_he: "תכנית ד/822 — גיאה, תכנית חלוקה (זכויות לפי תכנית המתאר)"
+  url: https://mg2.gis-net.co.il/authoritydata/HofAshkelon/takanon/d_822.pdf
+  edition: "בתוקף מ-16/10/1972 (GIS)"
+  verification: VERIFIED_READ
+  jurisdiction: hof-ashkelon
+  sha256: 6c165d546963bb99ac09c4514d4f30ff86f0b20d289feba6872a8c8299b5254a
+- id: HOF-PLAN-156-03-6
+  category: STATUTORY_PLAN
+  title_he: "תכנית 156/03/6 — הודיה (מסמך D_777 ב-GIS), תכנית חלוקה (זכויות לפי תכנית המתאר)"
+  url: https://mg2.gis-net.co.il/authoritydata/HofAshkelon/takanon/D_777.pdf
+  edition: "בתוקף מ-16/10/1972 (GIS)"
+  verification: VERIFIED_READ
+  jurisdiction: hof-ashkelon
+  sha256: 4e87f70146ce52b05708df688d60cb4bd585af4e27e709332ca35508f67982e3

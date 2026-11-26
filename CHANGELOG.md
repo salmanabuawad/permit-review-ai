@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-11-26 — rights files for frequent Hof Ashkelon plans
+
+- `knowledge/rights/hof_*.yaml`: 2/228/03/6 (Netiv HaAsara), 291/03/6 (Nitzan), 2/166/03/6 (Kochav Michael); ד/820,
+  ד/821, ד/822, 156/03/6 marked as rights-by-reference (regional outline plan, not available). Sources with SHA-256.
+- Route engine: zones by lot range / land use, main-use filter, % of lot area, per-lot main area, total-only rights,
+  half lots; declared areas of an addition are not compared with whole-lot rights.
+- Rejected-applications re-run (development): rights for 24 cases (was 12), 0 missed, 0 unsupported.
+
 ## 2026-11-26 — blind run on 136 rejected Hof Ashkelon applications
 
 - `scripts/evaluate_rejected.py` (+ `_score.py`): engine on the blind set only, inputs hashed and screened (committee

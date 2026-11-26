@@ -33,6 +33,8 @@ REGISTER_ROUTE = {"81": "REGULAR", "82": "RELIEF", "83": "SHORT"}      # committ
 STATUS_ORDER = ("WITHIN", "NOT_CHECKED", "POSSIBLE_DEVIATION", "RELIEF", "DEVIATION_UNCLASSIFIED", "PROHIBITED")
 # a contradiction between the applicant's own fields (e.g. net vs gross area): needs clarification, never a deviation
 DOCUMENT_STATUSES = ("DOCUMENT_DISCREPANCY",)
+# the request adds to / regularises an existing building: the register's areas may be only the addition
+ADDITION = re.compile(r"תוספת|הרחבת|בדיעבד|הסדרת|תכנית שינויים|גרמושקת שינויים|קיים בהיתר")
 MAIN_USES = re.compile(r"מגורים|חדר שינה|סלון|חדר עבודה|משרד|מטבח|יחידת דיור")
 
 
@@ -81,6 +83,10 @@ class Proposal:
     gross_added_m2: float | None = None         # new construction (gross), from drawings or the applicant's description
     gross_added_source: str = ""                # "drawings" | "applicant description"
     cancelled_unbuilt_m2: float | None = None   # approved earlier but never built, removed by this request
+    lot: str | None = None                      # the lot number, to pick the plan's zone
+    main_use: str | None = None                 # the register's main use (residential rights do not apply to a barn)
+    # "total": the declared areas are the whole building; "addition": they may be only what this request adds
+    areas_scope: str = "total"
 
 
 @dataclass
@@ -122,7 +128,61 @@ def _date(s) -> dt.date | None:
     return s if isinstance(s, dt.date) else dt.date.fromisoformat(str(s))
 
 
-def load_rights(plans: list[str], land_use: str | None, on: dt.date, folder: Path | None = None) -> tuple[dict | None, str]:
+HALF_LOT = re.compile(r"\s*(\d+)\s*[א-ת]['׳]?\s*")      # "653 ב'", "615א": one unit's part of a two-unit lot
+
+
+def _lot_in(lot: str | None, ranges: list) -> bool:
+    if lot is None:
+        return False
+    m = re.fullmatch(r"\s*(\d+)\s*", str(lot)) or HALF_LOT.fullmatch(str(lot))
+    if not m:
+        return False                              # "246 B" or unknown: never guessed into a range
+    n = int(m.group(1))
+    for rg in ranges:
+        a, _, b = str(rg).partition("-")
+        if int(a) <= n <= int(b or a):
+            return True
+    return False
+
+
+def _select(r: dict, lot: str | None, use: str | None, land_use: str | None, lot_area: float | None) -> tuple[dict | None, str]:
+    """The rights that apply to this lot and use inside a plan file: by-reference plans, use limits, zones by lot range
+    or land use, and rights given as a percentage of the lot area."""
+    plan = r["plan"]
+    if r.get("rights_by_reference"):
+        return None, f"תכנית {plan} אינה קובעת זכויות בנייה בעצמה — הזכויות לפי {r['rights_by_reference']}, שאינה במאגר הידע"
+    uses = r.get("applies_to_uses")
+    if uses and use and not any(u in use for u in uses):
+        return None, f"בקובץ הזכויות של תכנית {plan} אין זכויות לשימוש \"{use}\""
+    zones = r.get("zones")
+    if not zones:
+        return r, ""
+    zone = next((z for z in zones if z.get("lots") and _lot_in(lot, z["lots"])), None)
+    if zone is None and land_use:
+        zone = next((z for z in zones if any(u in land_use or land_use in u for u in z.get("land_use", []))), None)
+    if zone is None:
+        why = f"המגרש {lot} אינו באף אזור שזכויותיו במאגר" if lot and any(z.get("lots") for z in zones) \
+            else "האזור שבו נמצא המגרש אינו ידוע (נדרש תשריט התכנית או נתוני GIS)"
+        return None, f"תכנית {plan}: {why}"
+    if zone.get("rights_by_reference"):
+        return None, f"תכנית {plan}, {zone['name']}: הזכויות לפי {zone['rights_by_reference']}, שאינה במאגר הידע"
+    merged = {**r, **{k: v for k, v in zone.items() if k not in ("lots", "name")}, "zone": zone["name"]}
+    if lot and HALF_LOT.fullmatch(str(lot)) and (zone.get("units_max") or 1) > 1:
+        merged["part_of_lot"] = str(lot).strip()  # rights are per lot; this request is one unit's part of it
+    over = next((o for o in zone.get("main_overrides") or [] if _lot_in(lot, o["lots"])), None)
+    if over:                                      # the plan sets the main area lot by lot
+        merged["rights"] = {**merged.get("rights", {}), "main_m2": over["main_m2"]}
+    pct = zone.get("rights_pct")
+    if pct:
+        if lot_area is None:
+            return None, f"תכנית {plan}, {zone['name']}: הזכויות באחוזים משטח המגרש, ושטח המגרש אינו ידוע"
+        merged["rights"] = {**(zone.get("rights") or {}), **{k[:-4] + "_m2": round(v * lot_area / 100, 2)
+                                                              for k, v in pct.items() if k.endswith("_pct")}}
+    return merged, f"{zone['name']}"
+
+
+def load_rights(plans: list[str], land_use: str | None, on: dt.date, folder: Path | None = None, *, lot: str | None = None,
+                use: str | None = None, lot_area: float | None = None) -> tuple[dict | None, str]:
     """The rights file of a plan that applies on the date, for the lot's land use. (rights, note)"""
     folder = folder or Path(settings.knowledge_dir, "rights")
     norm = lambda s: re.sub(r"[\s\"״׳']", "", s or "")
@@ -137,7 +197,11 @@ def load_rights(plans: list[str], land_use: str | None, on: dt.date, folder: Pat
             return None, f"התכנית {r['plan']} נכנסה לתוקף ב־{frm:%d.%m.%Y}, אחרי מועד הגשת הבקשה"
         if to and on >= to:
             return None, f"התכנית {r['plan']} לא הייתה בתוקף במועד הגשת הבקשה"
-        return r, f"תכנית {r['plan']} בתוקף מ־{frm:%d.%m.%Y}" + (f"; {r['amendment_check']}" if r.get("amendment_check") else "")
+        sel, why = _select(r, lot, use, land_use, lot_area)
+        if sel is None:
+            return None, why
+        return sel, f"תכנית {r['plan']} בתוקף מ־{frm:%d.%m.%Y}" + (f" ({why})" if why else "") + \
+            (f"; {r['amendment_check']}" if r.get("amendment_check") else "")
     return None, "לא נמצא קובץ זכויות לתכנית החלה"
 
 
@@ -175,7 +239,10 @@ def proposal_from_register(facts: dict, gis: dict | None = None) -> Proposal:
         land_use=land_use, lot_area_m2=lot_area, selected_route=REGISTER_ROUTE.get(str(code)),
         route_source=f"סוג הבקשה במאגר הוועדה (קוד {code})" if code else "",
         total_main_m2=num(facts.get("primary_area")), total_service_m2=num(facts.get("service_area")),
-        floors=None, floors_source="אין תכניות קומות זמינות", request_text=facts.get("request_text") or "")
+        floors=None, floors_source="אין תכניות קומות זמינות", request_text=facts.get("request_text") or "",
+        lot=land.get("מספר מגרש"), main_use=facts.get("main_use"),
+        areas_scope="addition" if ADDITION.search(facts.get("request_text") or "") or facts.get("description") not in (
+            None, "בנייה חדשה") else "total")
 
 
 # ------------------------------------------------------------------ classification
@@ -209,9 +276,27 @@ def classify_setback(sb: Setback, law: dict) -> Check:
 def check_aggregate(p: Proposal, r: dict) -> list[Check]:
     out = []
     rt = r["rights"]
-    for key, he, val, lim in (("main", "שטח עיקרי כולל", p.total_main_m2, rt["main_m2"]),
-                              ("service", "שטח שירות כולל (עילי ותת־קרקעי)", p.total_service_m2,
-                               rt["service_above_m2"] + rt["service_below_m2"])):
+    if p.areas_scope != "total":
+        return [Check("aggregate", "שטחים מול זכויות התכנית", "NOT_CHECKED",
+                      "הבקשה מוסיפה או מסדירה בנייה בבניין קיים — השטחים שבמאגר עשויים להיות התוספת בלבד, ולכן אינם "
+                      "מושווים לזכויות המגרש כולו.", source_id=r["source_id"], needs=["השטחים הקיימים בהיתר", "טבלת שטחים כוללת"])]
+    if r.get("part_of_lot") and not rt.get("main_per_unit_m2"):
+        return [Check("aggregate", "שטחים מול זכויות התכנית", "NOT_CHECKED",
+                      f"הבקשה למגרש {r['part_of_lot']} — חלק של יחידה אחת במגרש דו־משפחתי, והזכויות בתכנית הן למגרש כולו; "
+                      "נדרשת חלוקת הזכויות בין היחידות.", source_id=r["source_id"],
+                      needs=["חלוקת הזכויות בין יחידות המגרש", "השטחים הבנויים ביחידה השנייה"])]
+    svc = (None if rt.get("service_above_m2") is None or rt.get("service_below_m2") is None
+           else rt["service_above_m2"] + rt["service_below_m2"])
+    pairs = [("main", "שטח עיקרי כולל", p.total_main_m2, rt.get("main_m2")),
+             ("service", "שטח שירות כולל (עילי ותת־קרקעי)", p.total_service_m2, svc)]
+    if rt.get("main_m2") is None and rt.get("total_m2") is not None:      # a plan before the main/service split
+        both = None if p.total_main_m2 is None or p.total_service_m2 is None else p.total_main_m2 + p.total_service_m2
+        pairs = [("total", "שטח בנייה כולל", both, rt["total_m2"])]
+    for key, he, val, lim in pairs:
+        if lim is None:
+            out.append(Check(f"aggregate_{key}", he, "NOT_CHECKED", "התכנית קובעת שטח זה לפי נתון שאינו בבקשה (שטח המגרש, "
+                             "קומת הקרקע).", None, None, source_id=r["source_id"], needs=["שטח המגרש", "תכניות הקומות"]))
+            continue
         if val is None:
             out.append(Check(f"aggregate_{key}", he, "NOT_CHECKED", "השטח המבוקש לא נמסר.", None, lim, source_id=r["source_id"],
                              needs=["שטחי הבקשה"]))
@@ -374,7 +459,8 @@ def required_route(checks: list[Check]) -> str:
 
 
 def validate(p: Proposal, rights_folder: Path | None = None, law_path: Path | None = None) -> RouteResult:
-    rights, rnote = load_rights(p.plans, p.land_use, p.submission_date, rights_folder)
+    rights, rnote = load_rights(p.plans, p.land_use, p.submission_date, rights_folder, lot=p.lot, use=p.main_use,
+                                lot_area=p.lot_area_m2)
     law, law_ok, lnote = load_law(p.submission_date, law_path)
     short = check_short_track(p)
     if rights is None:

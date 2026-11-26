@@ -1,0 +1,12 @@
+# הודיה — plan 156/03/6 (1972-10-16): a parcellation plan. §12 "תכליות: בהתאם לתכנית המתאר ובהתאם לפרוט שבטבלה המצורפת"
+# — the attached table lists zone areas only. Building rights come from the regional outline plan, which is not in the
+# knowledge base; the engine reports that instead of guessing.
+# The GIS links plan 156/03/6 to the document D_777 (Hodiya parcellation); the document itself does not print the number.
+plan: "156/03/6"
+aliases: ["156/03/6"]
+source_id: HOF-PLAN-156-03-6
+effective_from: "1972-10-16"
+effective_to: null
+rights_by_reference: "תכנית המתאר של המועצה האזורית חוף אשקלון (לפי סעיף 12 בתכנית)"
+quotes:
+  s12: "תכליות: בהתאם לתכנית המתאר ובהתאם לפרוט שבטבלה המצורפת"

@@ -1,0 +1,24 @@
+# Kochav Michael — plan 2/166/03/6 (1984, before the main/service split of the 1992 area regulations). §23 (farm
+# holdings, part A) and §24 (residential for professionals and continuing sons), read from the scan (OCR checked
+# against the page image). The zone of a lot is on the plan map; the register does not give it.
+plan: "2/166/03/6"
+aliases: ["2/166/03/6", "2-166-03-6"]
+source_id: HOF-PLAN-2-166-03-6
+effective_from: "1984-12-10"          # GIS: "פרסום תוקף ברשומות", 10/12/1984
+effective_to: null
+amendment_check: "Later plans for Kochav Michael not checked."
+applies_to_uses: ["מגורים"]
+zones:
+  - name: "אזור מגורים בישוב חקלאי (חלקה א' — נחלה)"
+    land_use: ["מגורים בישוב חקלאי", "נחלה", "חלקה א"]
+    units_max: 3
+    rights: {main_m2: null, total_m2: 400, floors_above_entrance: 2}
+    unit_max_m2: {one_floor: 200, two_floors: 220, third_unit: 55}
+    auxiliary_m2: 45                  # one auxiliary building incl. parking, in addition
+  - name: "אזור מגורים לבעלי מקצוע ובנים ממשיכים"
+    land_use: ["מגורים לבעלי מקצוע", "בנים ממשיכים"]
+    units_max: 1
+    rights: {main_m2: null, total_m2: 220, floors_above_entrance: 2}
+quotes:
+  s23: "מותר יהיה לבנות, לכל היותר 3 יחידות מגורים ... ובלבד ששטח הבניה הכולל לא יעלה על 400 מ\"ר ושטח יחידת דיור לא יעלה על 200 מ\"ר בקומה ו-220 מ\"ר בשתי קומות, שטח יח\"ד שלישית לא יעלה על 55 מ\"ר. תותר גם הקמת מבנה עזר בשטח של 45 מ\"ר כולל מקום חנייה."
+source_pages: [3, 4]

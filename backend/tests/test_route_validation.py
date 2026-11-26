@@ -298,3 +298,59 @@ def test_declared_relief_is_judged_without_a_rights_file():
     assert res.verdict == "WRONG_ROUTE" and res.confirmed
     res = R.validate(R.Proposal(**base, request_text="תוספת חדר ללא הקלות"))
     assert res.verdict == "NO_RIGHTS" and not [c for c in res.checks if c.topic == "declared_relief"]
+
+
+# ------------------------------------------------------------------ Hof Ashkelon plan rights (knowledge/rights/hof_*)
+
+def _hof(plan, lot, **kw):
+    base = dict(application_id="X", submission_date=dt.date(2020, 6, 1), plans=[plan], selected_route="REGULAR", lot=lot,
+                main_use="מגורים", total_main_m2=300.0, total_service_m2=100.0)
+    return R.validate(R.Proposal(**{**base, **kw}))
+
+
+def test_netiv_haasara_lot_rights_and_zone():
+    res = _hof("2/228/03/6", "12")
+    st = {c.topic: (c.status, c.limit) for c in res.checks}
+    assert st["aggregate_main"] == ("WITHIN", 640) and st["aggregate_service"] == ("WITHIN", 275)
+    assert _hof("2/228/03/6", "12", total_main_m2=700.0).verdict == "WRONG_ROUTE"        # above 640 m² main
+    assert _hof("2/228/03/6", "20").verdict == "NO_RIGHTS"                               # lot outside the residential zones
+    assert _hof("2/228/03/6", "12", main_use="מבנה חקלאי").verdict == "NO_RIGHTS"         # residential rights only
+    assert _hof("2/228/03/6", "246 B").verdict == "NO_RIGHTS"                            # never guessed into a range
+
+
+def test_nitzan_per_lot_main_area_and_percent_rights():
+    def main_lim(lot, **kw):
+        return {c.topic: c.limit for c in _hof("291/03/6", lot, **kw).checks}.get("aggregate_main")
+    assert main_lim("209") == 178 and main_lim("303") == 352 and main_lim("205") == 354 and main_lim("110") == 357
+    assert main_lim("650") == 350
+    assert _hof("291/03/6", "50").verdict == "NO_RIGHTS"                                 # % of the lot area, area unknown
+    assert main_lim("50", lot_area_m2=500.0) == 275.0                                    # 55% of 500 m²
+
+
+def test_addition_areas_are_not_compared_with_lot_rights():
+    res = _hof("2/228/03/6", "12", areas_scope="addition", total_main_m2=69.0)
+    assert [(c.topic, c.status) for c in res.checks if c.topic.startswith("aggregate")] == [("aggregate", "NOT_CHECKED")]
+    f = {"application_id": "X", "submission_date": "01/01/2020", "description": "בנייה חדשה",
+         "request_text": "אישור בדיעבד לבית מגורים קיים ותוספת שטחים", "land": [{"מספר מגרש": "12"}]}
+    assert R.proposal_from_register(f).areas_scope == "addition"
+    assert R.proposal_from_register({**f, "request_text": "הקמת בית מגורים הכולל שינוי מפלס 0.00"}).areas_scope == "total"
+
+
+def test_parcellation_plans_say_where_the_rights_are():
+    res = _hof("ד/821", "5")
+    assert res.verdict == "NO_RIGHTS" and "תכנית המתאר" in res.law_notes[0]
+
+
+def test_pre_1989_plan_checks_the_total_only():
+    p = R.Proposal(application_id="X", submission_date=dt.date(2020, 1, 1), plans=["2/166/03/6"], selected_route="REGULAR",
+                   land_use="אזור מגורים בישוב חקלאי", main_use="מגורים", total_main_m2=300.0, total_service_m2=120.0)
+    st = {c.topic: (c.status, c.limit) for c in R.validate(p).checks}
+    assert st["aggregate_total"] == ("DEVIATION_UNCLASSIFIED", 400)
+    assert "האזור" in R.validate(R.Proposal(**{**p.__dict__, "land_use": None})).law_notes[0]   # zone unknown from the register
+
+
+def test_half_lot_gets_its_zone_but_not_whole_lot_rights():
+    res = _hof("291/03/6", "653 ב'")
+    assert res.verdict == "INSUFFICIENT_EVIDENCE"
+    assert [(c.topic, c.status) for c in res.checks] == [("aggregate", "NOT_CHECKED"), ("floors", "NOT_CHECKED")]
+    assert "דו־משפחתי" in res.checks[0].explanation_he

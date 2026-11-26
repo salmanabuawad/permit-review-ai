@@ -66,5 +66,30 @@ objections, outside authorities.
 * All 136 are rejections, so the decision itself carries no information; only per-reason agreement is scored.
 * The tagging of official reasons is a keyword reading of broken text, not a professional reading.
 
-Next inputs that would make this measurable: rights files for the frequent plans (291/03/6, 156/03/6, ד/821, ד/822,
-2/228/03/6), and the original submissions of the 6 cases with drawings.
+## Rights files for the frequent plans (added after the blind run)
+
+Read from the plans' scanned instructions (council GIS; OCR locally, every value checked against the page image;
+sources in `knowledge/sources.d/hof_ashkelon_plans.yaml` with SHA-256 — OCR texts not stored, they contain
+signatories' ID numbers):
+
+| Plan | Village | Cases | What the file holds |
+|---|---|---|---|
+| 2/228/03/6 (2009) | Netiv HaAsara | 6 | lots 1-16, 22-26, 42-67, 76-85, 90-107: main 640 m² (≤350 per unit, 2 units), service 155 above + 120 below, coverage 650, 2 floors + basement. The plan prints a total of 810 m², less than its own parts (915) — reported, never used. |
+| 291/03/6 (2006) | Nitzan | 9 | single-family lots: 55% main, 25% + 10% service **of the lot area**; lots 601-671: 350 / 60 / 100 m²; other two-family lots: main per lot 178-357 m² by §13ב, service by formula |
+| 2/166/03/6 (1984) | Kochav Michael | 5 | farm plot: ≤3 units, ≤400 m² total (before the main/service split); professionals' zone ≤220 m² — the zone of a lot is on the map, not in the register |
+| ד/820, ד/821, ד/822, 156/03/6 (1972) | Nir Israel, Bracha, Gea, Hodiya | 25 | parcellation plans: rights "according to the outline plan" (§12). Marked as by-reference; the regional outline plan is **not in the package** (the later plans listed — 633-0575639, 633-0966986 — postdate the submissions; 307/02/6 is a road plan; 633-0415778 covers non-agricultural uses) |
+| 1/200/03/6, 2/156/03/6 | Heletz, Hodiya extension | 9 | no plan instructions in the package |
+
+Engine support added with them: rights by lot range, by land use and by main use (a barn or an antenna gets no
+residential rights); rights as a percentage of the lot area (NOT_CHECKED until the lot area is known); per-lot main
+area; a total-only right for pre-1989 plans; a half lot ("653 ב'") gets its zone but not the whole lot's rights. And
+a guard: when the request adds to or regularises an existing building, the register's areas may be the addition only
+and are **not** compared with the lot's rights (CASE_000008 declares 69 m² main — the addition — on a 640 m² lot).
+
+**Re-run — development, not blind** (labels were seen before these files were written; the blind result is kept
+separately, `exports/hof_rejected/results_blind_2026-11-26/`): rights now apply to 24 cases (was 12); reason topics in
+engine scope 16 (was 10): DETECTED 1, FLAGGED 15, MISSED 0, unsupported 0. Remaining NO_RIGHTS: no rights file 77,
+rights in the regional outline plan 25, zone unknown 4, % of an unknown lot area 3, non-residential use 2.
+
+Next inputs: the Hof Ashkelon regional outline plan (it decides 25 cases), lot areas from the GIS (decides the Nitzan
+single-family lots), and the original submissions of the 6 cases with drawings.

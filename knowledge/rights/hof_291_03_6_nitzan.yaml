@@ -1,0 +1,47 @@
+# Nitzan — plan 291/03/6 (2006). Read from the scanned regulations (local OCR, checked against the page images):
+# §13ב (printed p.18, two-family lots per 6/מק/2016) and table §14 (printed p.19).
+plan: "291/03/6"
+aliases: ["291/03/6", "291-03-6"]
+source_id: HOF-PLAN-291-03-6
+effective_from: "2006-05-23"          # GIS: "פרסום תוקף ברשומות", 23/05/2006
+effective_to: null
+amendment_check: "Later amendments for Nitzan (e.g. 2/291/03/6) exist in the GIS list and were NOT read; a lot they cover may have other rights."
+applies_to_uses: ["מגורים"]
+zones:
+  - name: "מגורים א' חד משפחתי"
+    lots: ["1-100", "150-200", "250-300", "350-400", "450-499"]
+    units_max: 1
+    rights_pct:                       # % of the lot area; needs the lot area
+      main_pct: 55                    # in two floors; at most 35% on the ground floor
+      service_below_pct: 25
+      service_above_pct: 10
+    rights: {floors_above_entrance: 2}
+    coverage_pct: 40
+  - name: "מגורים א' דו משפחתי — מגרשים 601-671"
+    lots: ["601-671"]
+    units_max: 2
+    rights:
+      main_m2: 350
+      service_below_m2: 60
+      service_above_m2: 100
+      total_m2: 510
+      coverage_m2: 260
+      floors_above_entrance: 2
+    building_lines_m: {front: 5, side: 3, rear: 4}
+  - name: "מגורים א' דו משפחתי (לפי 6/מק/2016)"
+    lots: ["101-117", "120-122", "125", "201-219", "301-307", "314", "317-322", "401", "404-415", "423", "502-519"]
+    units_max: 2
+    # main area per lot (§13ב): 209 → 178; 215 → 214; 303 → 352; 201-208, 210-214, 216-219, 302, 304, 306, 404-415 → 354;
+    # the remaining lots → 357. Service: storage up to 5% of the lot per unit + 7.5 m² mamad + basement 2.20 m high
+    # within the ground-floor outline — depends on the lot and the ground floor, so not a fixed number.
+    main_overrides:
+      - {lots: ["209"], main_m2: 178}
+      - {lots: ["215"], main_m2: 214}
+      - {lots: ["303"], main_m2: 352}
+      - {lots: ["201-208", "210-214", "216-219", "302", "304", "306", "404-415"], main_m2: 354}
+    rights: {main_m2: 357, service_above_m2: null, service_below_m2: null, floors_above_entrance: 2}
+quotes:
+  single: "מגורים א' חד משפחתי | 55% בשתי קומות, 35% מקס' בק. קרקע | 25% | 10% | 90% | 40% | 2 + מרתף + עלית גג"
+  two_family_601: "601-671 | 2 | 350 מ\"ר | 60 מ\"ר | 100 מ\"ר | 510 מ\"ר | 260 מ\"ר | 2 + מרתף + ע. גג | 5 3 4"
+  two_family_13b: "יתרת המגרשים - שטח עיקרי למגרש 357 מ\"ר ... שטחי שירות – מחסן ליח' דיור עד 5% משטח המגרש לפי תכנית קיימת + 7.5 מ\"ר ממ\"ד + מרתף בגובה עד 2.20 מ' מתחת להיקף קומת הקרקע"
+source_pages: [20, 21]

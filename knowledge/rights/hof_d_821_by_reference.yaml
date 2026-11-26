@@ -1,0 +1,11 @@
+# ברכיה — plan ד/821 (1972-11-23): a parcellation plan. §12 "תכליות: בהתאם לתכנית המתאר ובהתאם לפרוט שבטבלה המצורפת"
+# — the attached table lists zone areas only. Building rights come from the regional outline plan, which is not in the
+# knowledge base; the engine reports that instead of guessing.
+plan: "ד/821"
+aliases: ["ד/821"]
+source_id: HOF-PLAN-D-821
+effective_from: "1972-11-23"
+effective_to: null
+rights_by_reference: "תכנית המתאר של המועצה האזורית חוף אשקלון (לפי סעיף 12 בתכנית)"
+quotes:
+  s12: "תכליות: בהתאם לתכנית המתאר ובהתאם לפרוט שבטבלה המצורפת"

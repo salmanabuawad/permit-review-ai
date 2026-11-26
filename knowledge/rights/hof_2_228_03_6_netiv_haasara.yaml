@@ -1,0 +1,31 @@
+# Netiv HaAsara — plan 2/228/03/6 (unification and division of farm-holding residential lots; changes 221/02/6 and
+# 228/03/6). Read from the scanned regulations (local OCR, checked against the page image): §4ג, §10א, and the proposed
+# table §9ב (printed p.7). Rights are per LOT (up to 2 units), not per unit.
+plan: "2/228/03/6"
+aliases: ["2/228/03/6", "2-228-03-6"]
+source_id: HOF-PLAN-2-228-03-6
+effective_from: "2009-11-04"          # GIS: "פרסום תוקף ברשומות", 04/11/2009
+effective_to: null
+amendment_check: "GIS lists 2/228/03/6 as the lot-defining plan; later plans for the moshav not checked."
+applies_to_uses: ["מגורים"]
+zones:
+  - name: "אזור מגורים בישוב חקלאי — מגורים"
+    lots: ["1-16", "22-26", "42-67", "76-85", "90-107"]
+    units_max: 2
+    rights:
+      main_m2: 640                    # above ground; note (1): at most 350 m² main per unit
+      main_per_unit_m2: 350
+      service_above_m2: 155           # note (3): incl. mamad ≤7 per unit, storage ≤100, covered parking ≤31, pool services ≤10
+      service_below_m2: 120           # note (2): basement for storage, inner height 2.20–2.40 m
+      total_m2: 810                   # as printed in §4ג and in the table — the parts (640+155+120=915) exceed it; the
+                                      # plan does not reconcile them, so the total is reported, never used to pass a check
+      coverage_m2: 650
+      floors_above_entrance: 2
+    total_inconsistent: true
+    basement: {floors_max: 1, below_entrance_level: true, uses: ["אחסנה"]}
+    pool_max_m2: 70
+quotes:
+  purpose: "קביעת שטחי הבניה המרביים למגורים במגרשים ל- 810 מ\"ר למגרש, מתוכם 640 מ\"ר המהווים שטחים עקריים"
+  table: "מגורים | 2 | עיקרי מעל 640 מ\"ר (1) | שרות מתחת 120 מ\"ר (2) | שרות מעל 155 מ\"ר (3) | סה\"כ 810 מ\"ר | תכסית 650 מ\"ר (4) | 2 + מרתף"
+  note1: "שטח עקרי מירבי ליח\"ד: 350 מ\"ר"
+source_pages: [3, 4, 8]
