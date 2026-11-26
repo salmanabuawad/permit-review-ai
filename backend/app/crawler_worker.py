@@ -59,6 +59,10 @@ def main(interval_s: float = 10.0) -> None:
     n = service.fail_interrupted(SessionLocal)
     if n:
         log.warning("%d interrupted crawl(s) marked failed", n)
+    from . import committees
+    n = committees.fail_interrupted(SessionLocal)
+    if n:
+        log.warning("%d interrupted committee job(s) marked failed", n)
     while True:
         try:
             if run_once():

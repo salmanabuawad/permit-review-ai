@@ -158,3 +158,16 @@ def test_probe_queue_and_worker(monkeypatch):
     with SessionLocal() as s:
         done = s.get(PlanningCommittee, cid)
         assert done.kb_detail["probe"]["state"] == "done" and done.kb_status == "BLOCKED"
+
+
+def test_interrupted_jobs_marked_failed():
+    seed(reset=True, samples=False)
+    with SessionLocal() as s:
+        committees.import_register(s)
+        c = s.scalars(select(PlanningCommittee)).first()
+        c.kb_detail = {"fetch": {"state": "running"}}
+        cid = c.id
+        s.commit()
+    assert committees.fail_interrupted(SessionLocal) == 1
+    with SessionLocal() as s:
+        assert s.get(PlanningCommittee, cid).kb_detail["fetch"]["state"] == "failed"

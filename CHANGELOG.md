@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-11-26 — AI summary reused when nothing changed (Permit360 B-02)
+
+- The run's AI summary (≈ 94 % of run time, 25–47 s) is cached by the fingerprint of its exact prompt (findings,
+  knowledge passages, prompt template) plus the provider configuration and authority. An unchanged re-run reuses it;
+  any change in a finding, passage, prompt or model regenerates it; a template fallback (model unavailable) is never
+  cached. Hits are recorded in the AI cost log as `CACHE_HIT` (no time, tokens or cost) and in run metrics
+  (`llm.cached`).
+- Crawler start marks committee probe / fetch jobs left running as failed (re-queue to resume).
+
 ## 2026-11-26 — Committee candidate sources fetched into searchable snapshots
 
 - The crawler fetches each committee's candidate sources (from the site probe) into `committee_documents` /

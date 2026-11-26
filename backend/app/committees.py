@@ -403,3 +403,18 @@ def run_fetch(session_factory, cid: str, fetcher=None, sleep=None, extract=None)
             c = s.get(PlanningCommittee, cid)
             c.kb_detail = {**(c.kb_detail or {}), "fetch": {"state": "failed", "error": f"{type(e).__name__}: {e}"[:300]}}
             s.commit()
+
+
+def fail_interrupted(session_factory) -> int:
+    """At crawler start: a probe / fetch still 'running' belonged to a crawler that stopped. Marked failed; the
+    administrator queues it again (a fetch then resumes from the documents still pending)."""
+    with session_factory() as s:
+        n = 0
+        for c in s.scalars(select(PlanningCommittee)):
+            for job in ("probe", "fetch"):
+                st = (c.kb_detail or {}).get(job) or {}
+                if st.get("state") == "running":
+                    c.kb_detail = {**c.kb_detail, job: {**st, "state": "failed", "error": "הסורק הופעל מחדש באמצע העבודה"}}
+                    n += 1
+        s.commit()
+        return n

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import datetime as dt
 import hashlib
+import json
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -712,13 +713,14 @@ def run_checks(s: Session, case: PermitCase, user: str, gateway: AIGateway | Non
         counts[r.report][r.status] += 1
     gw = gateway or gateway_for(s, case.tenant_id)
     passages = case_passages(case, results)
-    draft = gw.route("ReportDraft", "CASE_DOCUMENT", {"findings": [r.as_dict() for r in results], "passages": passages},
-                     log=gateway_logger(s, case.tenant_id, case.id, user))
+    draft, summary_cached = cached_report_draft(s, gw, case, {"findings": [r.as_dict() for r in results], "passages": passages},
+                                                gateway_logger(s, case.tenant_id, case.id, user))
     ok = draft.outcome in ("OK", "FALLBACK")
     cited = set((draft.output or {}).get("citations") or []) if ok else set()
     run.duration_ms = int((time.perf_counter() - t0) * 1000)
     cache_after = dcache.stats()
     metrics = run_metrics(usable, run.duration_ms, t_docs, cpu0, draft, cache_before, cache_after)
+    metrics["llm"]["cached"] = summary_cached
     review_counts: dict = {}
     for r in results:
         st = next(f[7:] for f in r.flags if f.startswith("STATUS_"))
@@ -826,6 +828,41 @@ def resolve_regulation(s: Session, case: PermitCase, facts: dict) -> dict:
                 "unresolved": res.unresolved, "kb_version": rr.kb_version(), "verified_scope": scoped}
     except Exception as e:                        # resolution never breaks a run; the failure is recorded
         return {"error": f"{type(e).__name__}: {e}"[:300], "verified_scope": scoped}
+
+
+SUMMARY_CACHE_VERSION = "1"
+
+
+def cached_report_draft(s: Session, gw, case: PermitCase, payload: dict, log):
+    """The run's AI summary, reused when the exact prompt (findings + passages + prompt template) and the provider
+    configuration are unchanged; only a real model answer is reused (a template fallback is retried next run).
+    Returns (AIResult, from_cache)."""
+    from .ai.gateway import AIResult, report_prompt
+    from .derivation_cache import make_key
+    from .models import DerivationCache
+    pol = gw.policy_for("ReportDraft", "CASE_DOCUMENT") or {}
+    providers = {pid: gw.providers().get(pid) for pid in pol.get("providers", [])}
+    fp = hashlib.sha256(json.dumps([report_prompt(payload)[0], providers], sort_keys=True, ensure_ascii=False,
+                                   default=str).encode("utf-8")).hexdigest()
+    key = make_key("case", "report_draft", SUMMARY_CACHE_VERSION, fp, jurisdiction=case.tenant_id)
+    row = s.get(DerivationCache, key)
+    if row is not None:
+        row.hits = (row.hits or 0) + 1
+        o = row.output
+        res = AIResult("ReportDraft", "OK", o.get("provider_id"), o.get("model_version"), o.get("output"),
+                       trail=[{"cache": "hit", "fingerprint": fp[:16]}])
+        if log:                                   # recorded as a cache hit: no model time, no tokens, no cost
+            import dataclasses
+            log(dataclasses.replace(res, outcome="CACHE_HIT"))
+        return res, True
+    res = gw.route("ReportDraft", "CASE_DOCUMENT", payload, log=log)
+    if res.outcome == "OK" and res.output:
+        s.add(DerivationCache(key=key, scope="case", algorithm="report_draft", algorithm_version=SUMMARY_CACHE_VERSION,
+                              input_sha256=fp, jurisdiction=case.tenant_id, revision="", depends_on=[fp],
+                              output={"provider_id": res.provider_id, "model_version": res.model_version,
+                                      "output": res.output}, hits=0))
+        s.flush()
+    return res, False
 
 
 def run_metrics(files, duration_ms: int, docs_s: float, cpu0: float, draft, cache_before: dict, cache_after: dict) -> dict:
