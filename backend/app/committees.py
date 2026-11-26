@@ -237,6 +237,10 @@ def probe(s: Session, c: PlanningCommittee, fetcher=None, sleep=None) -> dict:
         summary["errors"].append("אין כתובת אתר ברשימה")
         return _finish(s, c, summary, blocked=True)
     allowed = _hosts(c.website_url)
+    # the published link is often an old deep page: when it fails, the site's home page (https, then http) is tried
+    parts = urlsplit(c.website_url)
+    fallbacks = [f"{sch}://{parts.hostname}/" for sch in ("https", "http")
+                 if f"{sch}://{parts.hostname}/" != c.website_url]
     queue, seen, pages = [c.website_url], set(), []
     while queue and summary["pages"] < 1 + MAX_PAGES:
         url = queue.pop(0)
@@ -255,6 +259,9 @@ def probe(s: Session, c: PlanningCommittee, fetcher=None, sleep=None) -> dict:
         summary["pages"] += 1
         if r.status != "ok" or not (r.content_type or "").startswith(("text/html", "application/xhtml")):
             summary["errors"].append(f"{url}: {r.message or r.status}")
+            if not pages and fallbacks:
+                queue.insert(0, fallbacks.pop(0))
+                summary["fallback"] = True
             continue
         text = F.decode_html(r.body)
         base = r.final_url or url

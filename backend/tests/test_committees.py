@@ -115,6 +115,19 @@ def test_probe_search_by_url_and_engineering_on_own_site():
         assert c.engineering_url == "https://d.example/eng"
 
 
+def test_probe_falls_back_to_home_page():
+    seed(reset=True, samples=False)
+    fetch, calls = _site({"https://e.example/": "<a href='/guide.pdf'>הנחיות מרחביות</a>"})
+    with SessionLocal() as s:
+        committees.import_register(s)
+        c = s.scalars(select(PlanningCommittee)).first()
+        c.website_url = "http://e.example/Pages/default.aspx"              # gone (404)
+        s.commit()
+        out = committees.probe(s, c, fetch, sleep=lambda _: None)
+        assert out.get("fallback") and calls[:2] == ["http://e.example/Pages/default.aspx", "https://e.example/"]
+        assert c.kb_status == "SOURCES_FOUND"
+
+
 def test_probe_redirect_once_and_blocked():
     seed(reset=True, samples=False)
     fetch, calls = _site({"https://old.example/": "<a href='/x'>מידע הנדסי</a>"}, redirect_to=("new.example", {"old.example"}))
