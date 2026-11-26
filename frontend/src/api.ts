@@ -21,7 +21,7 @@ export interface Report {
 }
 export interface Review {
   stage: string; stage_he: string; stage_source: string; decision: string; decision_why: string
-  counts: Record<string, number>; coverage: { completed: number; applicable: number }; external_findings: number
+  counts: Record<string, number>; coverage: { completed: number; applicable: number; families?: Record<string, { completed: number; required: number; state: string; label_he?: string }> }; external_findings: number
   limitations_he: string[]
 }
 export interface CaseFile {
@@ -41,14 +41,19 @@ export interface Case {
 
 // One user: the committee's administrator. With the app login on, the server takes the user from the session cookie
 // and ignores this header; without it (local development) the header names the user.
-const USER = 'u-ha-admin'
+// Development only; production identity comes from the authenticated session cookie.
+const USER = import.meta.env.VITE_DEV_USER || 'u-ha-admin'
+
+export const selectedAuthority = () => sessionStorage.getItem('bbp-authority') || ''
+export function setAuthority(id: string) { if (id) sessionStorage.setItem('bbp-authority',id); else sessionStorage.removeItem('bbp-authority') }
+function authHeaders(): Record<string,string> { const a=selectedAuthority(); return { 'X-User': USER, ...(a ? {'X-Authority':a}: {}) } }
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) { super(message) }
 }
 
 async function req<T>(method: string, path: string, body?: any, isForm = false): Promise<T> {
-  const headers: Record<string, string> = { 'X-User': USER }
+  const headers: Record<string, string> = authHeaders()
   if (body && !isForm) headers['Content-Type'] = 'application/json'
   const r = await fetch(path, { method, headers, body: isForm ? body : body ? JSON.stringify(body) : undefined })
   if (r.status === 401 && !path.startsWith('/api/auth/')) window.dispatchEvent(new Event('bbp-unauth'))
@@ -69,7 +74,7 @@ export const api = {
   upload: <T,>(p: string, fd: FormData) => req<T>('POST', p, fd, true),
   // binary downloads need the auth header too
   async blob(p: string): Promise<Blob> {
-    const r = await fetch(p, { headers: { 'X-User': USER } })
+    const r = await fetch(p, { headers: authHeaders() })
     if (r.status === 401) window.dispatchEvent(new Event('bbp-unauth'))
     if (!r.ok) throw new ApiError(r.status, r.statusText)
     return r.blob()
@@ -81,7 +86,7 @@ export function uploadWithProgress<T>(path: string, fd: FormData, onProgress: (p
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest()
     xhr.open('POST', path)
-    xhr.setRequestHeader('X-User', USER)
+    Object.entries(authHeaders()).forEach(([k,v])=>xhr.setRequestHeader(k,v))
     xhr.upload.onprogress = e => { if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100)) }
     xhr.onload = () => {
       let body: any = null

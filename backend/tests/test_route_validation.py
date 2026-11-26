@@ -268,9 +268,9 @@ def _ctx(declared, docs=()):
     return E.Context(list(docs), declared, "", None, {}, [])
 
 
-def test_resolver_na_without_rights_file():
+def test_resolver_not_checked_without_rights_file():
     r = E.r_licensing_route(_ctx({"submission_date": "2026-11-11", "plans_declared": ["633-0723718"]}))
-    assert r.status == "NA"
+    assert r.status == "UNCERTAIN" and r.review == "NOT_CHECKED"
 
 
 def test_resolver_wrong_route_is_a_confirmed_defect():

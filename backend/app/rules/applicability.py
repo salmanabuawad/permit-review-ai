@@ -115,14 +115,14 @@ class ApplicableRegulationResolver:
     def kb_version(self) -> str:
         """Hash of every knowledge file the resolver reads — the cache key's plan-version part."""
         h = hashlib.sha256()
-        for d in ("rights", "building_provisions", "law"):
+        for d in ("rights", "building_provisions", "law", "rules"):
             for f in sorted((self.k / d).glob("*.yaml")):
                 h.update(f.name.encode() + f.read_bytes())
         return h.hexdigest()[:16]
 
     def cache_key(self, app: AppContext) -> str:
-        return f"applicability/1|{app.block}|{app.parcel}|{app.lot}|{app.submission_date}|{app.main_use}|" \
-               f"{app.land_use}|{'+'.join(app.plans)}|{self.kb_version()}"
+        return f"applicability/2|{app.block}|{app.parcel}|{app.lot}|{app.submission_date}|{app.main_use}|" \
+               f"{app.land_use}|{app.lot_area_m2}|{'+'.join(app.plans)}|{self.kb_version()}"
 
     def resolve(self, app: AppContext, cache=None) -> Resolution:
         if cache is not None:                     # cache(key, compute) -> dict, e.g. backed by derivation_cache

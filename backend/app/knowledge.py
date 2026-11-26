@@ -44,6 +44,13 @@ def load_sources() -> dict:
         for s in (yaml.safe_load(f.read_text(encoding="utf-8")) or {}).get("sources", []):
             if s["id"] in out:
                 raise ValueError(f"duplicate source id {s['id']} in {f.name}")
+            # The legacy register omitted jurisdiction on explicitly national sources.
+            # Do not infer jurisdiction for local policies, case conditions or unclassified plans.
+            if not s.get("jurisdiction") and s["id"] in {
+                "LAW-TVB-1965", "REG-RISHUY-2016", "GOV-LIC-STEPS", "GOV-LIC-FORMS",
+                "LAW-ANTIQUITIES-1978", "LAW-ENG-ARCH-1958", "INTERNAL-QA"
+            }:
+                s = {**s, "jurisdiction": "national"}
             out[s["id"]] = s
     return out
 
@@ -73,20 +80,30 @@ def _index():
 
 # Which passages a municipality's cases may draw on, by the source's `jurisdiction`. Sources without one (the hand-
 # curated sources.yaml and the 105 package) were gathered for Bnei Brak, so a Hof Ashkelon case never sees them.
-JURISDICTIONS_BY_TENANT = {"hof-ashkelon": {"hof-ashkelon", "national"}}
-DEFAULT_JURISDICTIONS = {None, "bnei-brak", "national"}
+LEGACY_BNEI_BRAK_TENANTS = {"bnei-brak", "demo"}
+
+
+def sources_for_tenant(tenant_id: str | None) -> dict:
+    allowed = allowed_jurisdictions(tenant_id)
+    return {sid: src for sid, src in load_sources().items()
+            if (allowed is None or src.get("jurisdiction") in allowed)
+            and (tenant_id in (None, "demo") or src.get("category") != "DEMO")}
 
 
 def allowed_jurisdictions(tenant_id: str | None) -> set | None:
     """None = no filter (no tenant given)."""
-    return None if tenant_id is None else JURISDICTIONS_BY_TENANT.get(tenant_id, DEFAULT_JURISDICTIONS)
+    if tenant_id is None:
+        return None
+    if tenant_id in LEGACY_BNEI_BRAK_TENANTS:
+        return {None, "bnei-brak", "national"}
+    return {tenant_id, "national"}
 
 
 def search(query: str, k: int = 5, tenant_id: str | None = None) -> list[dict]:
     docs, df, avgdl = _index()
     passages = load_passages()
     sources = load_sources()
-    allowed = allowed_jurisdictions(tenant_id)
+    visible = sources_for_tenant(tenant_id)
     q = tokenize(query)
     n = len(docs)
     k1, b = 1.5, 0.75
@@ -99,7 +116,7 @@ def search(query: str, k: int = 5, tenant_id: str | None = None) -> list[dict]:
                 continue
             idf = math.log(1 + (n - df[t] + 0.5) / (df[t] + 0.5))
             s += idf * f * (k1 + 1) / (f + k1 * (1 - b + b * len(d) / avgdl))
-        if s > 0 and (allowed is None or sources[passages[i]["source_id"]].get("jurisdiction") in allowed):
+        if s > 0 and passages[i]["source_id"] in visible:
             scored.append((s, i))
     scored.sort(reverse=True)
     hits = []

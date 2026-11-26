@@ -48,15 +48,14 @@ export default function RequestResults({ c, report, onCite, onSelect }: Props) {
     if (itemsOf(f).length) {
       defects.push(...lines(f, ['CONFIRMED_DEFECT']))
       discrepancies.push(...lines(f, ['DOCUMENTED_DISCREPANCY']))
-    } else (statusOf(f) === 'CONFIRMED_DEFECT' ? defects : discrepancies).push(...lines(f, []))
+    } else if (statusOf(f) === 'CONFIRMED_DEFECT') defects.push(...lines(f, []))
+    else if (statusOf(f) === 'DOCUMENTED_DISCREPANCY') discrepancies.push(...lines(f, []))
   }
   const rv = report.run.review
-  const runId = c.last_run?.id
-  let n = 0
+  const runId = report.run.id ?? (c.last_run?.version === report.run.version ? c.last_run?.id : undefined)
 
-  const Item = ({ l, tone }: { l: Line; tone: string }) => {
+  const Item = ({ l, tone, n }: { l: Line; tone: string; n: number }) => {
     const cite = l.f.citations[0]
-    n += 1
     return (
       <li className={`rr-item ${tone}`} onClick={() => onSelect(l.f.id)}>
         <div className="rr-num num">{String(n).padStart(2, '0')}</div>
@@ -92,20 +91,20 @@ export default function RequestResults({ c, report, onCite, onSelect }: Props) {
         <a href="#rr-defects" className={`rr-card invalid${defects.length ? '' : ' zero'}`}><span className="n num">{defects.length}</span><span>ליקויים</span></a>
         <a href="#rr-disc" className={`rr-card disc${discrepancies.length ? '' : ' zero'}`}><span className="n num">{discrepancies.length}</span><span>פערים לבירור</span></a>
       </div>
-      {rv && <p className={'rr-verdict' + (rv.decision === 'NO_DEFECTS_IDENTIFIED' ? ' good' : ' bad')}>
+      {rv && <p className={'rr-verdict' + (rv.decision === 'NO_DEFECTS_IDENTIFIED' ? ' neutral' : ' bad')}>
         המלצה: {DECISION_HE[rv.decision] ?? rv.decision}{rv.decision_why ? ` — ${rv.decision_why}` : ''}</p>}
 
       {defects.length > 0 && <section id="rr-defects" className="rr-sec invalid">
         <h3>ליקויים <span className="count num">{defects.length}</span></h3>
         <p className="rr-lead">ממצאים שאומתו בראיות ומחייבים תיקון</p>
-        <ol className="rr-list">{defects.map(l => <Item key={l.key} l={l} tone="defect" />)}</ol>
+        <ol className="rr-list">{defects.map((l, i) => <Item n={i + 1} key={l.key} l={l} tone="defect" />)}</ol>
       </section>}
       {discrepancies.length > 0 && <section id="rr-disc" className="rr-sec disc">
         <h3>פערים מתועדים לבירור <span className="count num">{discrepancies.length}</span></h3>
         <p className="rr-lead">פערים בין מקורות שנוגעים ישירות לבקשה — אינם מיוחסים אוטומטית לעורך הבקשה</p>
-        <ol className="rr-list">{discrepancies.map(l => <Item key={l.key} l={l} tone="discrepancy" />)}</ol>
+        <ol className="rr-list">{discrepancies.map((l, i) => <Item n={defects.length + i + 1} key={l.key} l={l} tone="discrepancy" />)}</ol>
       </section>}
-      {!defects.length && !discrepancies.length && <p className="rr-verdict good">לא נמצאו ליקויים בבדיקות שהושלמו.</p>}
+      {!defects.length && !discrepancies.length && <p className="rr-verdict neutral">אין ממצאים חיצוניים לדיווח בגרסה זו. אין בכך אישור תקינות; יש לעיין בכיסוי הבדיקה.</p>}
 
       <p className="small muted rr-note">ההמלצה היא של מערכת הבדיקה ואינה החלטת רשות הרישוי. לחיצה על פריט מציגה את פירוטו המלא.</p>
     </div>

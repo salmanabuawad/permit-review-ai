@@ -1,5 +1,23 @@
 # Changelog
 
+## 2026-11-26 — Multi-authority workspaces and regulatory knowledge onboarding
+
+- Authority memberships (migration 0006): the login account is separate from its actor in each authority; the browser
+  tab sends `X-Authority`, the server checks membership on every request (revoked access fails closed). Creating an
+  authority needs an explicit account in `BBP_AUTHORITY_CREATORS`; a duplicate name or ID grants nothing.
+- Login accounts map to users through `BBP_LOGIN_USER_MAP` (server-side; invalid map fails closed).
+- New authority: official sources found through the Planning Administration committee directory (exact name match,
+  ambiguous or blocked results shown, never called complete) or an admin catalog (`BBP_AUTHORITY_CATALOG`); first crawl
+  bounded to the official hosts; public-address check on every fetch and redirect.
+- Upload of laws, plans and guidelines (PDF, DOCX, XLSX, TXT) to the current authority: validated, hash-deduplicated,
+  every snapshot kept, text indexed as unverified candidate passages (search scoped to the authority). Rules still go
+  through drafts and professional approval; nothing is activated automatically.
+- Onboarding is a durable job (row state + lease, retry up to 3, stale lease recovered after a restart), run by the
+  onboarding worker (`BBP_ONBOARDING_WORKER=true`).
+- Unknown authorities start with shared QA only (Bnei Brak / Hof Ashkelon specific checks excluded) and never cite
+  another authority's sources; missing rights files and submission dates are "not checked", not "not applicable".
+- Re-checking the 3 live requests on a migrated copy: identical defects and discrepancies.
+
 ## 2026-11-26 — ElevationEngine (section geometry)
 
 - `agent/elevation_geometry.py`: slab levels, floor-to-floor heights and the highest drawn point of each section, from

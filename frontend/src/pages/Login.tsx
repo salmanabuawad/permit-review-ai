@@ -24,7 +24,7 @@ export default function Login() {
     <div className="login-center">
       <form className="login" onSubmit={submit}>
         <h1>בדיקת היתרי בנייה</h1>
-        <div className="hint">כניסה לצוות הוועדה המקומית חוף אשקלון</div>
+        <div className="hint">כניסה לצוותי הרשויות והוועדות לתכנון ובנייה</div>
         <label className="f">שם משתמש
           <input autoComplete="username" value={username} onChange={e => setUsername(e.target.value)} required autoFocus dir="ltr" />
         </label>

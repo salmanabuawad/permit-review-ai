@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import { NavLink, Route, Routes } from 'react-router-dom'
-import { api } from './api'
+import { api, selectedAuthority, setAuthority } from './api'
+import Authorities from './pages/Authorities'
 import Dashboard from './pages/Dashboard'
 import Cases from './pages/Cases'
 import CaseView from './pages/CaseView'
@@ -13,12 +14,13 @@ import Audit from './pages/Audit'
 import ImportCases from './pages/ImportCases'
 import Login from './pages/Login'
 
-export interface Me { id: string; tenant_id: string; role: string; role_he: string; display_name: string; permissions: string[] }
+export interface Me { id: string; tenant_id: string; role: string; role_he: string; display_name: string; permissions: string[]; municipality_name?: string; is_demo?: boolean }
 interface Ctx { me: Me | null; meta: any; can: (p: string) => boolean; toast: (m: string, err?: boolean) => void }
 const AppCtx = createContext<Ctx>({ me: null, meta: null, can: () => false, toast: () => {} })
 export const useApp = () => useContext(AppCtx)
 
 const NAV = [
+  { to: '/authorities', label: 'בחירת רשות וניהול ידע', icon: 'database' },
   { to: '/', label: 'לוח בקרה', icon: 'dashboard', end: true },
   { to: '/cases', label: 'תיקי בקשות', icon: 'files' },
   { to: '/rules', label: 'מאגר כללים', icon: 'rules', end: true },
@@ -43,18 +45,13 @@ function NavIcon({ name }: { name: string }) {
   return <svg className="nav-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.65" strokeLinecap="round" strokeLinejoin="round"><path d={ICON_PATHS[name]} /></svg>
 }
 
-// Name shown in the sidebar, top bar and browser tab — follows the signed-in user's municipality.
-const ORG: Record<string, { short: string; mark: string; org: string; unit: string }> = {
-  'hof-ashkelon': { short: 'חוף אשקלון', mark: 'ח', org: 'הוועדה המקומית לתכנון ובנייה חוף אשקלון', unit: 'הוועדה המקומית לתכנון ובנייה' },
-  'bnei-brak': { short: 'בני ברק', mark: 'ב', org: 'עיריית בני ברק', unit: 'מינהל ההנדסה' },
-}
-const DEFAULT_ORG = 'hof-ashkelon'
-
 export default function App() {
   const [me, setMe] = useState<Me | null>(null)
   const [meta, setMeta] = useState<any>(null)
+  const [workspaces,setWorkspaces]=useState<any[]>([])
   const [mobileOpen, setMobileOpen] = useState(false)
   const [needLogin, setNeedLogin] = useState(false)
+  const [loadError, setLoadError] = useState('')
   const [msg, setMsg] = useState<{ text: string; err: boolean } | null>(null)
 
   const toast = useCallback((text: string, err = false) => {
@@ -63,22 +60,22 @@ export default function App() {
   }, [])
 
   useEffect(() => {
-    api.get<any>('/api/meta').then(setMeta)
+    api.get<any>('/api/meta').then(setMeta).catch(e => { if (e.status !== 401) setLoadError(e.message) })
   }, [])
   useEffect(() => {
-    api.get<Me>('/api/me').then(setMe).catch(e => { setMe(null); if (e?.status === 401) setNeedLogin(true) })
+    api.get<Me>('/api/me').then(m=>{setMe(m); if (!selectedAuthority()) setAuthority(m.tenant_id); api.get<any>('/api/authorities').then(r=>setWorkspaces(r.authorities)).catch(e=>setLoadError(e.message))}).catch(e => { setMe(null); if (e?.status === 401) setNeedLogin(true); else if (e?.status===403 && selectedAuthority()) {setAuthority(''); window.location.reload()} else setLoadError(e.message) })
   }, [])
   useEffect(() => {
     const on = () => setNeedLogin(true)
     window.addEventListener('bbp-unauth', on)
     return () => window.removeEventListener('bbp-unauth', on)
   }, [])
-  const logout = () => { api.post('/api/auth/logout').finally(() => window.location.reload()) }
+  const logout = () => { api.post('/api/auth/logout').finally(() => {setAuthority(''); window.location.reload()}) }
 
   const can = (p: string) => !!me?.permissions.includes(p)
-  const isDemo = me?.tenant_id === 'demo'
-  const org = ORG[me?.tenant_id || DEFAULT_ORG] || ORG[DEFAULT_ORG]
-  useEffect(() => { document.title = `בדיקת היתרי בנייה — ${isDemo ? 'סביבת הדגמה' : org.short}` }, [org, isDemo])
+  const isDemo = me?.is_demo ?? me?.tenant_id === 'demo'
+  const org = me?.municipality_name || me?.tenant_id || 'סביבת רישוי'
+  useEffect(() => { document.title = `בדיקת היתרי בנייה — ${isDemo ? 'סביבת הדגמה' : org}` }, [org, isDemo])
 
   if (needLogin) return <Login />
 
@@ -88,18 +85,18 @@ export default function App() {
         {mobileOpen && <button className="mobile-overlay" aria-label="סגירת תפריט" onClick={() => setMobileOpen(false)} />}
         <aside className={'sidebar' + (mobileOpen ? ' mobile-open' : '')}>
           <div className="brand-lockup">
-            <div className="brand-mark" aria-hidden="true">{org.mark}</div>
-            <div><strong>מערכת רישוי חכמה</strong><small>{org.short} · מערכת תומכת החלטה</small></div>
+            <div className="brand-mark" aria-hidden="true">⌑</div>
+            <div><strong>מערכת רישוי חכמה</strong><small>{org} · מערכת תומכת החלטה</small></div>
           </div>
           <div className="sidebar-section-label">סביבת עבודה</div>
           <nav aria-label="ניווט ראשי">
-            {NAV.map(n => (
+            {NAV.filter(n => n.to === '/' ? can('dashboard.read') : n.to === '/audit' ? can('audit.read') : n.to === '/ai' ? can('ai.configure') : n.to === '/rules/sources' ? can('source.crawl') : true).map(n => (
               <NavLink key={n.to} to={n.to} end={n.end} onClick={() => setMobileOpen(false)}>
                 <NavIcon name={n.icon} /><span className="nav-label">{n.label}</span>{n.tag && <span className="tag">{n.tag}</span>}
               </NavLink>
             ))}
           </nav>
-          <div className="sidebar-footer"><div className="sidebar-footer-dot" /> פיילוט · מערכת תומכת החלטה<small>גרסה ראשונית</small></div>
+          <div className="sidebar-footer"><div className="sidebar-footer-dot" /> פיילוט · מערכת תומכת החלטה<small>מערכת רב־רשותית</small></div>
         </aside>
         <div className="main">
           {isDemo && (
@@ -109,16 +106,18 @@ export default function App() {
           )}
           <header className="topbar">
             <button className="mobile-menu" aria-label="פתיחת תפריט" onClick={() => setMobileOpen(true)}>☰</button>
-            <div className="topbar-location"><span className="topbar-eyebrow">סביבת עבודה / {org.org}</span><strong>{isDemo ? 'סביבת הדגמה' : org.unit}</strong></div>
+            <div className="topbar-location"><span className="topbar-eyebrow">סביבת עבודה / {org}</span><strong>{isDemo ? 'סביבת הדגמה' : 'סביבת עבודה מקצועית'}</strong></div>
             <span className="spacer" />
+            {me && <select aria-label="בחירת רשות" value={me.tenant_id} onChange={e=>{setAuthority(e.target.value);window.location.assign('/')}}>{workspaces.map(a=><option key={a.id} value={a.id}>{a.name_he}</option>)}</select>}
             <span className="topbar-policy"><span className="live-dot" /> כל תוצר הוא המלצה בלבד — ההחלטה בסמכות בעל תפקיד מוסמך</span>
-            <span className="small muted">משתמש: {me?.display_name ?? 'מנהל מערכת'}</span>
+            <span className="small muted">משתמש: {me?.display_name ?? '—'}</span>
             <button className="sm" onClick={logout}>יציאה</button>
           </header>
           <main className="content">
             {me && meta ? (
               <Routes>
                 <Route path="/" element={<Dashboard />} />
+                <Route path="/authorities" element={<Authorities />} />
                 <Route path="/cases" element={<Cases />} />
                 <Route path="/cases/import" element={<ImportCases />} />
                 <Route path="/cases/:id" element={<CaseView />} />
@@ -129,7 +128,7 @@ export default function App() {
                 <Route path="/integrations" element={<Integrations />} />
                 <Route path="/audit" element={<Audit />} />
               </Routes>
-            ) : <div className="empty">טוען…</div>}
+            ) : loadError ? <div className="notice warn" role="alert">לא ניתן לטעון את סביבת העבודה: {loadError} <button onClick={() => window.location.reload()}>נסה שוב</button></div> : <div className="empty" role="status">טוען…</div>}
           </main>
         </div>
       </div>

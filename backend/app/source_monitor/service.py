@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import datetime as dt
 import hashlib
+import io
+import zipfile
 import json
 import threading
 import time
@@ -16,8 +18,8 @@ from sqlalchemy.orm import Session
 
 from .. import audit
 from ..config import settings
-from ..knowledge import load_sources
-from ..models import RuleDraft, SourceCrawl, SourceDocument, SourceSnapshot
+from ..knowledge import sources_for_tenant
+from ..models import RuleDraft, SourceCrawl, SourceDocument, SourceSnapshot, Municipality, CandidatePassage
 from . import fetch as F
 from .drafts import find_drafts
 
@@ -25,7 +27,7 @@ STALE_AFTER = dt.timedelta(minutes=30)
 NO_DRAFT_CATEGORIES = {"TENDER", "DEMO", "INTERNAL"}     # tracked for changes, not a source of permit rules
 EXT_BY_TYPE = {"application/pdf": ".pdf", "application/msword": ".doc",
                "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
-               "application/vnd.ms-excel": ".xls",
+               "application/vnd.ms-excel": ".xls", "text/plain": ".txt",
                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ".xlsx"}
 
 
@@ -40,26 +42,32 @@ def storage_root() -> Path:
     return p
 
 
-def register_targets() -> list[dict]:
+def register_targets(tenant_id: str | None = None, session: Session | None = None) -> list[dict]:
     """Every http(s) URL in the register. A URL shared by several sources (an index page) belongs to none."""
     owners: dict[str, list[str]] = {}
-    for sid, src in load_sources().items():
+    for sid, src in sources_for_tenant(tenant_id).items():
         for key in ("document_url", "url", "url_2", "index_url"):
             u = src.get(key)
             if u and str(u).startswith(("http://", "https://")):
                 owners.setdefault(F.canonical(u), [])
                 if sid not in owners[F.canonical(u)]:
                     owners[F.canonical(u)].append(sid)
-    sources = load_sources()
+    sources = sources_for_tenant(tenant_id)
     out = []
     for url, sids in owners.items():
         sid = sids[0] if len(sids) == 1 else None
         out.append({"url": url, "source_id": sid, "title": sources[sid].get("title_he") if sid else None, "from": None})
+    if session is not None and tenant_id:
+        o = session.get(Municipality, tenant_id)
+        from ..authority_onboarding import safe_url
+        for u in (o.settings or {}).get('official_urls', []) if o else []:
+            if safe_url(u) and F.canonical(u) not in owners:
+                out.append({'url':F.canonical(u),'source_id':None,'title':None,'from':None,'discovery':True})
     return out
 
 
-def allowed_hosts() -> set[str]:
-    hosts = {F.host(t["url"]) for t in register_targets()}
+def allowed_hosts(tenant_id: str | None = None, session: Session | None = None) -> set[str]:
+    hosts = {F.host(t["url"]) for t in register_targets(tenant_id, session)}
     return hosts | {h.lower() for h in load_config().get("extra_hosts", [])}
 
 
@@ -68,9 +76,9 @@ def _words(s: str) -> set[str]:
     return {w for w in re.split(r"[\s\-–—_,.:;()\"'״׳/]+", s or "") if len(w) > 1}
 
 
-def match_register(url: str, text: str) -> str | None:
+def match_register(url: str, text: str, tenant_id: str | None = None) -> str | None:
     """Register id for a discovered document: exact document_url, else a strong title match."""
-    sources = load_sources()
+    sources = sources_for_tenant(tenant_id)
     for sid, src in sources.items():
         if src.get("document_url") and F.canonical(src["document_url"]) == url:
             return sid
@@ -125,11 +133,11 @@ def start_crawl(session_factory, tenant: str, user: str, wait: bool = False,
 def execute_crawl(s: Session, crawl: SourceCrawl, fetcher: Callable | None = None, sleep: Callable = time.sleep) -> None:
     cfg = load_config()
     fetcher = fetcher or F.fetch
-    hosts = allowed_hosts()
     tenant = crawl.tenant_id
+    hosts = allowed_hosts(tenant, s)
     summary = {"checked": 0, "ok": 0, "new": 0, "changed": 0, "unchanged": 0, "blocked": 0, "unreachable": 0,
                "error": 0, "documents_found": 0, "links_ignored": 0, "drafts_new": 0, "skipped_limit": 0}
-    queue = register_targets()
+    queue = register_targets(tenant, s)
     visited: set[str] = set()
     last_host_hit: dict[str, float] = {}
     while queue:
@@ -164,6 +172,9 @@ def execute_crawl(s: Session, crawl: SourceCrawl, fetcher: Callable | None = Non
             doc.etag, doc.last_modified = res.etag, res.last_modified
             if res.content_type in ("text/html", "application/xhtml+xml"):
                 links = _apply_page(s, doc, res, cfg, summary)
+                if t.get('discovery'):
+                    links = links + F.discover_pages(F.decode_html(res.body), url, cfg)
+                    doc.links = links
             else:
                 links = []
                 _apply_document(s, doc, res.body, res.content_type, crawl.id, None, summary)
@@ -178,8 +189,8 @@ def execute_crawl(s: Session, crawl: SourceCrawl, fetcher: Callable | None = Non
             links = []
         for ln in links:
             if ln["url"] not in visited:
-                queue.append({"url": ln["url"], "source_id": match_register(ln["url"], ln["text"]),
-                              "title": ln["text"], "from": url})
+                queue.append({"url": ln["url"], "source_id": match_register(ln["url"], ln["text"], tenant),
+                              "title": ln["text"], "from": url, "discovery": t.get("discovery",False)})
         crawl.summary = dict(summary)
         s.commit()
     crawl.status, crawl.finished_at = "done", dt.datetime.now(dt.timezone.utc)
@@ -223,6 +234,7 @@ def _apply_document(s: Session, doc: SourceDocument, body: bytes, content_type: 
                     uploaded_by: str | None, summary: dict) -> SourceSnapshot | None:
     doc.kind = "manual" if uploaded_by and doc.kind == "manual" else "document"
     doc.content_type, doc.size = content_type, len(body)
+    doc.message = None
     sha = hashlib.sha256(body).hexdigest()
     if not _mark_change(doc, sha, summary):
         return None
@@ -232,23 +244,28 @@ def _apply_document(s: Session, doc: SourceDocument, body: bytes, content_type: 
         path.write_bytes(body)
     doc.storage_path = str(path)
     pages: list[str] = []
-    if ext == ".pdf" or content_type == "application/pdf":
-        try:
-            import pymupdf
-            with pymupdf.open(stream=body, filetype="pdf") as pdf:
-                pages = [p.get_text() for p in pdf]
-            doc.page_count = len(pages)
-        except Exception as e:                               # noqa: BLE001
-            doc.message = f"לא ניתן לקרוא את ה־PDF: {type(e).__name__}"
+    doc.page_count = None
+    try:
+        pages = extract_text(body, ext)
+        if ext == '.pdf': doc.page_count = len(pages)
+    except Exception as e:
+        doc.message = f"לא ניתן לחלץ טקסט: {type(e).__name__}"
+    if not any(p.strip() for p in pages):
+        doc.message = "לא חולץ טקסט — ייתכן שנדרש OCR או פורמט נתמך"
+
     snap = SourceSnapshot(tenant_id=doc.tenant_id, document_id=doc.id, crawl_id=crawl_id, sha256=sha, size=len(body),
                           storage_path=str(path), origin="upload" if uploaded_by else "crawl", uploaded_by=uploaded_by,
                           text_chars=sum(len(p) for p in pages))
     s.add(snap)
     s.flush()
-    category = load_sources().get(doc.source_id or "", {}).get("category")
+    category = sources_for_tenant(doc.tenant_id).get(doc.source_id or "", {}).get("category")
     if pages and category in NO_DRAFT_CATEGORIES:
         doc.message = "נשמר לצורך מעקב שינויים בלבד — אינו מקור לכללי בדיקה"
     elif pages:
+        for i, page in enumerate(pages,1):
+            for start in range(0,len(page),3500):
+                text=page[start:start+4000].strip()
+                if text: s.add(CandidatePassage(tenant_id=doc.tenant_id,document_id=doc.id,snapshot_id=snap.id,page=i,text_he=text))
         summary["drafts_new"] += _store_drafts(s, doc, snap, pages)
     elif doc.page_count is None and not doc.message:
         doc.message = "לא חולץ טקסט (המסמך אינו PDF או שהוא סרוק)"
@@ -277,6 +294,47 @@ def _store_drafts(s: Session, doc: SourceDocument, snap: SourceSnapshot, pages: 
     return new
 
 
+def validate_upload(body: bytes, ext: str) -> str:
+    if not body: raise ValueError('קובץ ריק')
+    if ext == '.pdf':
+        if not body.startswith(b'%PDF-'): raise ValueError('PDF לא תקין')
+        try:
+            import pymupdf
+            with pymupdf.open(stream=body,filetype='pdf') as f:
+                if f.needs_pass or f.page_count < 1: raise ValueError('PDF מוצפן או ריק')
+        except Exception as e: raise ValueError('PDF לא קריא') from e
+        return 'application/pdf'
+    if ext == '.txt':
+        try: body.decode('utf-8-sig')
+        except UnicodeError as e: raise ValueError('נדרש TXT בקידוד UTF-8') from e
+        if b'\x00' in body: raise ValueError('TXT בינארי')
+        return 'text/plain'
+    try:
+        with zipfile.ZipFile(io.BytesIO(body)) as z:
+            infos=z.infolist()
+            if len(infos)>10000 or sum(i.file_size for i in infos)>160*1024**2 or any(i.flag_bits & 1 for i in infos): raise ValueError('ארכיון לא בטוח')
+            if ('word/document.xml' if ext=='.docx' else 'xl/workbook.xml') not in z.namelist(): raise ValueError('פורמט לא תואם')
+    except (zipfile.BadZipFile,ValueError) as e: raise ValueError('קובץ Office לא תקין או גדול מדי') from e
+    return 'application/vnd.openxmlformats-officedocument.'+('wordprocessingml.document' if ext=='.docx' else 'spreadsheetml.sheet')
+
+
+def extract_text(body: bytes, ext: str) -> list[str]:
+    if ext not in ('.pdf','.docx','.xlsx','.txt'): return []
+    validate_upload(body,ext)
+    if ext=='.pdf':
+        import pymupdf
+        with pymupdf.open(stream=body,filetype='pdf') as f: return [p.get_text() for p in f]
+    if ext=='.txt': return [body.decode('utf-8-sig')]
+    if ext=='.docx':
+        from docx import Document
+        d=Document(io.BytesIO(body));return ['\n'.join([p.text for p in d.paragraphs]+[' | '.join(c.text for c in row.cells) for t in d.tables for row in t.rows])]
+    import openpyxl
+    w=openpyxl.load_workbook(io.BytesIO(body),read_only=True,data_only=True,keep_links=False)
+    try:
+        return [sheet.title+'\n'+'\n'.join(' | '.join(str(x) if x is not None else '' for x in row) for row in sheet.iter_rows(max_row=min(sheet.max_row or 1,20000),max_col=min(sheet.max_column or 1,200),values_only=True)) for sheet in w.worksheets[:100]]
+    finally: w.close()
+
+
 def ingest_upload(s: Session, tenant: str, user: str, filename: str, body: bytes, content_type: str | None,
                   document_id: int | None = None, source_id: str | None = None) -> SourceDocument:
     """Manual upload for a source the server cannot fetch (blocked / unreachable site)."""
@@ -284,20 +342,31 @@ def ingest_upload(s: Session, tenant: str, user: str, filename: str, body: bytes
         doc = s.get(SourceDocument, document_id)
         if not doc or doc.tenant_id != tenant:
             raise LookupError("מסמך מקור לא נמצא")
+    elif source_id is None:
+        # Hash-addressed independent upload, never overwrite a different regulation.
+        sha=hashlib.sha256(body).hexdigest()
+        url=f"upload:sha256:{sha}"
+        doc=s.scalars(select(SourceDocument).where(SourceDocument.tenant_id==tenant,SourceDocument.url==url)).first()
+        if not doc:
+            doc=SourceDocument(tenant_id=tenant,url=url,kind="manual",title=Path(filename).name[:400],links=[])
+            s.add(doc);s.flush()
     else:
-        if source_id not in load_sources():
+        if source_id not in sources_for_tenant(tenant):
             raise LookupError("מקור לא מוכר ברשם המקורות")
         url = f"upload:{source_id}"
         doc = s.scalars(select(SourceDocument).where(SourceDocument.tenant_id == tenant, SourceDocument.url == url)).first()
         if not doc:
             doc = SourceDocument(tenant_id=tenant, url=url, kind="manual", source_id=source_id,
-                                 title=load_sources()[source_id].get("title_he"), links=[])
+                                 title=sources_for_tenant(tenant)[source_id].get("title_he"), links=[])
             s.add(doc)
             s.flush()
     if not body:
         raise ValueError("קובץ ריק")
-    if filename.lower().endswith(".pdf"):
-        content_type = "application/pdf"
+    ext=Path(filename).suffix.lower()
+    if ext in ('.pdf','.docx','.xlsx','.txt'):
+        content_type=validate_upload(body,ext)
+    else:
+        raise ValueError('פורמט נתמך להעלאת ידע: PDF, DOCX, XLSX, TXT')
     summary = {"new": 0, "changed": 0, "unchanged": 0, "drafts_new": 0}
     if doc.kind == "page":
         raise ValueError("זהו עמוד אינטרנט — יש להעלות את המסמך עצמו דרך המקור ברשם")

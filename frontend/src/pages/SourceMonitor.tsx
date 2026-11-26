@@ -155,6 +155,8 @@ function DraftsDrawer({ doc, canDecide, onClose }: { doc: any; canDecide: boolea
   const [kind, setKind] = useState('all')
   const [status, setStatus] = useState('open')
   const [page, setPage] = useState<number | null>(null)
+  const [pageUrl,setPageUrl]=useState('')
+  useEffect(()=>{let cancel=false;let url='';setPageUrl('');if(page) api.blob(`/api/source-monitor/documents/${doc.id}/page/${page}.png`).then(b=>{if(!cancel){url=URL.createObjectURL(b);setPageUrl(url)}}).catch(e=>toast(e.message,true));return ()=>{cancel=true;if(url)URL.revokeObjectURL(url)}},[doc.id,page])
   const load = () => api.get<any[]>(`/api/source-monitor/documents/${doc.id}/drafts`).then(setDrafts).catch(e => toast(e.message, true))
   useEffect(() => { load() }, [doc.id])
   const decide = async (id: number, st: string) => {
@@ -178,7 +180,7 @@ function DraftsDrawer({ doc, canDecide, onClose }: { doc: any; canDecide: boolea
         {page && (
           <div style={{ marginBottom: 10 }}>
             <div className="card-head"><b>עמוד {page}</b><span className="spacer" /><button className="sm" onClick={() => setPage(null)}>הסתרת העמוד</button></div>
-            <img className="page-img" alt={`עמוד ${page} במסמך המקור`} src={`/api/source-monitor/documents/${doc.id}/page/${page}.png`} />
+            {pageUrl && <img className="page-img" alt={`עמוד ${page} במסמך המקור`} src={pageUrl} />}
           </div>
         )}
         {shown.map(d => (

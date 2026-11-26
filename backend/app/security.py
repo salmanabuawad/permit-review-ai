@@ -52,21 +52,30 @@ class Principal:
         return self.role in PERMISSIONS.get(perm, set())
 
 
-def current_user(x_user: str | None = Header(default=None), bbp_session: str | None = Cookie(default=None),
-                 s: Session = Depends(get_session)) -> Principal:
+def login_account(x_user: str | None = Header(default=None), bbp_session: str | None = Cookie(default=None),
+                 s: Session = Depends(get_session)) -> User:
     if settings.login_required:                       # app login: the signed session cookie names the user
         from .login import read_session
         uid = read_session(bbp_session)
         u = s.get(User, uid) if uid else None
         if not u:
             raise HTTPException(401, "נדרשת כניסה למערכת")
-        return Principal(u.id, u.tenant_id, u.role, u.display_name)
+        return u
     if settings.environment == "production":
         raise HTTPException(501, "Demo header auth is disabled in production — configure SSO/OIDC.")
     uid = x_user or "u-reviewer"
     u = s.get(User, uid)
     if not u:
         raise HTTPException(401, "משתמש לא מוכר")
+    return u
+
+
+def current_user(account: User = Depends(login_account), x_authority: str | None = Header(default=None),
+                 s: Session = Depends(get_session)) -> Principal:
+    from .authority_onboarding import member
+    u = member(s, account, x_authority)
+    if not u:
+        raise HTTPException(403, "אין הרשאה לרשות שנבחרה")
     return Principal(u.id, u.tenant_id, u.role, u.display_name)
 
 

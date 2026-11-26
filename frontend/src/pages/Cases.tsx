@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Case, api, fmtDate } from '../api'
 import { useApp } from '../App'
@@ -11,24 +11,35 @@ export default function Cases() {
   const [users, setUsers] = useState<Record<string, string>>({})
   const [showNew, setShowNew] = useState(false)
   const [q, setQ] = useState('')
+  const [status, setStatus] = useState('')
+  const [type, setType] = useState('')
+  const [review, setReview] = useState('')
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
   const [sel, setSel] = useState<Set<string>>(new Set())
   const [rechecking, setRechecking] = useState(false)
   const [recheckRes, setRecheckRes] = useState<any>(null)
-  const load = () => api.get<Case[]>('/api/cases').then(setCases).catch(e => toast(e.message, true))
+  const load = () => { setLoading(true); setError(''); return api.get<Case[]>('/api/cases').then(setCases).catch(e => { setError(e.message); toast(e.message, true) }).finally(() => setLoading(false)) }
   useEffect(() => {
     load()
-    api.get<any[]>('/api/users').then(us => setUsers(Object.fromEntries(us.map(u => [u.id, u.display_name]))))
+    api.get<any[]>('/api/users').then(us => setUsers(Object.fromEntries(us.map(u => [u.id, u.display_name])))).catch(e => toast(e.message, true))
   }, [])
-  const shown = cases.filter(c => !q || (c.case_number + c.title + (c.address ?? '')).includes(q))
+  const shown = useMemo(() => cases.filter(c => {
+    const query = q.trim().toLocaleLowerCase()
+    const hay = [c.case_number, c.title, c.address, c.gush, c.helka, ...(c.applicable_plans ?? [])].join(' ').toLocaleLowerCase()
+    return (!query || hay.includes(query)) && (!status || c.status === status) && (!type || c.permit_type === type)
+      && (!review || (review === 'pending' ? !c.last_run : !!c.last_run))
+  }), [cases, q, status, type, review])
+  const hasFilters = !!(q || status || type || review)
   const canRun = can('case.run')
   const toggle = (id: string) => setSel(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n })
   const allShown = shown.length > 0 && shown.every(c => sel.has(c.id))
   const toggleAll = () => setSel(s => { const n = new Set(s); shown.forEach(c => allShown ? n.delete(c.id) : n.add(c.id)); return n })
   const recheck = async () => {
-    const ids = sel.size ? [...sel] : null
+    const ids = sel.size ? [...sel] : hasFilters ? shown.map(c => c.id) : null
     const n = ids ? ids.length : cases.length
     if (!n) return
-    if (!window.confirm(ids ? `להריץ בדיקה חוזרת על ${n} תיקים שנבחרו?` : `לא נבחרו תיקים — להריץ בדיקה חוזרת על כל ${n} התיקים?`)) return
+    if (!window.confirm(ids ? `להריץ בדיקה חוזרת על ${n} ${sel.size ? 'תיקים שנבחרו' : 'תיקים מסוננים'}?` : `לא נבחרו תיקים — להריץ בדיקה חוזרת על כל ${n} התיקים?`)) return
     setRechecking(true); setRecheckRes(null)
     try {
       const r = await api.post<any>('/api/cases/recheck', { case_ids: ids })
@@ -40,14 +51,29 @@ export default function Cases() {
   return (
     <>
       <div className="page-head">
-        <div><h1>תיקי בקשות</h1><p>בקשות לתוספות בנייה בפיילוט: הרחבת דירה/אגף, מרפסת, מרפסת סוכה, חדרי גג (תכנית תוספת זכויות)</p></div>
+        <div><h1>תיקי בקשות</h1><p>ניהול בקשות להיתר, מסמכים, בדיקות הנדסיות וממצאים בסביבת הרשות הנוכחית</p></div>
         <span className="spacer" />
-        <input placeholder="חיפוש תיק / כתובת" value={q} onChange={e => setQ(e.target.value)} aria-label="חיפוש" />
-        {canRun && <button onClick={recheck} disabled={rechecking || !cases.length} title="הרצה מחדש של בדיקת הכללים — על התיקים שנבחרו, או על כל התיקים אם לא נבחר אף אחד">
-          {rechecking ? 'מריץ בדיקה חוזרת…' : sel.size ? `בדיקה חוזרת (${sel.size})` : 'בדיקה חוזרת לכל התיקים'}</button>}
+        
+        {canRun && <button onClick={recheck} disabled={rechecking || !(sel.size || shown.length)} title="הרצה מחדש על תיקים שנבחרו, תיקים מסוננים, או כל התיקים אם אין בחירה או סינון">
+          {rechecking ? 'מריץ בדיקה חוזרת…' : sel.size ? `בדיקה חוזרת (${sel.size})` : hasFilters ? `בדיקת תיקים מסוננים (${shown.length})` : 'בדיקה חוזרת לכל התיקים'}</button>}
         {can('case.create') && <button onClick={() => nav('/cases/import')}>קליטת מסמכים</button>}
         {can('case.create') && <button className="primary" onClick={() => setShowNew(!showNew)}>תיק חדש</button>}
       </div>
+      <div className="case-overview" aria-label="תמונת מצב תיקים">
+        <div><span>סך תיקים</span><strong>{cases.length}</strong></div>
+        <div><span>טרם הורצה בדיקה</span><strong>{cases.filter(c => !c.last_run).length}</strong></div>
+        <div><span>בדיקה קיימת</span><strong>{cases.filter(c => c.last_run).length}</strong></div>
+        <div><span>מוצגים כעת</span><strong>{shown.length}</strong></div>
+      </div>
+      <div className="case-filters card" role="search">
+        <label className="field">חיפוש<input placeholder="מספר תיק, כתובת, גוש, חלקה או תכנית" value={q} onChange={e => setQ(e.target.value)} /></label>
+        <label className="field">סטטוס<select value={status} onChange={e => setStatus(e.target.value)}><option value="">הכל</option>{Object.entries(meta.case_statuses).map(([k,v]) => <option key={k} value={k}>{String(v)}</option>)}</select></label>
+        <label className="field">סוג בקשה<select value={type} onChange={e => setType(e.target.value)}><option value="">הכל</option>{Object.entries(meta.permit_types).map(([k,v]) => <option key={k} value={k}>{String(v)}</option>)}</select></label>
+        <label className="field">בדיקה<select value={review} onChange={e => setReview(e.target.value)}><option value="">הכל</option><option value="pending">טרם נבדק</option><option value="checked">קיימת בדיקה</option></select></label>
+        <button disabled={!hasFilters && !sel.size} onClick={() => {setQ('');setStatus('');setType('');setReview('');setSel(new Set())}}>איפוס</button>
+      </div>
+      {sel.size > 0 && <div className="selection-summary" role="status">נבחרו {sel.size} תיקים (כולל תיקים שאינם מוצגים) <button className="sm" onClick={() => setSel(new Set())}>בטל בחירה</button></div>}
+      {error && <div className="notice warn" role="alert">{error} <button onClick={load}>נסה שוב</button></div>}
       {showNew && <NewCase onDone={(id) => { setShowNew(false); nav('/cases/' + id) }} />}
       {recheckRes && (recheckRes.skipped.length > 0 || recheckRes.failed.length > 0) && (
         <div className="notice warn small" style={{ marginBottom: 14 }}>
@@ -69,9 +95,9 @@ export default function Cases() {
                 return (
                   <tr key={c.id} className={'clickable' + (sel.has(c.id) ? ' selected' : '')} onClick={() => nav('/cases/' + c.id)}>
                     {canRun && <td onClick={e => e.stopPropagation()}><input type="checkbox" aria-label={'בחירת תיק ' + c.case_number} checked={sel.has(c.id)} onChange={() => toggle(c.id)} /></td>}
-                    <td><span className="ltr nowrap">{c.case_number}</span>{c.is_demo && <> <span className="chip demo">הדגמה</span></>}</td>
+                    <td><button className="case-link ltr nowrap" onClick={e => {e.stopPropagation(); nav('/cases/' + c.id)}}>{c.case_number}</button>{c.is_demo && <> <span className="chip demo">הדגמה</span></>}</td>
                     <td>{c.title}<div className="small muted">{c.address}</div></td>
-                    <td className="small">{meta.permit_types[c.permit_type]}</td>
+                    <td className="small">{meta.permit_types[c.permit_type] ?? c.permit_type}</td>
                     <td><span className="chip outline">{meta.case_statuses[c.status] ?? c.status}</span></td>
                     <td className="small">{c.assigned_to ? users[c.assigned_to] ?? c.assigned_to : <span className="muted">לא שובץ</span>}</td>
                     <td className="small">{fmtDate(c.sla_due)}</td>
@@ -79,7 +105,7 @@ export default function Cases() {
                   </tr>
                 )
               })}
-              {!shown.length && <tr><td colSpan={canRun ? 8 : 7} className="empty">אין תיקים</td></tr>}
+              {!shown.length && <tr><td colSpan={canRun ? 8 : 7} className="empty">{loading ? 'טוען תיקים…' : error ? 'טעינת התיקים נכשלה' : hasFilters ? 'לא נמצאו תיקים מתאימים למסננים' : 'אין תיקים בסביבת העבודה'}</td></tr>}
             </tbody>
           </table>
         </div>
@@ -112,7 +138,7 @@ function NewCase({ onDone }: { onDone: (id: string) => void }) {
         <label className="field">גוש<input value={f.gush} onChange={set('gush')} dir="ltr" inputMode="numeric" /></label>
         <label className="field">חלקה<input value={f.helka} onChange={set('helka')} dir="ltr" inputMode="numeric" /></label>
         <label className="field">כתובת<input value={f.address} onChange={set('address')} /></label>
-        <label className="field">תכניות חלות (מופרד בפסיק)<input value={f.applicable_plans} onChange={set('applicable_plans')} placeholder="בב/105, ..." /></label>
+        <label className="field">תכניות חלות (מופרד בפסיק)<input value={f.applicable_plans} onChange={set('applicable_plans')} placeholder="מספרי תכניות מאומתים" /></label>
       </div>
       <div style={{ marginTop: 12 }}><button className="primary" disabled={!f.case_number || !f.title} onClick={submit}>יצירה</button></div>
     </div>

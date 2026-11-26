@@ -14,9 +14,9 @@ export default function Dashboard() {
   useEffect(() => {
     if (!can('dashboard.read')) return
     api.get('/api/dashboard').then(setD).catch(e => setErr(e.message))
-    api.get<any[]>('/api/users').then(us => setUsers(Object.fromEntries(us.map(u => [u.id, u.display_name]))))
+    api.get<any[]>('/api/users').then(us => setUsers(Object.fromEntries(us.map(u => [u.id, u.display_name])))).catch(() => setUsers({}))
   }, [])
-  if (!can('dashboard.read')) return <div className="notice">לוח הבקרה זמין למנהלי אגף, מהנדס העיר ומנהל המערכת. החליפו משתמש בראש המסך.</div>
+  if (!can('dashboard.read')) return <div className="notice">לוח הבקרה זמין למנהלי אגף, מהנדס העיר ומנהל המערכת. יש לפנות למנהל המערכת לקבלת הרשאה.</div>
   if (err) return <div className="notice">{err}</div>
   if (!d) return <div className="empty">טוען…</div>
   const total = Object.values(d.cases_by_status as Record<string, number>).reduce((a, b) => a + b, 0)
@@ -28,12 +28,12 @@ export default function Dashboard() {
         <div className="hero-copy"><span className="hero-kicker">מרכז הבקרה · מינהל ההנדסה</span><h1>תמונת מצב רישוי ובקרה</h1><p>מידע תפעולי, ביצועי בדיקות AI, עומסי טיפול ועלויות — במבט אחד.</p><div className="hero-actions"><Link className="hero-btn" to="/cases">צפייה בתיקי הבקשות <span aria-hidden="true">←</span></Link><Link className="hero-link" to="/rules">מאגר הכללים והנהלים</Link></div></div>
         <div className="hero-visual" aria-hidden="true"><div className="hero-visual-ring"><span>AI</span><i /></div><div className="hero-visual-note">בדיקה · שקיפות · בקרה</div></div>
       </div>
-      <div className="section-heading"><div><h2>מדדים מרכזיים</h2><p>נתוני הסביבה הנוכחית</p></div><span className="status-dot-label"><i/> נתונים חיים מהמערכת</span></div>
+      <div className="section-heading"><div><h2>מדדים מרכזיים</h2><p>נתוני הסביבה הנוכחית</p></div><span className="status-dot-label"><i/> נתונים מההרצה הנוכחית</span></div>
       <div className="grid k4">
         <div className="card stat stat-blue"><div className="stat-decoration">▤</div><div className="l">תיקים במערכת</div><div className="v num">{total}</div></div>
         <div className="card stat stat-red"><div className="stat-decoration">◷</div><div className="l">חריגות בזמני טיפול</div><div className="v num" style={{ color: d.sla_overdue ? 'var(--fail)' : undefined }}>{d.sla_overdue}</div></div>
-        <div className="card stat stat-teal"><div className="stat-decoration">◉</div><div className="l">זמן בדיקה ממוצע / מרבי</div><div className="v"><span className="num">{(d.run_duration_ms.avg / 1000).toFixed(2)}</span> / <span className="num">{(d.run_duration_ms.max / 1000).toFixed(2)}</span> ש׳</div><div className="small muted">יעד מכרז: דוח ≤ 60 ש׳, תיק מלא ≤ 2 דק׳</div></div>
-        <div className="card stat stat-violet"><div className="stat-decoration">₪</div><div className="l">עלות AI מצטברת</div><div className="v"><span className="num">{cost.toFixed(2)}</span> ₪</div><div className="small muted">עיבוד מקומי = 0 ₪ ישיר</div></div>
+        <div className="card stat stat-teal"><div className="stat-decoration">◉</div><div className="l">זמן בדיקה ממוצע / מרבי</div><div className="v"><span className="num">{(d.run_duration_ms.avg / 1000).toFixed(2)}</span> / <span className="num">{(d.run_duration_ms.max / 1000).toFixed(2)}</span> ש׳</div><div className="small muted">משך עיבוד שנמדד במערכת</div></div>
+        <div className="card stat stat-violet"><div className="stat-decoration">₪</div><div className="l">עלות AI מצטברת</div><div className="v"><span className="num">{cost.toFixed(2)}</span> ₪</div><div className="small muted">עלות שימוש מדווחת בלבד (לא כוללת חומרה וחשמל)</div></div>
       </div>
       <div className="grid k2" style={{ marginTop: 14 }}>
         <div className="card">
@@ -92,7 +92,7 @@ export default function Dashboard() {
           <table><tbody>{Object.entries(d.cost_per_user).map(([k, v]: any) => (
             <tr key={k}><td>{users[k] ?? k}</td><td className="num">{v.toFixed(2)} ₪</td></tr>
           ))}</tbody></table>
-          <p className="small muted">עלות לתיק זמינה ב־API (cost_per_case). תקרת צריכת ענן ומודלים לפי ההסכם: 300,000 ₪ לשנה (סע׳ 13.5).</p>
+          <p className="small muted">עלות לתיק זמינה ב־API (cost_per_case). תקציב ויעדים נקבעים לכל רשות לפי הגדרותיה.</p>
         </div>
       </div>
       <div className="notice" style={{ marginTop: 14 }}>{d.kpi_note_he}</div>

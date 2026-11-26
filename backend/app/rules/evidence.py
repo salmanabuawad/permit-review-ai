@@ -906,11 +906,16 @@ def case_proposal(ctx):
     if isinstance(rows, list) and rows and all(isinstance(f, dict) and f.get("name") for f in rows):
         floors = [R.Floor(**{k: v for k, v in f.items() if k in R.Floor.__dataclass_fields__}) for f in rows]
     return R.Proposal(application_id=str(d.get("application_number") or ""), submission_date=sub,
-                      plans=list(d.get("plans_declared") or []), land_use=d.get("main_use"), selected_route=route,
+                      plans=list(d.get("plans_declared") or []), land_use=d.get("land_use"), main_use=d.get("main_use"),
+                      lot=str(d.get("lot") or d.get("plot")) if (d.get("lot") or d.get("plot")) else None,
+                      lot_area_m2=d.get("lot_area_m2"), selected_route=route,
                       route_source=how, total_main_m2=d.get("main_area_m2"), total_service_m2=d.get("service_area_m2"),
                       floors=floors, floors_source="טבלת שטחים לפי קומה" if floors else "",
                       request_text=" ".join(str(x) for x in (d.get("description"), ctx.title) if x),
-                      zero_level_change_m=d.get("zero_level_change_m"))
+                      zero_level_change_m=d.get("zero_level_change_m"),
+                      main_above_m2=d.get("main_above_m2"), main_below_m2=d.get("main_below_m2"),
+                      service_above_m2=d.get("service_above_m2"), service_below_m2=d.get("service_below_m2"),
+                      split_source=d.get("split_source"), areas_scope=d.get("areas_scope") or "total")
 
 
 def _route_items(res, statuses):
@@ -937,7 +942,7 @@ def _no_proposal(ctx, what_he: str):
     plans = list((ctx.declared or {}).get("plans_declared") or [])
     rights, _ = R.load_rights(plans, (ctx.declared or {}).get("main_use"), _dt.date.today())
     if rights is None:
-        return Resolution("NA", f"אין קובץ זכויות לתכנית החלה — {what_he} לא נבדק.")
+        return Resolution("UNCERTAIN", f"אין קובץ זכויות לתכנית החלה — {what_he} לא נבדק.", [], review="NOT_CHECKED")
     return Resolution("UNCERTAIN", f"חסר תאריך הגשת הבקשה — לא ניתן לקבוע את הדין החל; {what_he} לא נבדק.", [], review="NOT_CHECKED")
 
 
@@ -948,7 +953,7 @@ def r_licensing_route(ctx):
         return _no_proposal(ctx, "מסלול הרישוי")
     res = R.validate(p)
     if res.verdict == "NO_RIGHTS":
-        return Resolution("NA", "אין קובץ זכויות לתכנית החלה על הבקשה — מסלול הרישוי לא נבדק. " + "; ".join(res.law_notes))
+        return Resolution("UNCERTAIN", "אין קובץ זכויות לתכנית החלה על הבקשה — מסלול הרישוי לא נבדק. " + "; ".join(res.law_notes), [], review="NOT_CHECKED")
     text = R.summary_he(res) + (f" ({p.route_source})" if p.route_source else "")
     notes = " | " + "; ".join(res.law_notes)
     if res.verdict == "ROUTE_OK":
@@ -971,7 +976,7 @@ def r_floor_rights(ctx):
         return _no_proposal(ctx, "זכויות לפי קומה")
     res = R.validate(p)
     if res.verdict == "NO_RIGHTS":
-        return Resolution("NA", "אין קובץ זכויות לתכנית החלה — זכויות לפי קומה לא נבדקו.")
+        return Resolution("UNCERTAIN", "אין קובץ זכויות לתכנית החלה — זכויות לפי קומה לא נבדקו.", [], review="NOT_CHECKED")
     floor_checks = [c for c in res.checks if c.topic in ("floors", "floors_above", "basement_floors", "basement_area", "service_to_main")]
     devs = [c for c in floor_checks if c.status in ("RELIEF", "DEVIATION_UNCLASSIFIED", "PROHIBITED")]
     if devs:
@@ -979,7 +984,7 @@ def r_floor_rights(ctx):
                             res.law_notes, res.rights_source)
         return Resolution("FAIL", "; ".join(c.explanation_he for c in devs), [], items=_route_items(sub, ("RELIEF", "DEVIATION_UNCLASSIFIED", "PROHIBITED")),
                           review="CONFIRMED_DEFECT" if all(c.confirmable for c in devs) else "DOCUMENTED_DISCREPANCY")
-    if any(c.status in ("NOT_CHECKED", "POSSIBLE_DEVIATION") for c in floor_checks):
+    if not floor_checks or any(c.status in ("NOT_CHECKED", "POSSIBLE_DEVIATION") for c in floor_checks):
         return Resolution("UNCERTAIN", "; ".join(c.explanation_he for c in floor_checks), [], review="NOT_CHECKED")
     return Resolution("PASS", "; ".join(c.explanation_he for c in floor_checks), [])
 

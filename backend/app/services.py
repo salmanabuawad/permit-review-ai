@@ -408,9 +408,33 @@ RULES_EXCLUDED_BY_TENANT = {
 
 
 def file_rules(tenant_id: str) -> list[Rule]:
+    # Discover explicitly named jurisdiction catalogues without loading another authority's rules.
+    # Unknown authorities start with shared QA only; local rules require a verified catalogue.
     names = RULE_FILES_BY_TENANT.get(tenant_id, ["internal_qa.yaml"])
-    excluded = RULES_EXCLUDED_BY_TENANT.get(tenant_id, set())
-    rules = [r for r in load_rules([settings.knowledge_dir / "rules" / n for n in names]) if r.id not in excluded]
+    import re
+    if tenant_id not in RULE_FILES_BY_TENANT and re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", tenant_id):
+        local = tenant_id.replace("-", "_") + ".yaml"
+        if local not in ("internal_qa.yaml", "demo.yaml") and (settings.knowledge_dir / "rules" / local).is_file():
+            names = [local, *names]
+    excluded = set(RULES_EXCLUDED_BY_TENANT.get(tenant_id, set()))
+    if tenant_id not in RULE_FILES_BY_TENANT:
+        # These legacy QA defaults encode a draft CAD convention, a Bnei Brak/Hof-specific
+        # validity threshold or conditions from a single Beit Shemesh case. They are not
+        # nationwide permit rules. A local catalogue may define a verified replacement.
+        excluded.update({"QA-CAD-LAYERS", "QA-SURVEY-MAP-AGE", "QA-OWNER-SIGNATURE-PCT",
+                         "QA-PLOT-AREA-VS-CADASTRE", "QA-DOC-PLACEHOLDER", "QA-APPROVAL-PARCEL-MISMATCH",
+                         "QA-APPROVAL-ISSUER-MISMATCH", "QA-IAA-DEMAND-NOT-APPROVAL"})
+    rules = [r for n in names for r in load_rules([settings.knowledge_dir / "rules" / n])
+             if n != "internal_qa.yaml" or r.id not in excluded]
+    if tenant_id not in RULE_FILES_BY_TENANT:
+        # A missing local source must not be substituted with a different municipality's citation.
+        from .knowledge import sources_for_tenant
+        available = sources_for_tenant(tenant_id)
+        for r in rules:
+            refs = r.raw.get("sources", [])
+            if any(c.get("source_id") not in available for c in refs):
+                r.raw["sources"] = [c for c in refs if c.get("source_id") in available]
+                r.raw["review_state"] = "SOURCE_MISSING" if not r.raw["sources"] else "SOURCE_LOCATED"
     for r in rules:
         r.raw["origin"] = "file"
     return rules
@@ -624,7 +648,10 @@ def run_checks(s: Session, case: PermitCase, user: str, gateway: AIGateway | Non
         key = operand.split(".")[-1]
         if key in doc_facts and key not in case.declared:
             r.evidence = list(r.evidence or []) + (drawing.get("evidence", {}).get(key) or area_evidence)
-    resolve(results, docs, case.declared, case.title, doc_facts, area_evidence, drawing, case.gush)
+    resolved_declarations = dict(case.declared or {})
+    resolved_declarations.setdefault("plans_declared", list(case.applicable_plans or []))
+    resolved_declarations.setdefault("application_number", case.case_number)
+    resolve(results, docs, resolved_declarations, case.title, doc_facts, area_evidence, drawing, case.gush)
     # a drawing still waiting for conversion on the AI PC may hold the "missing" sheets: never a confirmed absence
     pending = [f.filename for f in usable if f.kind == "dwfx"
                and ((f.ingest_report or {}).get("conversion") or {}).get("state") not in ("done", "converted")
@@ -773,10 +800,13 @@ def resolve_regulation(s: Session, case: PermitCase, facts: dict) -> dict:
     from .rules.applicability import AppContext, ApplicableRegulationResolver
     try:
         decl = case.declared or {}
-        ref = dt.date.fromisoformat(facts["case"]["reference_date"])
+        if not decl.get("submission_date"):
+            return {"unresolved": ["חסר תאריך הגשה מאומת — לא ניתן לקבוע תחולת דין במועד ההגשה"]}
+        ref = dt.date.fromisoformat(str(decl["submission_date"]))
         lot = decl.get("lot") or decl.get("plot")
         app = AppContext(case.case_number, ref, list(case.applicable_plans or []), case.gush, case.helka,
-                         str(lot) if lot else None, decl.get("main_use") or "מגורים", activity=decl.get("request_text", ""))
+                         str(lot) if lot else None, decl.get("main_use"), activity=decl.get("request_text", ""),
+                         land_use=decl.get("land_use"), lot_area_m2=decl.get("lot_area_m2"))
         rr = ApplicableRegulationResolver()
 
         def cache(key, compute):

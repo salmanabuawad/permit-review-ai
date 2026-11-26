@@ -494,3 +494,22 @@ class DerivationCache(Base):
     output: Mapped[dict] = mapped_column(JSON, default=dict)
     hits: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), default=_now)
+
+
+class AuthorityMembership(Base):
+    """The login account is distinct from the actor in each authority."""
+    __tablename__ = 'authority_memberships'
+    account_id: Mapped[str] = mapped_column(ForeignKey('users.id'), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(ForeignKey('municipalities.id'), primary_key=True)
+    actor_id: Mapped[str] = mapped_column(ForeignKey('users.id'), unique=True, nullable=False)
+
+
+class CandidatePassage(Base):
+    """Searchable unverified source text, never part of active rules or trusted retrieval."""
+    __tablename__ = 'candidate_passages'
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    tenant_id: Mapped[str] = mapped_column(ForeignKey('municipalities.id'), index=True)
+    document_id: Mapped[int] = mapped_column(ForeignKey('source_documents.id'), index=True)
+    snapshot_id: Mapped[int] = mapped_column(ForeignKey('source_snapshots.id'))
+    page: Mapped[int] = mapped_column(Integer)
+    text_he: Mapped[str] = mapped_column(Text)

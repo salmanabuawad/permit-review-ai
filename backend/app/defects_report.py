@@ -34,7 +34,7 @@ def build_defects(case: PermitCase, run: CheckRun) -> dict:
         if "EXTERNAL" not in f.flags:
             continue
         subs = [e for e in (f.evidence or []) if e.get("type") == "item" and e.get("review") in EXTERNAL and not e.get("internal")]
-        if not subs and any(e.get("type") == "item" for e in f.evidence or []):
+        if not subs and (_status(f) not in EXTERNAL or any(e.get("type") == "item" for e in f.evidence or [])):
             continue                                     # every sub-item is internal: nothing for the applicant
         docs = [e for e in (f.evidence or []) if e.get("type") in ("document", "measurement")]
         # the requirement as the case's own jurisdiction states it, when a rule cites more than one source
@@ -56,7 +56,9 @@ def build_defects(case: PermitCase, run: CheckRun) -> dict:
     items.sort(key=lambda x: (EXTERNAL.index(x["kind"]), SEV.get(x["severity"], 9), x["title"]))
     for i, it in enumerate(items, 1):
         it["no"] = f"{i:02d}"
-    dec = review.get("decision") or ("RETURN_FOR_CORRECTIONS" if items else "NO_DEFECTS_IDENTIFIED")
+    dec = review.get("decision") or ("RETURN_FOR_CORRECTIONS" if items else "INSUFFICIENT_EVIDENCE_FOR_FINAL_DECISION")
+    if dec not in DECISION_HE or (not items and dec in ("RETURN_FOR_CORRECTIONS", "REJECT_RECOMMENDATION")):
+        dec = "INSUFFICIENT_EVIDENCE_FOR_FINAL_DECISION"
     cnt = review.get("counts") or {}
     open_n = cnt.get("UNRESOLVED", 0) + cnt.get("NOT_CHECKED", 0)
     limits = ("הדוח מפרט ליקויים ופערים מתועדים בלבד, ואינו מונה בדיקות שעברו, בדיקות שלא הושלמו או דרישות לשלבי רישוי "

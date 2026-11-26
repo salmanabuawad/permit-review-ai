@@ -7,6 +7,7 @@ is "blocked", one that does not answer is "unreachable" — never silently treat
 from __future__ import annotations
 
 import html as htmllib
+import ipaddress
 import re
 import socket
 import urllib.error
@@ -46,19 +47,29 @@ def host(url: str) -> str:
     return urlsplit(url).netloc.lower()
 
 
+def public_target(url: str) -> bool:
+    """Reject private/reserved destinations; production egress must also block DNS rebinding."""
+    try:
+        p=urlsplit(url)
+        if p.scheme not in ('http','https') or p.username or p.password or p.port not in (None,80,443) or not p.hostname: return False
+        ips=socket.getaddrinfo(p.hostname,p.port or (443 if p.scheme=='https' else 80),type=socket.SOCK_STREAM)
+        return bool(ips) and all(ipaddress.ip_address(a[4][0]).is_global for a in ips)
+    except (ValueError,OSError): return False
+
+
 class _HostGuard(urllib.request.HTTPRedirectHandler):
     def __init__(self, allowed: set[str]):
         self.allowed = allowed
 
     def redirect_request(self, req, fp, code, msg, headers, newurl):
         p = urlsplit(newurl)
-        if p.scheme not in ("http", "https") or p.netloc.lower() not in self.allowed:
+        if p.scheme not in ("http", "https") or p.netloc.lower() not in self.allowed or not public_target(newurl):
             raise urllib.error.URLError(f"redirect to a host outside the register: {p.netloc}")
         return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
 def fetch(url: str, cfg: dict, allowed: set[str], etag: str | None = None, last_modified: str | None = None) -> Fetched:
-    if host(url) not in allowed or urlsplit(url).scheme not in ("http", "https"):
+    if host(url) not in allowed or not public_target(url):
         return Fetched("error", url, message="כתובת מחוץ לרשם המקורות")
     headers = {"User-Agent": cfg["user_agent"], "Accept": "text/html,application/pdf,*/*;q=0.8",
                "Accept-Language": "he,en;q=0.7"}
@@ -148,3 +159,16 @@ def discover_links(text: str, base_url: str, cfg: dict) -> tuple[list[dict], int
             found.setdefault(url, label)
     links = [{"url": u, "text": t or urlsplit(u).path.rsplit("/", 1)[-1]} for u, t in sorted(found.items())]
     return links, len(ignored - set(found))
+
+
+def discover_pages(text: str, base_url: str, cfg: dict) -> list[dict]:
+    """Bounded same-origin navigation to regulatory index pages, not arbitrary permit records."""
+    out={}
+    keys=('הנחיות מרחביות','מדיניות תכנון','תקנות','חוקי עזר','תכניות בניין עיר','תוכניות בניין עיר','תכנון ובניה','תכנון ובנייה','מידע תכנוני','planning','guidelines','regulations')
+    for _,href,inner in ANCHOR.findall(text):
+        u=canonical(urljoin(base_url,htmllib.unescape(href).strip()));p=urlsplit(u)
+        if p.scheme!='https' or host(u)!=host(base_url) or len(u)>950 or u==base_url: continue
+        if p.path.lower().endswith(tuple('.'+x for x in cfg['document_extensions'])): continue
+        label=_clean(inner)
+        if any(k in (label+' '+p.path).lower() for k in keys): out[u]={'url':u,'text':label[:400]}
+    return list(out.values())[:30]

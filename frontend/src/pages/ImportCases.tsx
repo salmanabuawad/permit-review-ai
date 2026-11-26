@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api, fmtDate, uploadWithProgress } from '../api'
 import { useApp } from '../App'
+import BlobImg from '../components/BlobImg'
 
 interface Src { file: string; page: number | null; original_page: number | null; quote: string | null; method: string; confidence: number; provider: string }
 interface FieldV { value: any; confidence: number; needs_review: boolean; source: Src }
@@ -377,7 +378,7 @@ export default function ImportCases() {
             <div className="card-head"><h3>מקור: {preview.title}</h3><span className="spacer" /><button onClick={() => setPreview(null)}>סגירה</button></div>
             <p className="small muted">{preview.meta}</p>
             {preview.quote && <div className="quote">“{preview.quote}”</div>}
-            <img src={preview.url} alt={`עמוד המקור — ${preview.title}`} className="page-img" />
+            <BlobImg src={preview.url} alt={`עמוד המקור — ${preview.title}`} className="page-img" />
           </aside>
         </>
       )}

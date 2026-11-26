@@ -21,7 +21,7 @@ from .config import settings
 from .db import SessionLocal, get_session, run_migrations
 from .ingest.files import IntakeError
 from .ingest.pdf import render_page_png
-from .knowledge import load_sources
+from .knowledge import load_sources, sources_for_tenant
 from .models import (AIPolicyRow, AuditEvent, CadEntity, CaseFile, CheckRun, CommitteeDecision, ExtractedField,
                      Finding, ImportBatch, InferenceCost, Municipality, PlanningComment, SourceReference,
                      PermitCase, RuleApproval, RuleDefinition, RuleDraft, SourceCrawl, SourceDocument, User)
@@ -29,9 +29,10 @@ from .reports import build_report
 from .rules.engine import (AUTHOR_REVIEW_STATES, CHECK_FIELDS, CONDITION_OPS, LEGAL_LEVEL_RANK, OPERATORS, REPORTS,
                            SEVERITIES, bump_version, validate_rule)
 from .source_monitor import service as source_service
-from .security import PERMISSIONS, ROLES, Principal, current_user, require
+from .security import PERMISSIONS, ROLES, Principal, current_user, require, login_account
+from . import authority_onboarding as authorities
 
-app = FastAPI(title="Bnei Brak Permit Review AI — POC", version=__version__,
+app = FastAPI(title="Permit Review AI", version=__version__,
               docs_url="/api/docs", openapi_url="/api/openapi.json")
 app.add_middleware(CORSMiddleware, allow_origins=list(settings.cors_origins), allow_methods=["*"],
                    allow_headers=["*"])
@@ -62,20 +63,21 @@ def auth_login(body: LoginIn, request: Request, s: Session = Depends(get_session
     addr = request.headers.get("x-real-ip") or (request.client.host if request.client else "?")
     if login.throttled(addr):
         raise HTTPException(429, "יותר מדי ניסיונות כניסה — נסו שוב בעוד כמה דקות")
-    admin = s.get(User, settings.login_user_id)
-    if not admin:
-        raise HTTPException(500, "משתמש המנהל אינו מוגדר")
-    if not login.check_password(body.username.strip(), body.password):
+    uid = login.resolve_login_user(body.username.strip(), settings.login_user_id)
+    admin = s.get(User, uid) if uid else None
+    password_ok = login.check_password(body.username.strip(), body.password)
+    if not admin or not password_ok:
         login.record_failure(addr)
-        audit.record(s, admin.tenant_id, "anonymous", "auth.login_failed", "user", body.username.strip()[:64], {"addr": addr})
-        s.commit()
+        if admin:
+            audit.record(s, admin.tenant_id, "anonymous", "auth.login_failed", "user", body.username.strip()[:64], {"addr": addr})
+            s.commit()
         raise HTTPException(401, "שם משתמש או סיסמה שגויים")
     login.clear_failures(addr)
     audit.record(s, admin.tenant_id, admin.id, "auth.login", "user", admin.id, {"addr": addr})
     s.commit()
     hours = float(__import__("os").environ.get("BBP_SESSION_HOURS", "12"))
     r = JSONResponse({"ok": True})
-    r.set_cookie(login.COOKIE, login.make_session(settings.login_user_id, hours), max_age=int(hours * 3600),
+    r.set_cookie(login.COOKIE, login.make_session(admin.id, hours), max_age=int(hours * 3600),
                  httponly=True, secure=request.headers.get("x-forwarded-proto", request.url.scheme) == "https",
                  samesite="lax", path="/")
     return r
@@ -95,6 +97,9 @@ def _startup():
     if settings.typing_worker:
         import threading
         threading.Thread(target=_typing_worker, daemon=True, name="typing-worker").start()
+    if settings.onboarding_worker:
+        import threading
+        threading.Thread(target=authorities.worker, args=(SessionLocal,), daemon=True, name="onboarding-worker").start()
 
 
 def _typing_worker(interval_s: float = 20.0) -> None:
@@ -194,16 +199,63 @@ def health():
 
 
 @app.get("/api/me")
-def me(p: Principal = Depends(current_user)):
-    return {**p.__dict__, "role_he": ROLES[p.role]["label_he"],
+def me(p: Principal = Depends(current_user), s: Session = Depends(get_session)):
+    org = s.get(Municipality, p.tenant_id)
+    return {**p.__dict__, "municipality_name": org.name_he if org else p.tenant_id, "is_demo": bool(org and org.is_demo), "role_he": ROLES[p.role]["label_he"],
             "permissions": sorted(k for k, v in PERMISSIONS.items() if p.role in v)}
 
 
+class AuthorityIn(BaseModel):
+    id: str | None = None
+    name_he: str
+
+
+@app.get("/api/authorities")
+def authority_list(account: User = Depends(login_account), s: Session = Depends(get_session)):
+    return {"authorities": authorities.workspaces(s, account), "can_create": authorities.can_create(account)}
+
+
+@app.post("/api/authorities", status_code=201)
+def authority_create(body: AuthorityIn, account: User = Depends(login_account), s: Session = Depends(get_session)):
+    try:
+        org, actor = authorities.create_authority(s, account, body.id, body.name_he)
+    except PermissionError as e: raise HTTPException(403, str(e)) from e
+    except FileExistsError as e: raise HTTPException(409, str(e)) from e
+    except ValueError as e: raise HTTPException(422, str(e)) from e
+    audit.record(s, org.id, actor.id, "authority.create", "municipality", org.id, {"account_id": account.id})
+    s.commit()
+    authorities.start_onboarding(SessionLocal, org.id, actor.id)
+    return {"id": org.id, "name_he": org.name_he, "onboarding": org.settings["onboarding"]}
+
+
+@app.post("/api/authorities/{tenant}/discover")
+def authority_discover(tenant: str, account: User = Depends(login_account), s: Session = Depends(get_session)):
+    a = authorities.member(s, account, tenant)
+    if not a or a.role not in PERMISSIONS['source.crawl']: raise HTTPException(403, "אין הרשאה לרשות")
+    o = s.get(Municipality, tenant)
+    if not o: raise HTTPException(404)
+    old = o.settings or {}
+    if old.get('onboarding', {}).get('state') in authorities.ACTIVE:
+        raise HTTPException(409, "איתור מקורות כבר בתהליך")
+    s.commit()
+    authorities.start_onboarding(SessionLocal, tenant, a.id)
+    return {"state":"DISCOVERY_PENDING"}
+
+
+@app.get("/api/knowledge/candidates")
+def candidate_search(q: str = "", p: Principal = Depends(require("source.crawl")), s: Session = Depends(get_session)):
+    from .models import CandidatePassage, SourceSnapshot
+    stmt = select(CandidatePassage, SourceDocument, SourceSnapshot).join(SourceDocument, CandidatePassage.document_id == SourceDocument.id).join(SourceSnapshot, CandidatePassage.snapshot_id == SourceSnapshot.id).where(CandidatePassage.tenant_id == p.tenant_id, SourceDocument.tenant_id == p.tenant_id, SourceSnapshot.tenant_id == p.tenant_id, SourceDocument.sha256 == SourceSnapshot.sha256)
+    if q.strip(): stmt = stmt.where(CandidatePassage.text_he.contains(q.strip()[:200], autoescape=True))
+    rows = s.execute(stmt.order_by(CandidatePassage.id.desc()).limit(100))
+    return [{"id": x.id,"document_id":d.id,"title":d.title,"page":x.page,"text_he":x.text_he[:4000],"sha256":v.sha256,"verification":"UNVERIFIED"} for x,d,v in rows]
+
+
 @app.get("/api/users")
-def users(s: Session = Depends(get_session)):
-    """Demo user switcher (POC only — production uses SSO)."""
+def users(p: Principal = Depends(current_user), s: Session = Depends(get_session)):
+    """Only colleagues in the authenticated workspace."""
     return [{"id": u.id, "tenant_id": u.tenant_id, "display_name": u.display_name, "role": u.role,
-             "role_he": ROLES[u.role]["label_he"]} for u in s.scalars(select(User))]
+             "role_he": ROLES[u.role]["label_he"]} for u in s.scalars(select(User).where(User.tenant_id == p.tenant_id))]
 
 
 @app.get("/api/meta")
@@ -1052,7 +1104,7 @@ def restore_rule(rule_id: str, body: RuleIn | None = None, p: Principal = Depend
 def sources(p: Principal = Depends(current_user), s: Session = Depends(get_session)):
     tenant = s.get(Municipality, p.tenant_id)
     show_demo = bool(tenant and tenant.is_demo)   # the fictitious DEMO/1 plan is listed only in a demo tenant
-    return [src for src in load_sources().values() if show_demo or src.get("category") != "DEMO"]
+    return [src for src in sources_for_tenant(p.tenant_id).values() if show_demo or src.get("category") != "DEMO"]
 
 
 @app.get("/api/kb/search")
@@ -1106,7 +1158,7 @@ def source_monitor(p: Principal = Depends(require("case.read")), s: Session = De
     docs.sort(key=lambda d: (order.get(d.kind, 3), d.discovered_from or "", d.title or d.url))
     totals = {k: sum(v.get(k, 0) for v in drafts.values()) for k in ("open", "for_authoring", "dismissed", "superseded")}
     return {"last_crawl": _crawl_dict(last), "documents": [_src_doc_dict(d, drafts) for d in docs],
-            "drafts": totals, "hosts": sorted(source_service.allowed_hosts()),
+            "drafts": totals, "hosts": sorted(source_service.allowed_hosts(p.tenant_id, s)),
             "attention": sum(1 for d in docs if d.change_state in ("new", "changed") and not d.acknowledged)}
 
 
@@ -1123,7 +1175,7 @@ def source_crawl(wait: bool = False, p: Principal = Depends(require("source.craw
 @app.post("/api/source-monitor/upload")
 async def source_upload(file: UploadFile = File(...), document_id: int | None = Form(None), source_id: str | None = Form(None),
                         p: Principal = Depends(require("source.crawl")), s: Session = Depends(get_session)):
-    body = await file.read()
+    body = await file.read(source_service.load_config()["max_bytes"] + 1)
     if len(body) > source_service.load_config()["max_bytes"]:
         raise HTTPException(413, "הקובץ גדול מדי")
     try:

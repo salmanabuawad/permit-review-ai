@@ -10,6 +10,7 @@ cookie. Replaces the browser's basic-auth popup.
 from __future__ import annotations
 
 import hashlib
+import json
 import hmac
 import os
 import secrets
@@ -123,3 +124,22 @@ def record_failure(addr: str) -> None:
 def clear_failures(addr: str) -> None:
     with _lock:
         _fails.pop(addr, None)
+
+
+def resolve_login_user(username: str, legacy_user_id: str) -> str | None:
+    """Optional server-only username→User.id map. Invalid configuration fails closed.
+
+    No client-supplied municipality or user ID is trusted. Existing single-account
+    installations remain compatible only when the map is not configured.
+    """
+    raw = os.environ.get("BBP_LOGIN_USER_MAP")
+    if raw is None:
+        return legacy_user_id
+    try:
+        mapping = json.loads(raw)
+        if not isinstance(mapping, dict):
+            return None
+        uid = mapping.get(username)
+        return uid if isinstance(uid, str) and uid else None
+    except (ValueError, TypeError):
+        return None
