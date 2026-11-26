@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-11-26 — KORTEX Permit360: assessment and architecture (documents only)
+
+- `docs/permit360/`: system assessment with measured baseline, functionality inventory and gaps, target architecture
+  (modular monolith), database plan, Permit Dependency Graph design, executable rule schema, AI gateway, incremental
+  review, knowledge strategy, integration feasibility matrix, security, testing, performance plan, roadmap, backlog
+  and risk register. Every capability is marked implemented / partial / proposed; no code changed.
+- Committee site probe (same day): vendor, request-search system, engineering site and candidate sources for each of
+  the 131 committees, read from their public sites through the restricted crawler.
+
 ## 2026-11-26 — National register of planning committees
 
 - All 131 local and regional committees (32 regional) from the Planning Administration's list, read 2026-11-26
