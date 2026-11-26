@@ -156,6 +156,9 @@ def update(s: Session, c: PlanningCommittee, changes: dict) -> dict:
         setattr(c, k, v or None)
     if "vendor" in out:
         c.vendor_evidence = "נקבע ידנית"
+    if out:                                         # from now on these are the administrator's values
+        auto = set((c.kb_detail or {}).get("auto_fields") or []) - set(out)
+        c.kb_detail = {**(c.kb_detail or {}), "auto_fields": sorted(auto)}
     c.updated_at = dt.datetime.now(dt.timezone.utc)
     s.flush()
     return out
@@ -175,6 +178,8 @@ SOURCE_WORDS = {"guideline": ("הנחיות מרחביות", "הנחיות מר�
                 "plan": ("תב\"ע", "תב״ע", "תכניות בניין עיר", "תוכניות בניין עיר", "תכנית מתאר", "תוכנית מתאר", "תקנון"),
                 "bylaw": ("חוקי עזר", "חוק עזר"),
                 "procedure": ("נהלים", "נוהל", "טפסים", "מידע תכנוני", "תיק מידע")}
+SEARCH_URL = re.compile(r"searchpermit|permitapplication|tikbinyan|tik-binyan|buildingfile|bakashot|requests?search|/rishuy/?search", re.I)
+NOT_SOURCE = ("פרטיות", "נגישות", "עוגיות", "cookies", "תנאי שימוש", "תנאי השימוש", "צור קשר", "התנגדות")
 PAGE_WORDS = ("הנדסה", "רישוי", "תכנון", "ועדה", "מידע", "הנחיות", "בקשות", "תכניות", "תוכניות")
 FINGERPRINTS = (("BarTech", re.compile(r"bartech", re.I)), ("Complot", re.compile(r"complot", re.I)))
 
@@ -267,10 +272,17 @@ def probe(s: Session, c: PlanningCommittee, fetcher=None, sleep=None) -> dict:
             summary["vendor"] = name
             break
     links = [(u, l) for base, t in pages for u, l in _links(t, base)]
-    search = next((u for u, l in links if any(w in l for w in SEARCH_WORDS)), None)
-    engineering = next((u for u, l in links if any(w in l for w in ENGINEERING_WORDS)), None)
+    vendor_hosts = (".bartech-net.co.il", ".complot.co.il")
+    own = lambda u: (urlsplit(u).hostname or "") in allowed  # noqa: E731
+    near = lambda u: own(u) or (urlsplit(u).hostname or "").endswith(vendor_hosts)  # noqa: E731
+    search = next((u for u, l in links if near(u) and SEARCH_URL.search(u)), None) \
+        or next((u for u, l in links if near(u) and any(w in l for w in SEARCH_WORDS)), None)
+    engineering = next((u for u, l in links if own(u) and u != search and not SEARCH_URL.search(u)
+                        and any(w in l for w in ENGINEERING_WORDS)), None)
     found = []
     for u, label in links:
+        if any(w in label.lower() for w in NOT_SOURCE):
+            continue
         kind = next((k for k, words in SOURCE_WORDS.items() if any(w in label for w in words)), None)
         if kind and u not in {f["url"] for f in found}:
             found.append({"url": u, "title": label, "kind": kind, "status": "candidate", "found_at": now.isoformat()})
@@ -283,14 +295,19 @@ def _finish(s: Session, c: PlanningCommittee, summary: dict, blocked: bool = Fal
     if blocked:
         c.kb_status = "BLOCKED"
     else:
-        if c.vendor == "unknown" and summary.get("vendor"):
+        # values the probe set itself may be corrected by a later probe; an administrator's values are never touched
+        auto = set((c.kb_detail or {}).get("auto_fields") or [])
+        if summary.get("vendor") and (c.vendor == "unknown" or "vendor" in auto):
             c.vendor, c.vendor_evidence = summary["vendor"], "זוהה בדף האתר"
-        if not c.request_search_url and summary.get("request_search_url"):
-            c.request_search_url = summary["request_search_url"]
-        if not c.engineering_url and summary.get("engineering_url"):
-            c.engineering_url = summary["engineering_url"]
-        known = {x["url"] for x in (c.sources or [])}
-        c.sources = (c.sources or []) + [x for x in (sources or []) if x["url"] not in known]
+            auto.add("vendor")
+        for f in ("request_search_url", "engineering_url"):
+            if not getattr(c, f) or f in auto:
+                setattr(c, f, summary.get(f))
+                auto.add(f)
+        kept = [x for x in (c.sources or []) if x.get("status") != "candidate"]       # reviewed sources stay
+        known = {x["url"] for x in kept}
+        c.sources = kept + [x for x in (sources or []) if x["url"] not in known]
+        c.kb_detail = {**(c.kb_detail or {}), "auto_fields": sorted(auto)}
         c.kb_status = "SOURCES_FOUND" if c.sources else "SITE_PROBED"
     c.kb_detail = {**(c.kb_detail or {}), "probe": {**summary, "state": "done"}}
     c.updated_at = c.last_probed_at

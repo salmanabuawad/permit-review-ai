@@ -77,7 +77,8 @@ def test_probe_finds_vendor_search_and_sources():
     home = """<html><body><a href="/handasa">אגף הנדסה</a><a href="/search">איתור בקשות להיתר</a>
       <a href="https://other.example/x">הנחיות מרחביות באתר אחר</a><script src="//cdn.complot.co.il/x.js"></script></body></html>"""
     handasa = """<a href="/docs/guide.pdf">הנחיות מרחביות 2024</a><a href="/docs/taba.pdf">תב"ע 101-0012345</a>
-      <a href="/forms">טפסים</a><a href="javascript:void(0)">הנחיות</a>"""
+      <a href="/forms">טפסים</a><a href="javascript:void(0)">הנחיות</a><a href="/privacy">מדיניות פרטיות</a>
+      <a href="https://pay.example/eng">מחלקת הנדסה</a>"""
     fetch, calls = _site({"https://c.example/": home, "https://c.example/handasa": handasa})
     with SessionLocal() as s:
         committees.import_register(s)
@@ -90,12 +91,28 @@ def test_probe_finds_vendor_search_and_sources():
         kinds = {x["url"]: x["kind"] for x in c.sources}
         assert kinds["https://c.example/docs/guide.pdf"] == "guideline" and kinds["https://c.example/docs/taba.pdf"] == "plan"
         assert all(x["status"] == "candidate" for x in c.sources) and c.kb_status == "SOURCES_FOUND"
+        assert "https://c.example/privacy" not in kinds                     # not a regulatory source
         assert "https://other.example/x" not in calls                      # other sites are listed, never fetched
         # a second probe keeps admin-set values and does not duplicate sources
-        c.request_search_url = "https://c.example/official-search"
+        committees.update(s, c, {"request_search_url": "https://c.example/official-search"})
         s.commit()
         committees.probe(s, c, fetch, sleep=lambda _: None)
         assert c.request_search_url == "https://c.example/official-search" and len(c.sources) == len(kinds)
+
+
+def test_probe_search_by_url_and_engineering_on_own_site():
+    seed(reset=True, samples=False)
+    home = """<a href="/SearchPermitApplication">מידע הנדסי</a><a href="https://pay.example/eng">הנדסה</a><a href="/eng">אגף הנדסה</a>"""
+    fetch, _ = _site({"https://d.example/": home})
+    with SessionLocal() as s:
+        committees.import_register(s)
+        c = s.scalars(select(PlanningCommittee)).first()
+        c.website_url, c.engineering_url = "https://d.example/", "https://pay.example/eng"
+        c.kb_detail = {"auto_fields": ["engineering_url"]}                 # set by an earlier probe: may be corrected
+        s.commit()
+        committees.probe(s, c, fetch, sleep=lambda _: None)
+        assert c.request_search_url == "https://d.example/SearchPermitApplication"
+        assert c.engineering_url == "https://d.example/eng"
 
 
 def test_probe_redirect_once_and_blocked():
