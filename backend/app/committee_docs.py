@@ -189,7 +189,8 @@ def fetch_committee(s: Session, c: PlanningCommittee, fetcher=None, sleep=None, 
                     e = _ext(u, None)
                     if e in DOC_EXT and u not in known and (urlsplit(u).hostname or "") in allowed \
                             and any(w in (label + " " + u) for w in words):
-                        child = CommitteeDocument(committee_id=c.id, url=u[:1000], title=(label or "")[:300], kind=doc.kind,
+                        own = next((k for k, ws in SOURCE_WORDS.items() if any(w in label for w in ws)), None)
+                        child = CommitteeDocument(committee_id=c.id, url=u[:1000], title=(label or "")[:300], kind=own or doc.kind,
                                                   found_on=doc.url[:1000], status="pending")
                         s.add(child)
                         s.flush()

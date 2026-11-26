@@ -52,6 +52,7 @@ def test_fetch_scope_versions_and_links():
         assert docs["https://other.example/x.pdf"].status == "skipped" and "https://other.example/x.pdf" not in calls
         assert docs["https://v.example/old.doc"].status == "skipped"
         assert docs["https://v.example/f/guide.pdf"].found_on == "https://v.example/guide"      # followed one level
+        assert docs["https://v.example/f/guide.pdf"].kind == "guideline"                      # its own title decides
         assert "https://v.example/f/menu.pdf" not in docs                                     # irrelevant link
         assert docs["https://v.example/f/taba.pdf"].status == "ok" and out["linked_documents"] == 1
         snap = s.scalars(select(CommitteeSnapshot).where(CommitteeSnapshot.document_id == docs["https://v.example/f/taba.pdf"].id)).one()
