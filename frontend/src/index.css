@@ -558,3 +558,5 @@ th, td { padding: 7px 10px; }
 .user-form label { display: flex; flex-direction: column; gap: 3px; font-size: 13px; }
 tr.muted td { color: var(--muted); }
 .user-actions { display: flex; flex-wrap: wrap; gap: 4px; }
+.filters-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
+.filters-row input { min-width: 200px; }

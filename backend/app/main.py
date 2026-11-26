@@ -96,6 +96,9 @@ def auth_logout():
 @app.on_event("startup")
 def _startup():
     run_migrations()
+    from . import committees
+    with SessionLocal() as s0:                      # national committee register, loaded once
+        committees.ensure_imported(s0)
     if settings.typing_worker:
         import threading
         threading.Thread(target=_typing_worker, daemon=True, name="typing-worker").start()
@@ -1691,3 +1694,43 @@ def auth_password(body: PasswordIn, request: Request, account: User = Depends(lo
                      httponly=True, secure=request.headers.get("x-forwarded-proto", request.url.scheme) == "https",
                      samesite="lax", path="/")
     return r
+
+
+# ------------------------------------------------------------------ national register of planning committees
+
+class CommitteePatch(BaseModel):
+    committee_code: str | None = None
+    engineering_url: str | None = None
+    request_search_url: str | None = None
+    vendor: str | None = None
+
+
+def _platform_admin(account: User = Depends(login_account)) -> User:
+    if not authorities.can_create(account):
+        raise HTTPException(403, "רק מנהל פלטפורמה מעדכן את מאגר הוועדות")
+    return account
+
+
+@app.get("/api/committees")
+def committees_list(p: Principal = Depends(require("source.crawl")), account: User = Depends(login_account),
+                    s: Session = Depends(get_session)):
+    from . import committees
+    return {**committees.listing(s), "can_edit": authorities.can_create(account)}
+
+
+@app.patch("/api/committees/{committee_id}")
+def committees_update(committee_id: str, body: CommitteePatch, account: User = Depends(_platform_admin),
+                      s: Session = Depends(get_session)):
+    from . import committees
+    from .models import PlanningCommittee
+    c = s.get(PlanningCommittee, committee_id)
+    if not c:
+        raise HTTPException(404, "ועדה לא נמצאה")
+    try:
+        change = committees.update(s, c, body.model_dump(exclude_unset=True))
+    except ValueError as e:
+        raise HTTPException(422, str(e)) from e
+    if change:
+        audit.record(s, account.tenant_id, account.id, "committee.update", "planning_committee", c.id, change)
+    s.commit()
+    return committees.as_dict(s, c)

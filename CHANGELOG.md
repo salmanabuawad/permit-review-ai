@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-11-26 — National register of planning committees
+
+- All 131 local and regional committees (32 regional) from the Planning Administration's list, read 2026-11-26
+  (page updated 2026-08-27), stored as published in `knowledge/committees/gov_il_local_committees.json` and loaded into
+  `planning_committees` / `committee_settlements` (migration 0010): district, kind, settlements served, committee site,
+  vendor (BarTech 39 / Complot 24 from the site address; 68 still unknown), engineering site, request-search system,
+  sources and knowledge status. The list publishes no official committee code; the field stays empty until verified.
+- Authorities of the system link to their committee by exact name (חוף אשקלון, חיפה, בית שמש, בני ברק).
+- Page "מאגר ועדות ארצי": filters by district, vendor, knowledge status and settlement; platform administrators fill in
+  the official code, engineering site, request-search URL and vendor. Re-import never overwrites curated values.
+
 ## 2026-11-26 — PostgreSQL (V11 phase 2)
 
 - Live data moved from SQLite to PostgreSQL 16 (`permit_review`, extensions vector, postgis, pg_trgm) with

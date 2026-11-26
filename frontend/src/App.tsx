@@ -15,6 +15,7 @@ import ImportCases from './pages/ImportCases'
 import Login from './pages/Login'
 import Learning from './pages/Learning'
 import Users from './pages/Users'
+import Committees from './pages/Committees'
 import ChangePassword from './components/ChangePassword'
 
 export interface Me { id: string; tenant_id: string; role: string; role_he: string; display_name: string; permissions: string[]; municipality_name?: string; is_demo?: boolean; username?: string | null; must_change_password?: boolean }
@@ -30,6 +31,7 @@ const NAV = [
   { to: '/rules/sources', label: 'סריקת מקורות', icon: 'radar' },
   { to: '/learning', label: 'למידה מהחלטות', icon: 'brain' },
   { to: '/sources', label: 'מקורות ובסיס ידע', icon: 'database' },
+  { to: '/committees', label: 'מאגר ועדות ארצי', icon: 'map' },
   { to: '/ai', label: 'הגדרות AI', icon: 'brain' },
   { to: '/integrations', label: 'ממשקים', icon: 'links', tag: 'מתוכנן' },
   { to: '/users', label: 'משתמשים', icon: 'users' },
@@ -45,6 +47,7 @@ const ICON_PATHS: Record<string, string> = {
   brain: 'M12 3a4 4 0 0 0-7 3 4 4 0 0 0-1 7 4 4 0 0 0 3 7 4 4 0 0 0 5-2 M12 3a4 4 0 0 1 7 3 4 4 0 0 1 1 7 4 4 0 0 1-3 7 4 4 0 0 1-5-2 M12 3v16',
   links: 'M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-2 2 M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l2-2',
   users: 'M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z M2 21v-1a7 7 0 0 1 14 0v1 M16 3.5a4 4 0 0 1 0 7.5 M18 14a6 6 0 0 1 4 6v1',
+  map: 'M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2z M9 4v14 M15 6v14',
   shield: 'M12 2 4 5v6c0 5 3 8 8 11 5-3 8-6 8-11V5z M9 12l2 2 4-4',
 }
 function NavIcon({ name }: { name: string }) {
@@ -98,7 +101,7 @@ export default function App() {
           </div>
           <div className="sidebar-section-label">סביבת עבודה</div>
           <nav aria-label="ניווט ראשי">
-            {NAV.filter(n => n.to === '/' ? can('dashboard.read') : n.to === '/audit' ? can('audit.read') : n.to === '/ai' ? can('ai.configure') : n.to === '/rules/sources' ? can('source.crawl') : n.to === '/learning' ? can('learning.manage') : n.to === '/users' ? can('user.manage') : true).map(n => (
+            {NAV.filter(n => n.to === '/' ? can('dashboard.read') : n.to === '/audit' ? can('audit.read') : n.to === '/ai' ? can('ai.configure') : n.to === '/rules/sources' ? can('source.crawl') : n.to === '/learning' ? can('learning.manage') : n.to === '/users' ? can('user.manage') : n.to === '/committees' ? can('source.crawl') : true).map(n => (
               <NavLink key={n.to} to={n.to} end={n.end} onClick={() => setMobileOpen(false)}>
                 <NavIcon name={n.icon} /><span className="nav-label">{n.label}</span>{n.tag && <span className="tag">{n.tag}</span>}
               </NavLink>
@@ -142,6 +145,7 @@ export default function App() {
                 <Route path="/integrations" element={<Integrations />} />
                 <Route path="/audit" element={<Audit />} />
                 <Route path="/users" element={<Users />} />
+                <Route path="/committees" element={<Committees />} />
               </Routes>
             ) : loadError ? <div className="notice warn" role="alert">לא ניתן לטעון את סביבת העבודה: {loadError} <button onClick={() => window.location.reload()}>נסה שוב</button></div> : <div className="empty" role="status">טוען…</div>}
           </main>

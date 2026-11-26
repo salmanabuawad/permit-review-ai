@@ -47,6 +47,7 @@ class Municipality(Base):
     name_he: Mapped[str] = mapped_column(String(200))
     is_demo: Mapped[bool] = mapped_column(Boolean, default=False)
     settings: Mapped[dict] = mapped_column(JSON, default=dict)
+    committee_id: Mapped[str | None] = mapped_column(ForeignKey('planning_committees.id'), nullable=True)   # national register
 
 
 class User(Base):
@@ -570,3 +571,33 @@ class LoginAccount(Base):
     created_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), default=_now)
     password_changed_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime())
     last_login_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime())
+
+
+class PlanningCommittee(Base):
+    """National register of local planning committees (all of Israel), independent of which authorities use the system.
+    Seeded from the Planning Administration's published list; vendor, systems and sources are filled by probing the
+    committee's own site and by administrators. Nothing here is a verified rule."""
+    __tablename__ = 'planning_committees'
+    id: Mapped[str] = mapped_column(String(40), primary_key=True)                 # stable slug (no official code published)
+    committee_code: Mapped[str | None] = mapped_column(String(40))                # official code, once verified
+    name_he: Mapped[str] = mapped_column(String(200), unique=True)
+    district: Mapped[str] = mapped_column(String(40), index=True)                  # צפון | חיפה | מרכז | תל אביב | ירושלים | דרום
+    kind: Mapped[str] = mapped_column(String(20))                                  # local | regional
+    website_url: Mapped[str | None] = mapped_column(String(500))                   # as published by the Planning Administration
+    engineering_url: Mapped[str | None] = mapped_column(String(500))
+    request_search_url: Mapped[str | None] = mapped_column(String(500))            # public permit-request search
+    vendor: Mapped[str] = mapped_column(String(40), default='unknown')             # BarTech | Complot | other | unknown
+    vendor_evidence: Mapped[str | None] = mapped_column(String(300))
+    sources: Mapped[list] = mapped_column(JSON, default=list)                      # [{url, title, kind, status, found_at}]
+    kb_status: Mapped[str] = mapped_column(String(30), default='NOT_STARTED')
+    kb_detail: Mapped[dict] = mapped_column(JSON, default=dict)
+    registry_source: Mapped[dict] = mapped_column(JSON, default=dict)              # {url, page_updated, retrieved}
+    last_probed_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime())
+    updated_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), default=_now)
+
+
+class CommitteeSettlement(Base):
+    """A settlement / local authority served by a committee, as published; linked to an authority of the system if any."""
+    __tablename__ = 'committee_settlements'
+    committee_id: Mapped[str] = mapped_column(ForeignKey('planning_committees.id', ondelete='CASCADE'), primary_key=True)
+    name_he: Mapped[str] = mapped_column(String(200), primary_key=True)
