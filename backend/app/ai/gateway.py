@@ -321,6 +321,16 @@ IMPLEMENTATIONS: dict[str, Callable[[str, dict, dict], dict]] = {
 
 # ----------------------------------------------------------------- gateway
 
+DETERMINISTIC_PROVIDERS = ("local_keyword", "local_template", "local_bm25", "local_rules")
+
+
+def _prompt_ref(task: str, provider_id: str) -> dict:
+    """The prompt id@version a model call used (prompt registry); deterministic providers use no prompt."""
+    from .registry import TASK_PROMPT, prompt_version
+    pid = TASK_PROMPT.get(task)
+    return {"prompt": f"{pid}@{prompt_version(pid)}"} if pid and provider_id not in DETERMINISTIC_PROVIDERS else {}
+
+
 class AIGateway:
     def __init__(self, policy: dict | None = None, overrides: list[dict] | None = None,
                  implementations: dict | None = None, provider_settings: dict | None = None, bulk: bool = False):
@@ -403,7 +413,7 @@ class AIGateway:
             _USAGE.reset(tok)
             ms = int((time.perf_counter() - t0) * 1000)
             res = AIResult(task, "OK" if first_ok else "FALLBACK", pid, cfg.get("model_version"), out, ms,
-                           float(cfg.get("cost_per_unit_ils", 0.0)), trail + [{"provider": pid, "used": True}],
+                           float(cfg.get("cost_per_unit_ils", 0.0)), trail + [{"provider": pid, "used": True, **_prompt_ref(task, pid)}],
                            sum(a for a, _ in used), sum(b for _, b in used))
             log and log(res)
             return res

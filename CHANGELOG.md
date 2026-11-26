@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-11-26 — Model registry, prompt registry, task routing (Permit360 1.7)
+
+- `knowledge/ai_models.yaml`: the 17 local models with source, licence, SHA-256, quantisation and host, from the AI PC's
+  provenance files (three community builds marked unverified). Status IN_USE (Ministral 3 8B IQ4_XS for text and
+  vision; e5-small for embeddings) or CANDIDATE; `validated_for` is empty for every model until the Hebrew planning
+  benchmark passes.
+- Prompt registry: a prompt's version is the hash of its exact text; every model result's trail records
+  `prompt: id@version`.
+- Task routing (`ai/registry.py`): deterministic work (numbers, geometry, parsing, layout) never goes to a model;
+  escalation only on objective triggers (missing evidence, invalid schema, numbers not in the source, possible
+  exception, inconsistent rules, unverified material defect) and only to a model validated for the task — with none,
+  the item stays UNRESOLVED. AI settings page: registry, prompt versions and routing table (read-only).
+
 ## 2026-11-26 — Regulatory hierarchy, Hebrew terminology and clauses (Permit360 1.4)
 
 - `jurisdictions` (migration 0014): IL → 6 districts → 131 committees → the system's authorities, built from the

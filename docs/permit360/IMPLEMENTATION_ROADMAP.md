@@ -14,7 +14,7 @@ a copy of live data, regression tests passing on PostgreSQL, and a release note.
 | 1.4 | Clause model and hierarchy | **DONE 2026-11-26** for committee sources (hierarchy, terminology, clauses, scoped search); curated YAML passages / uploads into clauses: next |
 | 1.5 | e5-small embeddings on the server CPU (approved) plus hybrid retrieval; Hebrew retrieval benchmark | embeddings + hybrid search **DONE**; benchmark pending a question set |
 | 1.6 | Fetch committee candidate sources into snapshots and clauses (crawler) | snapshots + text **DONE 2026-11-26**; clause structure with 1.4 |
-| 1.7 | AI gateway: model registry, prompt registry, response cache, task router | |
+| 1.7 | AI gateway: model registry, prompt registry, response cache, task router | **DONE 2026-11-26** (validation per model waits for the benchmark) |
 | 1.8 | Finding schema normalised (rule version, methodology, confidence, drawing reference) | |
 
 ## Phase 2: Preventive intelligence

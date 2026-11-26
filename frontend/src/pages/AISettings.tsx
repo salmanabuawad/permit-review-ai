@@ -1,3 +1,4 @@
+import AIRegistry from '../components/AIRegistry'
 import { useEffect, useState } from 'react'
 import { api } from '../api'
 import { useApp } from '../App'
@@ -114,6 +115,7 @@ export default function AISettings() {
           <div style={{ marginTop: 10, display: 'flex', gap: 8 }}><button className="primary" onClick={save}>שמירה</button><button onClick={() => setEdit(null)}>ביטול</button></div>
         </div>
       )}
+      <AIRegistry />
     </>
   )
 }

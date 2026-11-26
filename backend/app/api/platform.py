@@ -171,3 +171,14 @@ def audit_list(limit: int = 200, p: Principal = Depends(require("audit.read")), 
     return {"chain_ok": ok, "first_bad_id": bad,
             "events": [{"id": e.id, "at": e.at.isoformat(), "actor": e.actor, "action": e.action, "entity": e.entity,
                         "entity_id": e.entity_id, "detail": e.detail, "hash": e.hash[:16]} for e in evs]}
+
+
+# ------------------------------------------------------------------ model registry, prompts, routing (Permit360 1.7)
+
+@router.get("/api/ai/registry")
+def ai_registry(p: Principal = Depends(require("ai.configure"))):
+    """Local models (source, licence, hash, status, validated tasks), prompt versions and the routing table."""
+    from ..ai import registry as R
+    return {"hardware": R.models().get("hardware", {}), "models": R.models().get("models", []),
+            "prompts": list(R.prompts().values()),
+            "routes": [{"task": t, **R.decide(t)} for t in R.ROUTES], "triggers": list(R.TRIGGERS)}

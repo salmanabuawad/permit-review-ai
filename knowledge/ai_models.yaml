@@ -1,0 +1,195 @@
+# Local AI model registry (Permit360 1.7). Generated 2026-11-26 from the AI PC's provenance files
+# (~/muniflow/models/*.provenance.json) and llama.cpp presets (models.ini). Licence and source as recorded
+# there; 'unverified' where the provenance says so. validated_for stays empty until a model passes the Hebrew
+# planning benchmark (docs/permit360/AI_GATEWAY.md) — being on disk is not validation.
+hardware:
+  ai_pc: {gpu: "NVIDIA GeForce RTX 3050", vram_gb: 6, ram_gb: 64, runtime: "llama.cpp router, one GPU model at a time"}
+  app_server: {cpu: "Intel Xeon (Sapphire Rapids), 4 vCPU", ram_gb: 7.8, runtime: "onnxruntime CPU"}
+models:
+  - file: "DictaLM-3.0-Nemotron-12B-Instruct-Q4_K_M.gguf"
+    presets: ["dictalm-3-12b"]
+    source: "https://huggingface.co/dicta-il/DictaLM-3.0-Nemotron-12B-Instruct-GGUF"
+    provenance_note: "Dicta (Israel), Hebrew, NVIDIA Open Model License"
+    license: "NVIDIA Open Model License"
+    sha256: "ca0af13ef66768ca835fbbdb122959a06fc9d42b23a7b2b2bc38bf75b09ab0e6"
+    quantization: "Q4_K_M"
+    host: ai_pc
+    status: CANDIDATE
+    in_use_for: []
+    validated_for: []
+  - file: "Hebatron.i1-IQ4_XS.gguf"
+    presets: ["hebatron"]
+    source: "https://huggingface.co/mradermacher/Hebatron-i1-GGUF"
+    provenance_note: "HebArabNlpProject (Israel) Hebrew weights, community GGUF build, Apache-2.0"
+    license: "Apache-2.0"
+    sha256: "294cdee7330850869f74a54915eec9dc59c6e21f902e95474d3ed35afe4813a0"
+    quantization: "IQ4_XS"
+    host: ai_pc
+    status: CANDIDATE
+    in_use_for: []
+    validated_for: []
+  - file: "Ministral-3-14B-Instruct-2512-Q4_K_M.gguf"
+    presets: ["ministral-3-14b"]
+    source: "https://huggingface.co/mistralai/Ministral-3-14B-Instruct-2512-GGUF"
+    provenance_note: "Mistral AI (France), Apache-2.0"
+    license: "Apache-2.0"
+    sha256: "824e0f3373e69b84f2cae46fdcb9bd1ebc6ab3bfc7acc125d818b7b8178cc613"
+    quantization: "Q4_K_M"
+    host: ai_pc
+    status: CANDIDATE
+    in_use_for: []
+    validated_for: []
+  - file: "Ministral-3-3B-Instruct-2512-Q4_K_M.gguf"
+    presets: ["ministral-3-3b"]
+    source: "https://huggingface.co/mistralai/Ministral-3-3B-Instruct-2512-GGUF"
+    provenance_note: "Mistral AI (France), Apache-2.0"
+    license: "Apache-2.0"
+    sha256: "9ed150d4367e68df0ac8e1540f6ddc65b42d0ee26378329d1ecbca60f93fc5f8"
+    quantization: "Q4_K_M"
+    host: ai_pc
+    status: CANDIDATE
+    in_use_for: []
+    validated_for: []
+  - file: "Ministral-3-8B-Instruct-2512-IQ4_XS.gguf"
+    presets: ["ministral-3-8b-iq4xs", "ministral-3-8b-vision"]
+    source: "https://huggingface.co/mistralai/Ministral-3-8B-Instruct-2512-GGUF"
+    provenance_note: "Mistral AI (France), Apache-2.0"
+    license: "Apache-2.0"
+    sha256: "a2a6c3b9615bbcf1f52a8368863b8d1b1683bc8f12fd253f1b9a7b18a68394a8"
+    quantization: "IQ4_XS"
+    host: ai_pc
+    status: IN_USE
+    in_use_for: ["Classification", "Extraction", "ReportDraft", "VisionDrawing"]
+    validated_for: []
+  - file: "Ministral-3-8B-Instruct-2512-Q3_K_M.gguf"
+    presets: ["ministral-3-8b-q3km"]
+    source: "https://huggingface.co/mistralai/Ministral-3-8B-Instruct-2512-GGUF"
+    provenance_note: "Mistral AI (France), Apache-2.0"
+    license: "Apache-2.0"
+    sha256: "45adddb81da6d7f552081aef58572f55af84571808ab874d90a9db2ff603c89b"
+    quantization: "Q3_K_M"
+    host: ai_pc
+    status: CANDIDATE
+    in_use_for: []
+    validated_for: []
+  - file: "Ministral-3-8B-Instruct-2512-Q4_K_M.gguf"
+    presets: ["ministral-3-8b"]
+    source: "https://huggingface.co/mistralai/Ministral-3-8B-Instruct-2512-GGUF"
+    provenance_note: "Mistral AI (France), Apache-2.0"
+    license: "Apache-2.0"
+    sha256: "33e7a72cf5e6e2cfc2f2847075acc013d68bba023e35310cef86b5cf8fdca761"
+    quantization: "Q4_K_M"
+    host: ai_pc
+    status: CANDIDATE
+    in_use_for: []
+    validated_for: []
+  - file: "Qwen_Qwen3.5-2B-Q4_K_M.gguf"
+    presets: ["qwen3.5-2b"]
+    source: "https://huggingface.co/bartowski/Qwen_Qwen3.5-2B-GGUF"
+    provenance_note: "unverified"
+    license: "unverified"
+    sha256: "57a1085840f497d764a7fc5d346922dbde961efb54cc792ea81d694fd846a1d8"
+    quantization: "Q4_K_M"
+    host: ai_pc
+    status: CANDIDATE
+    in_use_for: []
+    validated_for: []
+  - file: "Qwen_Qwen3.5-9B-Q4_K_M.gguf"
+    presets: ["qwen3.5-9b"]
+    source: "https://huggingface.co/bartowski/Qwen_Qwen3.5-9B-GGUF"
+    provenance_note: "Qwen (Alibaba) weights, community GGUF build, Apache-2.0"
+    license: "Apache-2.0"
+    sha256: "d784ce9eda1a5a7b51e8f705a9e6310844bf4f173654d115823c775fdea56d43"
+    quantization: "Q4_K_M"
+    host: ai_pc
+    status: CANDIDATE
+    in_use_for: []
+    validated_for: []
+  - file: "Qwen_Qwen3.6-35B-A3B-IQ4_XS.gguf"
+    presets: ["qwen3.6-35b-a3b"]
+    source: "https://huggingface.co/bartowski/Qwen_Qwen3.6-35B-A3B-GGUF"
+    provenance_note: "Qwen (Alibaba) weights, community GGUF build, Apache-2.0"
+    license: "Apache-2.0"
+    sha256: "afc7238af403ed454b7846454091b5e38b07575bdbb64c3e86777414dde4193c"
+    quantization: "IQ4_XS"
+    host: ai_pc
+    status: CANDIDATE
+    in_use_for: []
+    validated_for: []
+  - file: "gemma-4-12b-it-qat-q4_0.gguf"
+    presets: ["gemma-4-12b"]
+    source: "https://huggingface.co/google/gemma-4-12B-it-qat-q4_0-gguf"
+    provenance_note: "Google (USA), quantization-aware Q4_0, Apache-2.0"
+    license: "Apache-2.0"
+    sha256: "93567e57a8fe10b23569b9d9ec38cd005deedf71e29477c421a4b83f418a538b"
+    quantization: "q4_0"
+    host: ai_pc
+    status: CANDIDATE
+    in_use_for: []
+    validated_for: []
+  - file: "gemma-4-26B_q4_0-it.gguf"
+    presets: ["gemma-4-26b-a4b"]
+    source: "https://huggingface.co/google/gemma-4-26B-A4B-it-qat-q4_0-gguf"
+    provenance_note: "Google (USA), quantization-aware Q4_0, Apache-2.0"
+    license: "Apache-2.0"
+    sha256: "3eca3b8f6d7baf218a7dd6bba5fb59a56ee25fe2d567b6f5f589b4f697eca51d"
+    quantization: "q4_0"
+    host: ai_pc
+    status: CANDIDATE
+    in_use_for: []
+    validated_for: []
+  - file: "gemma-4-E4B_q4_0-it.gguf"
+    presets: ["gemma-4-e4b"]
+    source: "https://huggingface.co/google/gemma-4-E4B-it-qat-q4_0-gguf"
+    provenance_note: "Google (USA), quantization-aware Q4_0, Apache-2.0"
+    license: "Apache-2.0"
+    sha256: "676c35070db6dbe52f93e9c864ee0fba4eddea94b9c875d9cb10daff453fbaee"
+    quantization: "q4_0"
+    host: ai_pc
+    status: CANDIDATE
+    in_use_for: []
+    validated_for: []
+  - file: "google_gemma-3-4b-it-Q4_K_M.gguf"
+    presets: ["gemma-3-4b"]
+    source: "https://huggingface.co/bartowski/google_gemma-3-4b-it-GGUF"
+    provenance_note: "unverified"
+    license: "unverified"
+    sha256: "4996030242583a40aa151ff93f49ed787ac8c25e4120c3ae4588b2e2a7d1ae94"
+    quantization: "Q4_K_M"
+    host: ai_pc
+    status: CANDIDATE
+    in_use_for: []
+    validated_for: []
+  - file: "gpt-oss-20b-MXFP4.gguf"
+    presets: ["gpt-oss-20b"]
+    source: "https://huggingface.co/ggml-org/gpt-oss-20b-GGUF"
+    provenance_note: "OpenAI weights, ggml-org GGUF build, Apache-2.0"
+    license: "Apache-2.0"
+    sha256: "27cd6c432c7672cb812a92f611cf3ba7bbc35928262bb1e1253ff4ee6ae35901"
+    quantization: "MXFP4"
+    host: ai_pc
+    status: CANDIDATE
+    in_use_for: []
+    validated_for: []
+  - file: "microsoft_Phi-4-mini-instruct-Q4_K_M.gguf"
+    presets: ["phi-4-mini"]
+    source: "https://huggingface.co/bartowski/microsoft_Phi-4-mini-instruct-GGUF"
+    provenance_note: "unverified"
+    license: "unverified"
+    sha256: "01999f17c39cc3074afae5e9c539bc82d45f2dd7faa3917c66cbef76fce8c0c2"
+    quantization: "Q4_K_M"
+    host: ai_pc
+    status: CANDIDATE
+    in_use_for: []
+    validated_for: []
+  - file: "multilingual-e5-small/model.onnx"
+    presets: []
+    source: "https://huggingface.co/intfloat/multilingual-e5-small"
+    provenance_note: "revision 614241f622f53c4eeff9890bdc4f31cfecc418b3, files hash-checked 2026-11-26"
+    license: "MIT"
+    sha256: "ca456c06b3a9505ddfd9131408916dd79290368331e7d76bb621f1cba6bc8665"
+    quantization: "FP32"
+    host: app_server
+    status: IN_USE
+    in_use_for: ["SemanticEmbedding"]
+    validated_for: []
