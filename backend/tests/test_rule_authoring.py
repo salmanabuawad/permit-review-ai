@@ -67,6 +67,9 @@ def test_create_update_delete_restore_custom_rule(client):
     with SessionLocal() as s:
         actions = [a for (a,) in s.query(AuditEvent.action).filter(AuditEvent.entity_id == "BB-TEST-MAX-AREA").order_by(AuditEvent.id)]
     assert actions == ["rule.create", "rule.update", "rule.delete", "rule.undelete"]
+    hist = client.get("/api/rules/BB-TEST-MAX-AREA/versions", headers=H("u-engineer")).json()
+    assert [(v["version"], v["deleted"]) for v in hist] == [("0.1", False), ("0.2", False), ("0.2", True), ("0.3", False)]
+    assert hist[0]["data"] != hist[1]["data"]                     # each version keeps its own content
 
 
 def test_editing_a_catalogue_rule_needs_a_new_approval(client):

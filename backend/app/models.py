@@ -10,8 +10,8 @@ from __future__ import annotations
 import datetime as dt
 import uuid
 
-from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint, event
+from sqlalchemy.orm import Mapped, Session, mapped_column, relationship
 from sqlalchemy.types import TypeDecorator, UserDefinedType
 
 from .db import Base
@@ -664,3 +664,39 @@ class CommitteeChunk(Base):
     end: Mapped[int] = mapped_column(Integer)
     model: Mapped[str | None] = mapped_column(String(80), index=True)     # embedding model id; None = not embedded yet
     embedding: Mapped[str | None] = mapped_column(Text().with_variant(PGVector(), "postgresql"))   # via embeddings.index
+
+
+class RuleVersion(Base):
+    """Every saved version of a rule edited in the rules screen (immutable; appended, never updated).
+    Written by a session hook whenever a RuleDefinition's version, content or deleted flag changes."""
+    __tablename__ = 'rule_versions'
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    tenant_id: Mapped[str] = mapped_column(ForeignKey('municipalities.id'), index=True)
+    rule_id: Mapped[str] = mapped_column(String(80), index=True)
+    version: Mapped[str] = mapped_column(String(20))
+    data: Mapped[dict] = mapped_column(JSON)
+    deleted: Mapped[bool] = mapped_column(Boolean, default=False)
+    saved_by: Mapped[str] = mapped_column(String(40))
+    saved_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), default=_now)
+
+
+def _version_key(d) -> str:
+    import hashlib, json as _json
+    return hashlib.sha256(_json.dumps([d.version, d.data, bool(d.deleted)], sort_keys=True, default=str).encode()).hexdigest()
+
+
+@event.listens_for(Session, "before_flush")
+def _append_rule_versions(session, flush_context, instances):
+    """Append a RuleVersion for each new or changed RuleDefinition (create, edit, delete, restore)."""
+    for d in list(session.new) + list(session.dirty):
+        if not isinstance(d, RuleDefinition):
+            continue
+        key = _version_key(d)
+        if getattr(d, "_last_version_key", None) == key:
+            continue
+        if d in session.dirty and not session.is_modified(d, include_collections=False):
+            continue
+        d._last_version_key = key
+        import copy
+        session.add(RuleVersion(tenant_id=d.tenant_id, rule_id=d.rule_id, version=str(d.version), data=copy.deepcopy(d.data),
+                                deleted=bool(d.deleted), saved_by=d.updated_by or d.created_by))

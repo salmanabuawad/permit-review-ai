@@ -49,6 +49,16 @@ def approve_rule(rule_id: str, body: ApproveIn, p: Principal = Depends(require("
     return {"ok": True}
 
 
+@router.get("/api/rules/{rule_id}/versions")
+def rule_versions(rule_id: str, p: Principal = Depends(require("case.read")), s: Session = Depends(get_session)):
+    """Every saved version of a rule edited in this authority (oldest first); catalogue-only rules have none."""
+    from ..models import RuleVersion
+    rows = s.scalars(select(RuleVersion).where(RuleVersion.tenant_id == p.tenant_id, RuleVersion.rule_id == rule_id)
+                     .order_by(RuleVersion.id))
+    return [{"version": v.version, "deleted": v.deleted, "saved_by": v.saved_by, "saved_at": v.saved_at.isoformat(),
+             "data": v.data} for v in rows]
+
+
 @router.get("/api/rules/meta")
 def rules_meta(p: Principal = Depends(require("case.read"))):
     return {"legal_levels": list(LEGAL_LEVEL_RANK), "reports": list(REPORTS), "severities": list(SEVERITIES),

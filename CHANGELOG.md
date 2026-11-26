@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-11-26 — Rule version history (Permit360 1.3 complete)
+
+- `rule_versions` (migration 0013): every saved version of a rule edited in the rules screen (create, edit, delete,
+  restore) is appended by a session hook on `RuleDefinition`, never updated; backfilled from current definitions.
+  `GET /api/rules/{id}/versions`. Together with per-rule fixtures and the two-layer catalogue this completes 1.3.
+
 ## 2026-11-26 — Local embeddings and hybrid search (Permit360 1.5, first part)
 
 - Model: intfloat/multilingual-e5-small (MIT), ONNX, revision 614241f, file hashes checked, provenance recorded next to
