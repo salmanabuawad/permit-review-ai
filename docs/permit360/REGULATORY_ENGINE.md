@@ -59,9 +59,19 @@ The logic language is restricted and declarative: comparison, ranges, ratio, sum
 activation needs a verified source quote and professional approval. This is already enforced for drafts
 (`rule_drafts`, `committee_reason`).
 
-**Migration:** import the 75 YAML rules into `rule_definitions` as version 1, carrying their current approval states
-(they are recorded as PROFESSIONALLY_APPROVED on the owner's instruction, and each records who approved it). Then
-make the DB the only store, with YAML kept as an export format (backlog B-03).
+**Decision (revised 2026-11-26 after reading the code):** keep the two layers. They are deliberate, not duplication.
+The YAML catalogue is reviewed in git and shared, so national and plan rules are stored once for every authority.
+`rule_definitions` holds each authority's edits and additions on top of it. Every edit bumps the version, so an
+approval never carries over to changed text. Moving everything into the database would copy shared rules into each
+authority, which V11 forbids.
+
+What was missing has been added or is still to add:
+- **per-rule fixtures (`tests:`, DONE):** the engine runs them on validation, so an edit that changes a rule's outcome
+  at its fixtures is refused. The whole catalogue runs them in the suite (`test_rule_fixtures.py`). Fixtures evaluate
+  the rule's logic as if approved; the approval gate stays in force in real runs. Five rules carry fixtures so far;
+  every rule should.
+- **immutable version history (next):** a `rule_versions` table holding every saved version. Today only the latest
+  version is in the database, with full before / after in the audit log.
 
 ## Precedence and conflicts
 

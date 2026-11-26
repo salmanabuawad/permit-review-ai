@@ -433,6 +433,47 @@ AUTHOR_REVIEW_STATES = ("DRAFT", "SOURCE_MISSING", "SOURCE_LOCATED", "SOURCE_VER
 _RULE_ID = __import__("re").compile(r"^[A-Z0-9][A-Z0-9_-]{2,79}$")
 
 
+TEST_EXPECT = ("PASS", "FAIL", "UNCERTAIN", "NA")
+
+
+def _nest(flat: dict) -> dict:
+    """{"case.applicable_plans": [..], "declared": {...}} → nested facts (dotted keys allowed)."""
+    out: dict = {}
+    for k, v in (flat or {}).items():
+        cur = out
+        parts = str(k).split(".")
+        for p_ in parts[:-1]:
+            cur = cur.setdefault(p_, {})
+        if isinstance(v, dict) and isinstance(cur.get(parts[-1]), dict):
+            cur[parts[-1]].update(v)
+        else:
+            cur[parts[-1]] = v
+    return out
+
+
+def run_rule_tests(raw: dict) -> list[str]:
+    """Run the rule's own fixtures (`tests: [{facts, expect, note?}]`) through the engine. Empty list = all pass.
+    A fixture fixes the rule's meaning at its boundaries, so an edit that changes the outcome is caught before save."""
+    errs: list[str] = []
+    tests = raw.get("tests") or []
+    if not isinstance(tests, list):
+        return ["tests: נדרשת רשימה"]
+    for i, t in enumerate(tests, 1):
+        if not isinstance(t, dict) or t.get("expect") not in TEST_EXPECT or not isinstance(t.get("facts", {}), dict):
+            errs.append(f"בדיקה {i}: נדרשים facts ו־expect אחד מ־{'/'.join(TEST_EXPECT)}")
+            continue
+        try:
+            # fixtures test the rule's logic: evaluated as approved (real runs keep the approval gate)
+            logic = raw if raw.get("review_state") in ("DEMO_FIXTURE", "RETIRED") else {**raw, "review_state": "PROFESSIONALLY_APPROVED"}
+            res = evaluate_rule(Rule(logic), _nest(t.get("facts") or {}), {}, raw.get("review_state") == "DEMO_FIXTURE")
+        except Exception as e:  # noqa: BLE001
+            errs.append(f"בדיקה {i}: שגיאת הרצה {type(e).__name__}")
+            continue
+        if res.status != t["expect"]:
+            errs.append(f"בדיקה {i}{' (' + t['note'] + ')' if t.get('note') else ''}: צפוי {t['expect']}, התקבל {res.status}")
+    return errs
+
+
 def validate_rule(raw: dict, allow_demo: bool = False) -> list[str]:
     """Problems that would make a rule unusable or misleading; empty = valid. Ends with a dry run of the
     engine on empty facts, so a rule that passes here cannot crash a check run."""
@@ -504,6 +545,8 @@ def validate_rule(raw: dict, allow_demo: bool = False) -> list[str]:
         evaluate_rule(Rule(dict(raw)), {"case": {}}, {}, tenant_is_demo=True)
     except Exception as e:  # noqa: BLE001
         errs.append(f"הכלל אינו ניתן להרצה: {type(e).__name__}: {e}")
+        return errs
+    errs += run_rule_tests(dict(raw))                 # the rule's own fixtures must still pass
     return errs
 
 

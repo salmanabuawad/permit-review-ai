@@ -84,7 +84,7 @@ one-time drawing reading. Caching the summary by its inputs and reading only cha
 
 ## 4. Weaknesses and duplication
 
-1. **Two rule stores** (YAML files and `rule_definitions`) with different authoring paths. Target: one versioned store.
+1. ~~Two rule stores~~: on closer reading these are deliberate layers (a git-reviewed shared catalogue plus each authority's edits). The real gaps were per-rule tests (now added) and an immutable version history (open).
 2. **Knowledge split** — curated YAML passages, source-monitor drafts, candidate passages and the V10 registry are
    four parallel structures without a common clause model or hierarchy.
 3. **API monolith in one file** — `main.py` ≈ 1,600 lines, `services.py` ≈ 900 lines. Target: routers per module.

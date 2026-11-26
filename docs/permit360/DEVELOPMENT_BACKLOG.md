@@ -4,9 +4,9 @@ Priority: P1 (next), P2 (this phase), P3 (later). Size: S (≤ 1 day), M (≤ 1 
 
 | Id | Item | Value | P | Size | Depends |
 |---|---|---|---|---|---|
-| B-02 | Cache the run summary by evidence fingerprint and prompt / model version | about 90 % less time on unchanged re-runs | P1 | S | — |
-| B-01 | Split `main.py` into routers per module, no URL change | maintainability | P1 | M | — |
-| B-03 | Single rule store: import 75 YAML rules as versioned DB rules; per-rule test fixtures; activation gate | one source of truth | P1 | M | — |
+| B-02 | Cache the run summary by evidence fingerprint and prompt / model version (**done**) | about 90 % less time on unchanged re-runs | P1 | S | — |
+| B-01 | Split `main.py` into routers per module, no URL change (**done**) | maintainability | P1 | M | — |
+| B-03 | Rules: per-rule fixtures and validation gate (**done**, 5 rules so far); fixtures for every rule; immutable `rule_versions` history. Two layers kept (git catalogue + per-authority DB), see REGULATORY_ENGINE.md | safe rule edits | P1 | M | — |
 | B-04 | Clause model and jurisdiction hierarchy; migrate passages, drafts and uploads | Regulation360 base | P1 | L | — |
 | B-05 | Embeddings (e5-small, server CPU) + hybrid retrieval + tenant-keyed index; benchmark first | retrieval accuracy | P2 | M | B-04 |
 | B-06 | Unified job queue (claim + lease) for all background work; job dashboard | reliability | P2 | M | — |

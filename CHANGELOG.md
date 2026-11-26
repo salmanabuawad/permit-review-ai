@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-11-26 — Per-rule fixtures (Permit360 B-03, revised)
+
+- A rule may carry `tests: [{facts, expect, note?}]`. The engine runs them on validation (`run_rule_tests`), so an edit
+  in the rules screen that changes the outcome at a fixture is refused; the catalogue's fixtures run in the test
+  suite. Fixtures test the rule's logic (evaluated as approved); real runs keep the approval gate.
+- First fixtures: HA-633-FLOORS, UNITS-CELL, MAIN-AREA-CELL, SERVICE-AREA-CELL, BB-SG16-31.2-RAILING (boundaries,
+  missing data, other plan, applicability unknown / not met).
+- Decision recorded: the YAML catalogue and per-authority DB edits stay two layers (shared rules are not copied into
+  every authority).
+
 ## 2026-11-26 — API split into modules (Permit360 B-01)
 
 - `app/main.py` (≈ 1,800 lines) now only assembles the app (CORS, login gate, startup); the 95 endpoints moved

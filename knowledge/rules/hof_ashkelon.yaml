@@ -30,6 +30,11 @@ rules:
       - {source_id: HA-PLAN-633-0723718, section: "4.1.2 א(1) הוראות בינוי", page: 11, quote_he: "הבניה תהיה בקומה אחת או בשתי קומות"}
       - {source_id: HA-INFO-10000583665-2, section: "בינוי — מספר קומות מעל מפלס הכניסה למבנה", page: 3, quote_he: "2 קומות"}
     fix_hint_he: "לתכנן את המבנה בקומה אחת או בשתי קומות בלבד."
+    tests:
+      - {facts: {"case.applicable_plans": ["633-0723718"], declared.floors: 2}, expect: PASS, note: "בדיוק בגבול"}
+      - {facts: {"case.applicable_plans": ["633-0723718"], declared.floors: 3}, expect: FAIL}
+      - {facts: {"case.applicable_plans": ["633-0723718"]}, expect: UNCERTAIN, note: "חסר נתון"}
+      - {facts: {"case.applicable_plans": ["633-0000000"], declared.floors: 3}, expect: NA, note: "תכנית אחרת"}
 
   - id: HA-633-HEIGHT
     version: "0.1"
@@ -77,6 +82,9 @@ rules:
       - {source_id: HA-INFO-10000583665-2, section: "צפיפות בניה — מספר יחידות דיור", page: 3, quote_he: "633-0723718 102"}
     fix_hint_he: "לעדכן את טבלת הריכוז של תא השטח כך שסך יח\"ד לא יעלה על 102."
     notes: "Cumulative over the cell; the value is the applicant's own summary table — the reviewer checks it against approved permits."
+    tests:
+      - {facts: {"case.applicable_plans": ["633-0723718"], declared.cell_units_total: 102}, expect: PASS}
+      - {facts: {"case.applicable_plans": ["633-0723718"], declared.cell_units_total: 103}, expect: FAIL}
 
   - id: HA-633-MAIN-AREA-CELL
     version: "0.1"
@@ -98,6 +106,9 @@ rules:
       - {source_id: HA-PLAN-633-0723718, section: "5 טבלת זכויות והוראות בניה — מצב מוצע, תא שטח 368", page: 13, quote_he: "שטחי בניה (% מתא שטח) מעל הכניסה הקובעת — עיקרי: 40"}
       - {source_id: HA-INFO-10000583665-2, section: "שטחים", page: 2, quote_he: "שטח עיקרי מעל לכניסה הקובעת 40%"}
       - {source_id: HA-PLAN-633-0723718, section: "2.2 עיקרי הוראות", page: 9, quote_he: "ללא הגדלת סך כל השטחים למטרות עיקריות"}
+    tests:
+      - {facts: {"case.applicable_plans": ["633-0723718"], declared.cell_main_pct: 40}, expect: PASS}
+      - {facts: {"case.applicable_plans": ["633-0723718"], declared.cell_main_pct: 40.5}, expect: FAIL}
 
   - id: HA-633-SERVICE-AREA-CELL
     version: "0.1"
@@ -118,6 +129,9 @@ rules:
     sources:
       - {source_id: HA-PLAN-633-0723718, section: "5 טבלת זכויות והוראות בניה — מצב מוצע, תא שטח 368", page: 13, quote_he: "שטחי בניה (% מתא שטח) מעל הכניסה הקובעת — שירות: 10"}
       - {source_id: HA-INFO-10000583665-2, section: "שטחים", page: 2, quote_he: "שטח שירות מעל לכניסה הקובעת 10%"}
+    tests:
+      - {facts: {"case.applicable_plans": ["633-0723718"], declared.cell_service_pct: 10}, expect: PASS}
+      - {facts: {"case.applicable_plans": ["633-0723718"], declared.cell_service_pct: 11}, expect: FAIL}
 
   - id: HA-633-COVERAGE-CELL
     version: "0.1"

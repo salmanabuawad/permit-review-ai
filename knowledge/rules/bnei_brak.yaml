@@ -288,6 +288,13 @@ rules:
   # The committee refused 202401320 (17/06/2025) for missing documents, not for design:
   # "לא ניתן לדון בבקשה עד לקבלת אישור וועדת נכים; השלמת חתימות כנדרש", and approved it unchanged
   # (26/11/2025) after an updated inspection report. These rules make those gates explicit.
+    tests:
+      - {facts: {case.permit_type: addition_extension, declared.has_unbuilt_floor_in_wing: true, declared.unbuilt_floor_railing_height_m: 1.05}, expect: PASS}
+      - {facts: {case.permit_type: addition_extension, declared.has_unbuilt_floor_in_wing: true, declared.unbuilt_floor_railing_height_m: 0.9}, expect: FAIL}
+      - {facts: {case.permit_type: addition_extension, declared.has_unbuilt_floor_in_wing: false, declared.unbuilt_floor_railing_height_m: 0.9}, expect: NA, note: "אין קומה לא בנויה באגף"}
+      - {facts: {case.permit_type: addition_extension, declared.unbuilt_floor_railing_height_m: 0.9}, expect: UNCERTAIN, note: "תחולה לא ידועה"}
+      - {facts: {case.permit_type: new_building, declared.unbuilt_floor_railing_height_m: 0.9}, expect: NA}
+
   - id: BB-COMP-DISABLED-UNIT-APPROVAL
     version: "0.1"
     title_he: "בקשה לדירת נכה — אישור ועדת נכים כתנאי לדיון"
