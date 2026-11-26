@@ -1,5 +1,19 @@
 # Changelog
 
+## 2026-11-26 — PostgreSQL (V11 phase 2)
+
+- Live data moved from SQLite to PostgreSQL 16 (`permit_review`, extensions vector, postgis, pg_trgm) with
+  `scripts/sqlite_to_postgres.py`: schema from the migrations, all 31 tables / 3,224 rows copied in one transaction,
+  sequences moved on, counts and audit chains compared with the source. Socket + peer authentication: the app connects
+  as role `permit`, the crawler as `permit-crawler` (member of `permit`); no database password exists.
+  Rollback: the SQLite file is untouched (frozen at the move) and its URL is kept, commented, in the env file.
+- Full test suite passes on PostgreSQL (`BBP_TEST_DATABASE_URL`), except tests that need validation case data, which
+  is not on the server.
+- Audit log: three forks found in the Hof Ashkelon chain (events 851/852 -> 848, 897-899 -> 895, 936 -> 933), all from
+  concurrent background writes on 2026-11-26; every row still hashes its own content (no edits). Kept as is (append-only).
+  Appends are now serialized per authority on PostgreSQL (transaction advisory lock); `audit.chain_report` tells
+  edited rows from broken links.
+
 ## 2026-11-26 — User management
 
 - Logins live in the database (`login_accounts`, scrypt): the authority's administrator (permission `user.manage`,

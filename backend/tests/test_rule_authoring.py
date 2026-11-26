@@ -65,7 +65,7 @@ def test_create_update_delete_restore_custom_rule(client):
     r = client.post("/api/rules/BB-TEST-MAX-AREA/restore", headers=H("u-engineer"), json={"rule": {}, "note": "הוחזר"})
     assert r.status_code == 200 and rules(client)["BB-TEST-MAX-AREA"]["version"] == "0.3"
     with SessionLocal() as s:
-        actions = [a for (a,) in s.query(AuditEvent.action).filter(AuditEvent.entity_id == "BB-TEST-MAX-AREA")]
+        actions = [a for (a,) in s.query(AuditEvent.action).filter(AuditEvent.entity_id == "BB-TEST-MAX-AREA").order_by(AuditEvent.id)]
     assert actions == ["rule.create", "rule.update", "rule.delete", "rule.undelete"]
 
 
