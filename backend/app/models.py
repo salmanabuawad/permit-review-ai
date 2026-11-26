@@ -503,6 +503,7 @@ class AuthorityMembership(Base):
     account_id: Mapped[str] = mapped_column(ForeignKey('users.id'), primary_key=True)
     tenant_id: Mapped[str] = mapped_column(ForeignKey('municipalities.id'), primary_key=True)
     actor_id: Mapped[str] = mapped_column(ForeignKey('users.id'), unique=True, nullable=False)
+    active: Mapped[bool] = mapped_column(Boolean, default=True)    # False: removed by the authority's administrator
 
 
 class CandidatePassage(Base):
@@ -553,3 +554,19 @@ class ParcelPlanDiscovery(Base):
     parcel_hash: Mapped[str] = mapped_column(String(64))
     result: Mapped[dict] = mapped_column(JSON)
     checked_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), default=_now)
+
+
+class LoginAccount(Base):
+    """A login (username + scrypt hash) for a home user of an authority. Managed in the app by the authority's
+    administrator; the legacy htpasswd account still works for usernames that have no row here."""
+    __tablename__ = 'login_accounts'
+    username: Mapped[str] = mapped_column(String(64), primary_key=True)          # lowercase
+    user_id: Mapped[str] = mapped_column(ForeignKey('users.id'), unique=True)
+    password_hash: Mapped[str] = mapped_column(String(255))
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+    must_change: Mapped[bool] = mapped_column(Boolean, default=True)             # set by an administrator's reset
+    sessions_after: Mapped[dt.datetime | None] = mapped_column(UTCDateTime())    # sessions issued before are void
+    created_by: Mapped[str] = mapped_column(String(40))
+    created_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), default=_now)
+    password_changed_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime())
+    last_login_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime())

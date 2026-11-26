@@ -1,4 +1,4 @@
-"""App login: one administrator, checked against an htpasswd file (Apache apr1-md5 hashes), then a signed session
+"""App login: accounts managed in the app (users.py, scrypt), or the legacy administrator in an htpasswd file (Apache apr1-md5 hashes), then a signed session
 cookie. Replaces the browser's basic-auth popup.
 
 * credentials: BBP_LOGIN_HTPASSWD (default <storage>/_keys/login.htpasswd, mode 600) — the same file format nginx uses;
@@ -89,21 +89,33 @@ def _key() -> bytes:
 
 
 def make_session(user_id: str, hours: float | None = None) -> str:
+    iat = int(time.time() * 1000)                                   # milliseconds
     exp = int(time.time() + 3600 * (hours or float(os.environ.get("BBP_SESSION_HOURS", "12"))))
-    body = f"{user_id}|{exp}"
+    body = f"{user_id}|{iat}|{exp}"
     return body + "|" + hmac.new(_key(), body.encode(), hashlib.sha256).hexdigest()
+
+
+def read_session_full(token: str | None) -> tuple[str, int] | None:
+    """(user id, issued-at) of a valid, unexpired session, else None. Tokens from before issue times were recorded
+    count as issued at 0, so a password reset or deactivation voids them too."""
+    try:
+        head, exp, sig = (token or "").rsplit("|", 2)
+    except ValueError:
+        return None
+    good = hmac.new(_key(), f"{head}|{exp}".encode(), hashlib.sha256).hexdigest()
+    try:
+        if not hmac.compare_digest(good, sig) or int(exp) < time.time():
+            return None
+        user_id, _, iat = head.partition("|")
+        return user_id, int(iat or 0)
+    except ValueError:
+        return None
 
 
 def read_session(token: str | None) -> str | None:
     """The user id of a valid, unexpired session, else None."""
-    try:
-        user_id, exp, sig = (token or "").rsplit("|", 2)
-    except ValueError:
-        return None
-    good = hmac.new(_key(), f"{user_id}|{exp}".encode(), hashlib.sha256).hexdigest()
-    if not hmac.compare_digest(good, sig) or int(exp) < time.time():
-        return None
-    return user_id
+    got = read_session_full(token)
+    return got[0] if got else None
 
 
 # ------------------------------------------------------------------ throttling

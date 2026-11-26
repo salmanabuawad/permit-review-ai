@@ -31,6 +31,7 @@ from .rules.engine import (AUTHOR_REVIEW_STATES, CHECK_FIELDS, CONDITION_OPS, LE
 from .source_monitor import service as source_service
 from .security import PERMISSIONS, ROLES, Principal, current_user, require, login_account
 from . import authority_onboarding as authorities
+from . import users as usermgmt
 
 app = FastAPI(title="Permit Review AI", version=__version__,
               docs_url="/api/docs", openapi_url="/api/openapi.json")
@@ -63,16 +64,17 @@ def auth_login(body: LoginIn, request: Request, s: Session = Depends(get_session
     addr = request.headers.get("x-real-ip") or (request.client.host if request.client else "?")
     if login.throttled(addr):
         raise HTTPException(429, "יותר מדי ניסיונות כניסה — נסו שוב בעוד כמה דקות")
-    uid = login.resolve_login_user(body.username.strip(), settings.login_user_id)
-    admin = s.get(User, uid) if uid else None
-    password_ok = login.check_password(body.username.strip(), body.password)
-    if not admin or not password_ok:
+    admin, acct = usermgmt.authenticate(s, body.username, body.password)
+    if not admin:
         login.record_failure(addr)
-        if admin:
-            audit.record(s, admin.tenant_id, "anonymous", "auth.login_failed", "user", body.username.strip()[:64], {"addr": addr})
+        known = usermgmt.known_user(s, body.username)
+        if known:
+            audit.record(s, known.tenant_id, "anonymous", "auth.login_failed", "user", body.username.strip()[:64], {"addr": addr})
             s.commit()
         raise HTTPException(401, "שם משתמש או סיסמה שגויים")
     login.clear_failures(addr)
+    if acct:
+        acct.last_login_at = usermgmt.now()
     audit.record(s, admin.tenant_id, admin.id, "auth.login", "user", admin.id, {"addr": addr})
     s.commit()
     hours = float(__import__("os").environ.get("BBP_SESSION_HOURS", "12"))
@@ -202,9 +204,12 @@ def health():
 
 
 @app.get("/api/me")
-def me(p: Principal = Depends(current_user), s: Session = Depends(get_session)):
+def me(p: Principal = Depends(current_user), account: User = Depends(login_account), s: Session = Depends(get_session)):
+    from .models import LoginAccount
     org = s.get(Municipality, p.tenant_id)
-    return {**p.__dict__, "municipality_name": org.name_he if org else p.tenant_id, "is_demo": bool(org and org.is_demo), "role_he": ROLES[p.role]["label_he"],
+    acct = s.scalars(select(LoginAccount).where(LoginAccount.user_id == account.id)).first()
+    return {**p.__dict__, "username": usermgmt.username_of(s, account.id), "must_change_password": bool(acct and acct.must_change),
+            "municipality_name": org.name_he if org else p.tenant_id, "is_demo": bool(org and org.is_demo), "role_he": ROLES[p.role]["label_he"],
             "permissions": sorted(k for k, v in PERMISSIONS.items() if p.role in v)}
 
 
@@ -1590,3 +1595,99 @@ def case_regulatory_resolution(case_id: str, p: Principal = Depends(require("cas
 @app.post("/api/cases/{case_id}/discover-plans")
 def discover_case_plans(case_id: str, p: Principal = Depends(require("source.crawl")), s: Session = Depends(get_session)):
     return plan_discovery.refresh(s, get_case(s, p, case_id))
+
+
+# ------------------------------------------------------------------ user management (the authority's administrator)
+
+class UserIn(BaseModel):
+    username: str
+    display_name: str
+    role: str
+    password: str
+
+
+class MemberIn(BaseModel):
+    username: str
+    role: str
+
+
+class UserPatch(BaseModel):
+    role: str | None = None
+    display_name: str | None = None
+
+
+class ActiveIn(BaseModel):
+    active: bool
+
+
+class ResetIn(BaseModel):
+    password: str
+    username: str | None = None          # only when the user has no login yet
+
+
+class PasswordIn(BaseModel):
+    current: str
+    new: str
+
+
+def _users_call(s: Session, fn, *args):
+    try:
+        out = fn(s, *args)
+    except LookupError as e:
+        raise HTTPException(404, str(e)) from e
+    except FileExistsError as e:
+        raise HTTPException(409, str(e)) from e
+    except (ValueError, PermissionError) as e:
+        raise HTTPException(422, str(e)) from e
+    s.commit()
+    return out
+
+
+@app.get("/api/users/manage")
+def users_list(p: Principal = Depends(require("user.manage")), s: Session = Depends(get_session)):
+    return {"users": usermgmt.list_users(s, p.tenant_id),
+            "roles": [{"id": k, "label_he": v["label_he"]} for k, v in ROLES.items()]}
+
+
+@app.post("/api/users", status_code=201)
+def users_create(body: UserIn, p: Principal = Depends(require("user.manage")), s: Session = Depends(get_session)):
+    return _users_call(s, usermgmt.create_user, p.tenant_id, p.id, body.username, body.display_name, body.role, body.password)
+
+
+@app.post("/api/users/members", status_code=201)
+def users_add_member(body: MemberIn, p: Principal = Depends(require("user.manage")), s: Session = Depends(get_session)):
+    return _users_call(s, usermgmt.add_member, p.tenant_id, p.id, body.username, body.role)
+
+
+@app.patch("/api/users/{user_id}")
+def users_update(user_id: str, body: UserPatch, p: Principal = Depends(require("user.manage")), s: Session = Depends(get_session)):
+    return _users_call(s, usermgmt.update_user, p.tenant_id, p.id, user_id, body.role, body.display_name)
+
+
+@app.post("/api/users/{user_id}/active")
+def users_active(user_id: str, body: ActiveIn, p: Principal = Depends(require("user.manage")), s: Session = Depends(get_session)):
+    return _users_call(s, usermgmt.set_active, p.tenant_id, p.id, user_id, body.active)
+
+
+@app.post("/api/users/{user_id}/password")
+def users_reset(user_id: str, body: ResetIn, p: Principal = Depends(require("user.manage")), s: Session = Depends(get_session)):
+    return _users_call(s, usermgmt.reset_password, p.tenant_id, p.id, user_id, body.password, body.username)
+
+
+@app.delete("/api/users/{user_id}/membership", status_code=204)
+def users_remove(user_id: str, p: Principal = Depends(require("user.manage")), s: Session = Depends(get_session)):
+    _users_call(s, usermgmt.remove_member, p.tenant_id, p.id, user_id)
+
+
+@app.post("/api/auth/password")
+def auth_password(body: PasswordIn, request: Request, account: User = Depends(login_account), s: Session = Depends(get_session)):
+    """The signed-in user replaces their own password; other sessions end, this one gets a new cookie."""
+    from . import login
+    _users_call(s, usermgmt.change_own_password, account, body.current, body.new)
+    r = JSONResponse({"ok": True})
+    if settings.login_required:
+        hours = float(__import__("os").environ.get("BBP_SESSION_HOURS", "12"))
+        r.set_cookie(login.COOKIE, login.make_session(account.id, hours), max_age=int(hours * 3600),
+                     httponly=True, secure=request.headers.get("x-forwarded-proto", request.url.scheme) == "https",
+                     samesite="lax", path="/")
+    return r

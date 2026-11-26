@@ -5,7 +5,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from fastapi import Cookie, Depends, Header, HTTPException
+from fastapi import Cookie, Depends, Header, HTTPException, Request
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from .config import settings
@@ -38,6 +39,7 @@ PERMISSIONS = {
     "ai.configure":    {"sysadmin"},
     "source.schedule": {"sysadmin"},                                    # crawl on demand only, or daily / weekly
     "learning.manage": {"sysadmin"},                                    # load decided cases to learn from
+    "user.manage":     {"sysadmin"},                                    # users, roles and logins of the authority
     "audit.read":      {"sysadmin", "city_engineer", "dept_manager"},
     "dashboard.read":  {"sysadmin", "city_engineer", "dept_manager"},
 }
@@ -54,14 +56,23 @@ class Principal:
         return self.role in PERMISSIONS.get(perm, set())
 
 
-def login_account(x_user: str | None = Header(default=None), bbp_session: str | None = Cookie(default=None),
-                 s: Session = Depends(get_session)) -> User:
+# while an administrator-set password waits to be replaced, only these answer
+MUST_CHANGE_OPEN = ("/api/me", "/api/meta", "/api/auth/", "/api/authorities")
+
+
+def login_account(request: Request, x_user: str | None = Header(default=None),
+                  bbp_session: str | None = Cookie(default=None), s: Session = Depends(get_session)) -> User:
     if settings.login_required:                       # app login: the signed session cookie names the user
-        from .login import read_session
-        uid = read_session(bbp_session)
-        u = s.get(User, uid) if uid else None
-        if not u:
+        from .login import read_session_full
+        from .users import session_valid
+        from .models import LoginAccount
+        got = read_session_full(bbp_session)
+        u = s.get(User, got[0]) if got else None
+        if not u or not session_valid(s, u.id, got[1]):
             raise HTTPException(401, "נדרשת כניסה למערכת")
+        acct = s.scalars(select(LoginAccount).where(LoginAccount.user_id == u.id)).first()
+        if acct and acct.must_change and not request.url.path.startswith(MUST_CHANGE_OPEN):
+            raise HTTPException(403, "נדרשת החלפת סיסמה")
         return u
     if settings.environment == "production":
         raise HTTPException(501, "Demo header auth is disabled in production — configure SSO/OIDC.")

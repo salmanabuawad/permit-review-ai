@@ -551,3 +551,10 @@ th, td { padding: 7px 10px; }
 .topbar { border-bottom:3px solid var(--auth,#167ca0); }
 .sidebar nav a.active { box-shadow: inset -4px 0 0 var(--auth,#4bd7c2); }
 .auth-dot { display:inline-block; width:12px; height:12px; border-radius:50%; flex-shrink:0; }
+
+/* user management */
+.modal-back { position: fixed; inset: 0; background: rgba(11,31,53,.45); display: grid; place-items: center; z-index: 60; padding: 16px; }
+.user-form { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; margin-bottom: 12px; }
+.user-form label { display: flex; flex-direction: column; gap: 3px; font-size: 13px; }
+tr.muted td { color: var(--muted); }
+.user-actions { display: flex; flex-wrap: wrap; gap: 4px; }

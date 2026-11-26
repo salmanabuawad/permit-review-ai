@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-11-26 — User management
+
+- Logins live in the database (`login_accounts`, scrypt): the authority's administrator (permission `user.manage`,
+  page "משתמשים") creates users with a role and a temporary password, adds people from other authorities with a role
+  here, changes roles, deactivates logins, resets passwords and removes members. A password set by an administrator
+  must be replaced at the next login (nothing else answers until then). Everyone can change their own password (click
+  your name in the top bar). Deactivation and resets end open sessions (sessions carry their issue time).
+- Safeguards: no one changes their own role or deactivates / removes themselves; an authority keeps one working
+  administrator; an administrator manages only their own authority's users.
+- The htpasswd administrator keeps working; changing that password moves the login into the database.
+- Memberships are revoked, not deleted (`authority_memberships.active`), so the actor stays in the audit trail and the
+  person can be added back. Migration 0009.
+
 ## 2026-11-26 — Regulatory scope registry, source conflicts, resumable crawls (V10 overlay, merged)
 
 - Crawls keep their queue (`checkpoint`): a failed, interrupted or budget-limited ("partial") crawl resumes where it

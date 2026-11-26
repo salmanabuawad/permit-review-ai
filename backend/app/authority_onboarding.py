@@ -18,11 +18,11 @@ def can_create(user):
 def member(s,user,tenant):
     if not tenant or tenant==user.tenant_id: return user
     m=s.get(AuthorityMembership,(user.id,tenant))
-    a=s.get(User,m.actor_id) if m else None
+    a=s.get(User,m.actor_id) if m and m.active is not False else None
     return a if a and a.tenant_id==tenant else None
 
 def workspaces(s,user):
-    ids=[user.tenant_id]+list(s.scalars(select(AuthorityMembership.tenant_id).where(AuthorityMembership.account_id==user.id)))
+    ids=[user.tenant_id]+list(s.scalars(select(AuthorityMembership.tenant_id).where(AuthorityMembership.account_id==user.id,AuthorityMembership.active.is_not(False))))
     return [dict(id=t,name_he=o.name_he,role=a.role,onboarding=(o.settings or {}).get('onboarding',{})) for t in dict.fromkeys(ids) if (a:=member(s,user,t)) and (o:=s.get(Municipality,t))]
 
 def catalog():

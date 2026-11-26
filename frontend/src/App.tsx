@@ -14,8 +14,10 @@ import Audit from './pages/Audit'
 import ImportCases from './pages/ImportCases'
 import Login from './pages/Login'
 import Learning from './pages/Learning'
+import Users from './pages/Users'
+import ChangePassword from './components/ChangePassword'
 
-export interface Me { id: string; tenant_id: string; role: string; role_he: string; display_name: string; permissions: string[]; municipality_name?: string; is_demo?: boolean }
+export interface Me { id: string; tenant_id: string; role: string; role_he: string; display_name: string; permissions: string[]; municipality_name?: string; is_demo?: boolean; username?: string | null; must_change_password?: boolean }
 interface Ctx { me: Me | null; meta: any; can: (p: string) => boolean; toast: (m: string, err?: boolean) => void }
 const AppCtx = createContext<Ctx>({ me: null, meta: null, can: () => false, toast: () => {} })
 export const useApp = () => useContext(AppCtx)
@@ -30,6 +32,7 @@ const NAV = [
   { to: '/sources', label: 'מקורות ובסיס ידע', icon: 'database' },
   { to: '/ai', label: 'הגדרות AI', icon: 'brain' },
   { to: '/integrations', label: 'ממשקים', icon: 'links', tag: 'מתוכנן' },
+  { to: '/users', label: 'משתמשים', icon: 'users' },
   { to: '/audit', label: 'יומן ביקורת', icon: 'shield' },
 ]
 
@@ -41,6 +44,7 @@ const ICON_PATHS: Record<string, string> = {
   database: 'M4 6c0-4 16-4 16 0s-16 4-16 0 M4 6v12c0 4 16 4 16 0V6 M4 12c0 4 16 4 16 0',
   brain: 'M12 3a4 4 0 0 0-7 3 4 4 0 0 0-1 7 4 4 0 0 0 3 7 4 4 0 0 0 5-2 M12 3a4 4 0 0 1 7 3 4 4 0 0 1 1 7 4 4 0 0 1-3 7 4 4 0 0 1-5-2 M12 3v16',
   links: 'M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-2 2 M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l2-2',
+  users: 'M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z M2 21v-1a7 7 0 0 1 14 0v1 M16 3.5a4 4 0 0 1 0 7.5 M18 14a6 6 0 0 1 4 6v1',
   shield: 'M12 2 4 5v6c0 5 3 8 8 11 5-3 8-6 8-11V5z M9 12l2 2 4-4',
 }
 function NavIcon({ name }: { name: string }) {
@@ -53,6 +57,7 @@ export default function App() {
   const [workspaces,setWorkspaces]=useState<any[]>([])
   const [mobileOpen, setMobileOpen] = useState(false)
   const [needLogin, setNeedLogin] = useState(false)
+  const [pwOpen, setPwOpen] = useState(false)
   const [loadError, setLoadError] = useState('')
   const [msg, setMsg] = useState<{ text: string; err: boolean } | null>(null)
 
@@ -80,6 +85,7 @@ export default function App() {
   useEffect(() => { document.title = `${isDemo ? 'סביבת הדגמה' : org} — בדיקת היתרי בנייה` }, [org, isDemo])
 
   if (needLogin) return <Login />
+  if (me?.must_change_password) return <ChangePassword forced onDone={() => window.location.assign('/')} />
 
   return (
     <AppCtx.Provider value={{ me, meta, can, toast }}>
@@ -92,7 +98,7 @@ export default function App() {
           </div>
           <div className="sidebar-section-label">סביבת עבודה</div>
           <nav aria-label="ניווט ראשי">
-            {NAV.filter(n => n.to === '/' ? can('dashboard.read') : n.to === '/audit' ? can('audit.read') : n.to === '/ai' ? can('ai.configure') : n.to === '/rules/sources' ? can('source.crawl') : n.to === '/learning' ? can('learning.manage') : true).map(n => (
+            {NAV.filter(n => n.to === '/' ? can('dashboard.read') : n.to === '/audit' ? can('audit.read') : n.to === '/ai' ? can('ai.configure') : n.to === '/rules/sources' ? can('source.crawl') : n.to === '/learning' ? can('learning.manage') : n.to === '/users' ? can('user.manage') : true).map(n => (
               <NavLink key={n.to} to={n.to} end={n.end} onClick={() => setMobileOpen(false)}>
                 <NavIcon name={n.icon} /><span className="nav-label">{n.label}</span>{n.tag && <span className="tag">{n.tag}</span>}
               </NavLink>
@@ -116,9 +122,10 @@ export default function App() {
             </div>
             <span className="spacer" />
             <span className="topbar-policy"><span className="live-dot" /> כל תוצר הוא המלצה בלבד — ההחלטה בסמכות בעל תפקיד מוסמך</span>
-            <span className="small muted">משתמש: {me?.display_name ?? '—'}</span>
+            <button className="link-btn small" title="החלפת סיסמה" onClick={() => setPwOpen(true)}>{me?.display_name ?? '—'}</button>
             <button className="sm" onClick={logout}>יציאה</button>
           </header>
+          {pwOpen && <ChangePassword onDone={() => { setPwOpen(false); toast('הסיסמה הוחלפה') }} onCancel={() => setPwOpen(false)} />}
           <main className="content">
             {me && meta ? (
               <Routes>
@@ -134,6 +141,7 @@ export default function App() {
                 <Route path="/ai" element={<AISettings />} />
                 <Route path="/integrations" element={<Integrations />} />
                 <Route path="/audit" element={<Audit />} />
+                <Route path="/users" element={<Users />} />
               </Routes>
             ) : loadError ? <div className="notice warn" role="alert">לא ניתן לטעון את סביבת העבודה: {loadError} <button onClick={() => window.location.reload()}>נסה שוב</button></div> : <div className="empty" role="status">טוען…</div>}
           </main>
