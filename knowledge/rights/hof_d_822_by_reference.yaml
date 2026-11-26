@@ -1,11 +1,15 @@
 # גיאה — plan ד/822 (1972-10-16): a parcellation plan. §12 "תכליות: בהתאם לתכנית המתאר ובהתאם לפרוט שבטבלה המצורפת"
-# — the attached table lists zone areas only. Building rights come from the regional outline plan, which is not in the
-# knowledge base; the engine reports that instead of guessing.
+# — the attached table lists zone areas only. Building rights come from the regional outline plan 234/02/6 (chapter ה,
+# moshav farm holdings). Zone table (last page): משקי עזר 93-112: אין להם זכויות בתכנית המתאר.
 plan: "ד/822"
 aliases: ["ד/822"]
 source_id: HOF-PLAN-D-822
 effective_from: "1972-10-16"
 effective_to: null
-rights_by_reference: "תכנית המתאר של המועצה האזורית חוף אשקלון (לפי סעיף 12 בתכנית)"
+applies_to_uses: ["מגורים"]
+zones:
+  - name: "מגורים בישוב חקלאי (נחלה)"
+    lots: ["1-38", "40-54", "55-68", "71-92"]
+    rights_from: {plan: "234/02/6", zone: "נחלה"}
 quotes:
   s12: "תכליות: בהתאם לתכנית המתאר ובהתאם לפרוט שבטבלה המצורפת"

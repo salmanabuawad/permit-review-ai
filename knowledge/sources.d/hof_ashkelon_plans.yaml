@@ -58,3 +58,11 @@ sources:
   verification: VERIFIED_READ
   jurisdiction: hof-ashkelon
   sha256: 4e87f70146ce52b05708df688d60cb4bd585af4e27e709332ca35508f67982e3
+- id: HOF-PLAN-234-02-6
+  category: STATUTORY_PLAN
+  title_he: "תכנית 234/02/6 — תכנית מתאר למועצה אזורית חוף אשקלון (הוראות), פרק ה' אזור בנוי כפרי"
+  url: https://mg2.gis-net.co.il/authoritydata/HofAshkelon/takanon/234_02_6.pdf
+  edition: "בתוקף מ-31/12/1989 (GIS)"
+  verification: VERIFIED_READ
+  jurisdiction: hof-ashkelon
+  sha256: 3c6e3751e06a3ea4a227a39acf1f8b2393b0b0fe1916c27442080e2a7580ceb9

@@ -336,9 +336,15 @@ def test_addition_areas_are_not_compared_with_lot_rights():
     assert R.proposal_from_register({**f, "request_text": "הקמת בית מגורים הכולל שינוי מפלס 0.00"}).areas_scope == "total"
 
 
-def test_parcellation_plans_say_where_the_rights_are():
-    res = _hof("ד/821", "5")
-    assert res.verdict == "NO_RIGHTS" and "תכנית המתאר" in res.law_notes[0]
+def test_parcellation_plans_take_the_outline_plan_rights():
+    """ד/821 defers to the outline plan 234/02/6: a farm holding gets up to 375 m² gross (2 × 160 + 55)."""
+    res = _hof("ד/821", "5", total_main_m2=300.0, total_service_m2=100.0)
+    st = {c.topic: (c.status, c.limit) for c in res.checks}
+    assert st["aggregate_total"] == ("DEVIATION_UNCLASSIFIED", 375) and "234/02/6" in res.law_notes[0]
+    assert _hof("ד/821", "5", total_main_m2=200.0, total_service_m2=60.0).checks[0].status == "WITHIN"
+    assert _hof("ד/821", "105").verdict == "NO_RIGHTS"                    # auxiliary farm: no rights in the outline plan
+    assert _hof("ד/821", "5", submission_date=dt.date(1985, 1, 1)).verdict == "NO_RIGHTS"   # before 234/02/6
+    assert _hof("ד/820", "5").verdict == "NO_RIGHTS"                     # zone table without lot numbers
 
 
 def test_pre_1989_plan_checks_the_total_only():

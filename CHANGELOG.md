@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-11-26 — regional outline plan 234/02/6; last-5-years focus
+
+- `knowledge/rights/hof_234_02_6_regional_outline.yaml`: moshav farm holdings, 3 units (2 × 160 + 55 m² gross). The
+  parcellation plans ד/821, ד/822, 156/03/6 (and ד/820 by land use) take these rights for their farm-holding lots.
+- Route engine: a plan's zone can take its rights from another plan's zone (`rights_from`), with that plan's dates.
+- Rejected-applications set reduced to the 13 requests since 26.11.2021 (older ones deleted from the extracted copies).
+
 ## 2026-11-26 — rights files for frequent Hof Ashkelon plans
 
 - `knowledge/rights/hof_*.yaml`: 2/228/03/6 (Netiv HaAsara), 291/03/6 (Nitzan), 2/166/03/6 (Kochav Michael); ד/820,

@@ -145,7 +145,8 @@ def _lot_in(lot: str | None, ranges: list) -> bool:
     return False
 
 
-def _select(r: dict, lot: str | None, use: str | None, land_use: str | None, lot_area: float | None) -> tuple[dict | None, str]:
+def _select(r: dict, lot: str | None, use: str | None, land_use: str | None, lot_area: float | None,
+            on: dt.date | None = None, folder: Path | None = None) -> tuple[dict | None, str]:
     """The rights that apply to this lot and use inside a plan file: by-reference plans, use limits, zones by lot range
     or land use, and rights given as a percentage of the lot area."""
     plan = r["plan"]
@@ -166,6 +167,13 @@ def _select(r: dict, lot: str | None, use: str | None, land_use: str | None, lot
         return None, f"תכנית {plan}: {why}"
     if zone.get("rights_by_reference"):
         return None, f"תכנית {plan}, {zone['name']}: הזכויות לפי {zone['rights_by_reference']}, שאינה במאגר הידע"
+    ref = zone.get("rights_from")
+    if ref:                                       # the plan defers to another plan's zone (e.g. the outline plan)
+        got, note = load_rights([ref["plan"]], ref["zone"], on, folder, use=use)
+        if got is None:
+            return None, f"תכנית {plan}, {zone['name']}: הזכויות לפי {ref['plan']} — {note}"
+        return {**got, "zone": f"{zone['name']} → {got.get('zone', '')}", "via_plan": plan}, \
+            f"{zone['name']}; הזכויות לפי {ref['plan']} ({got.get('zone', '')})"
     merged = {**r, **{k: v for k, v in zone.items() if k not in ("lots", "name")}, "zone": zone["name"]}
     if lot and HALF_LOT.fullmatch(str(lot)) and (zone.get("units_max") or 1) > 1:
         merged["part_of_lot"] = str(lot).strip()  # rights are per lot; this request is one unit's part of it
@@ -197,7 +205,7 @@ def load_rights(plans: list[str], land_use: str | None, on: dt.date, folder: Pat
             return None, f"התכנית {r['plan']} נכנסה לתוקף ב־{frm:%d.%m.%Y}, אחרי מועד הגשת הבקשה"
         if to and on >= to:
             return None, f"התכנית {r['plan']} לא הייתה בתוקף במועד הגשת הבקשה"
-        sel, why = _select(r, lot, use, land_use, lot_area)
+        sel, why = _select(r, lot, use, land_use, lot_area, on, folder)
         if sel is None:
             return None, why
         return sel, f"תכנית {r['plan']} בתוקף מ־{frm:%d.%m.%Y}" + (f" ({why})" if why else "") + \

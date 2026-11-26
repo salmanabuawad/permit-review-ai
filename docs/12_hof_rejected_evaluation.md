@@ -91,5 +91,29 @@ separately, `exports/hof_rejected/results_blind_2026-11-26/`): rights now apply 
 engine scope 16 (was 10): DETECTED 1, FLAGGED 15, MISSED 0, unsupported 0. Remaining NO_RIGHTS: no rights file 77,
 rights in the regional outline plan 25, zone unknown 4, % of an unknown lot area 3, non-residential use 2.
 
-Next inputs: the Hof Ashkelon regional outline plan (it decides 25 cases), lot areas from the GIS (decides the Nitzan
-single-family lots), and the original submissions of the 6 cases with drawings.
+### The regional outline plan 234/02/6
+
+Found in the package: 234/02/6, "תכנית מתאר למועצה אזורית חוף אשקלון", in force 31.12.1989. Chapter ה (built rural
+zone, moshav): up to 3 housing units per farm holding — two of up to 160 m² gross and one of up to 55 m² gross (375 m²
+gross in all), up to 3 floors. The parcellation plans now take these rights for their farm-holding lots (zone tables:
+Bracha 1-95, Gea 1-38/40-54/55-68/71-92, Hodiya 1-93; Nir Israel's table gives no lot numbers). Auxiliary farms
+(משקי עזר) get none. The amendments in the package (4/, 26/, 29/, 43/234/02/6) are site plans and change nothing here.
+
+## Focus: requests of the last 5 years (from 26.11.2021)
+
+At the user's request the 123 older requests were deleted from the extracted blind set and from the evaluation store
+(moved to the trash), and the package itself was rebuilt: `exports/Hof_Ashkelon_Rejected_Applications_Complete.zip`
+now holds only the 13 requests (431 MB, 496 of 3,195 files; SHA-256 6538af63…). Indexes (applications, completeness,
+download manifest and log, missing files, HTML reports, case mapping, rejection index) are filtered to them; shared
+meeting documents (19 meetings) and plan references are kept only where a kept case refers to them; every kept file is
+byte-identical to the original and matches its manifest hash; no dropped case id or application number remains. The
+original 3.9 GB zip was moved to the trash. The figures above for 136 cases are kept as the record.
+
+13 requests remain (2022–2025). Engine: WRONG_ROUTE 1 (CASE_000082, confirmed — detected), INSUFFICIENT_EVIDENCE 2,
+NO_RIGHTS 10. Official reason topics: 12 mentions, 2 in engine scope (1 detected, 1 flagged), 0 missed, 0 unsupported.
+
+The recent refusals are mostly about **building provisions** — storey height (2.20 m where 2.50 m is required), a
+third storey, parking height relief, 3 m walls around a roof terrace — and about unauthorised use, encroachment on
+public land and missing ownership/consent. Most building provisions in moshav residential lots have, since 05.04.2022,
+been governed by the council-wide plan for building provisions (cited in the recent protocols alongside the lot's
+plan). Its instructions are on apps.land.gov.il and have not been read yet — they are the next input for this window.

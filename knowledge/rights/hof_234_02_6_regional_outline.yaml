@@ -1,0 +1,25 @@
+# Hof Ashkelon regional council outline plan 234/02/6 ("תכנית מתאר למועצה אזורית חוף אשקלון"), in force 31.12.1989.
+# Chapter ה (built rural zone), read from the scan (OCR checked against the page image, printed p.5): in a moshav up to
+# three housing units per farm holding — two of up to 160 m² gross each and one of up to 55 m² gross. Gross areas
+# (before the 1992 main/service split). Height: up to three floors. The 1972 parcellation plans of the moshavim
+# (ד/820, ד/821, ד/822, 156/03/6) give no rights of their own ("בהתאם לתכנית המתאר") and point here.
+# Amendments in the package (4/, 26/, 29/, 43/234/02/6) are site plans (regional centre, a residential site under
+# 152/03/6, industry, a border crossing) and do not change these rights. The 2022 council-wide plan for building
+# provisions in moshav residential lots (docs/12) is NOT read here.
+plan: "234/02/6"
+aliases: ["234/02/6", "234-02-6"]
+source_id: HOF-PLAN-234-02-6
+effective_from: "1989-12-31"          # GIS: "פרסום תוקף ברשומות", 31/12/1989
+effective_to: null
+amendment_check: "A council-wide plan in force 05.04.2022 changes building provisions in residential lots of the moshavim (docs/12) — not read; requests after that date may be governed by it."
+applies_to_uses: ["מגורים"]
+zones:
+  - name: "אזור בנוי כפרי — מושב (נחלה)"
+    land_use: ["נחלה", "מגורים בישוב חקלאי", "מושב"]
+    units_max: 3
+    rights: {main_m2: null, total_m2: 375, floors_above_entrance: 3}
+    unit_max_gross_m2: [160, 160, 55]
+quotes:
+  moshav: "באזור בנוי כפרי - מושב - תותר הקמת עד שלש יחידות מגורים לנחלה: שתי יחידות מגורים בגודל של עד 160 מ\"ר כל אחד, שטח בניה ברוטו; יחידת מגורים אחת בגודל של עד 55 מ\"ר. שטח בניה ברוטו"
+  height: "במבני מגורים יותר גובה מירבי של שלש קומות"
+source_pages: [6]
