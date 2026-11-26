@@ -310,8 +310,28 @@ def agent_conversion_source(file_id: str, s: Session = Depends(get_session)):
     return FileResponse(f.storage_path, media_type="application/octet-stream", filename=f"{f.id}.dwfx")
 
 
+def _after_conversion(file_id: str) -> None:
+    """A converted drawing now has text: type it with the local AI (a survey package is often named like a plan) and
+    re-run the request's checks."""
+    from .db import SessionLocal
+    with SessionLocal() as s2:
+        f = s2.get(CaseFile, file_id)
+        if f is None or f.ingest_status != "OK":
+            return
+        try:
+            services.classify_case_files(s2, f.case, "ai-agent", only={f.id})
+            s2.flush()
+            services.run_checks(s2, f.case, "ai-agent")
+            s2.commit()
+        except Exception as e:  # noqa: BLE001 — recorded; the conversion result stands
+            s2.rollback()
+            audit.record(s2, f.tenant_id, "ai-agent", "file.classify", "case_file", file_id, {"error": str(e)[:300]})
+            s2.commit()
+
+
 @app.post("/api/agent/conversions/{file_id}/result", dependencies=[Depends(_agent)])
-async def agent_conversion_result(file_id: str, request: Request, s: Session = Depends(get_session),
+async def agent_conversion_result(file_id: str, request: Request, background: BackgroundTasks,
+                                  s: Session = Depends(get_session),
                                   x_conversion_status: str = Header("ok"), x_conversion_info: str = Header("{}")):
     """Body: the PDF (X-Conversion-Status: ok) or a UTF-8 error message (X-Conversion-Status: failed)."""
     import urllib.parse
@@ -327,6 +347,8 @@ async def agent_conversion_result(file_id: str, request: Request, s: Session = D
     services.complete_dwfx_conversion(s, f, body if ok else None, info if isinstance(info, dict) else {},
                                       None if ok else (body.decode("utf-8", "replace")[:500] or "conversion failed"))
     s.commit()
+    if f.ingest_status == "OK":
+        background.add_task(_after_conversion, f.id)
     return {"file_id": f.id, "ingest_status": f.ingest_status}
 
 

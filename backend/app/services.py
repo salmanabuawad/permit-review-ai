@@ -53,14 +53,15 @@ DOC_TYPES_HE = {
 }
 
 
-def classify_case_files(s: Session, case: PermitCase, user: str, gateway: AIGateway | None = None) -> list[dict]:
+def classify_case_files(s: Session, case: PermitCase, user: str, gateway: AIGateway | None = None,
+                        only: set[str] | None = None) -> list[dict]:
     """Re-type every document of a request with the AI gateway (local model through the relay; keyword fallback):
     the text of a PDF, the converted sheets of a DWFX, the file name of a DWG. The result is applied and audited."""
     import pymupdf
     gw = gateway or gateway_for(s, case.tenant_id)
     changes = []
     for f in case.files:
-        if f.lifecycle != "ACTIVE":
+        if f.lifecycle != "ACTIVE" or (only is not None and f.id not in only):
             continue
         text = ""
         try:
