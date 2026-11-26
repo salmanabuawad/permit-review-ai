@@ -8,11 +8,6 @@ import { StatusChip } from '../components/FindingCard'
 import FindingsPanel from '../components/FindingsPanel'
 import SourceDrawer from '../components/SourceDrawer'
 
-const REPORTS = [
-  { key: 'completeness', label: 'שלמות ותנאי סף' },
-  { key: 'rights', label: 'זכויות ותנאים' },
-  { key: 'reviewer', label: 'דוח בודק (מלא)' },
-]
 const LIFECYCLE_HE: Record<string, string> = { ACTIVE: 'פעיל', ARCHIVED: 'בארכיון', DELETED: 'נמחק' }
 const INGEST_HE: Record<string, string> = {
   OK: 'נקלט', NEEDS_OCR: 'נדרש OCR', NEEDS_CONVERSION: 'נדרשת המרה (DWG)', NEEDS_UNITS: 'חסרות יחידות',
@@ -24,7 +19,7 @@ export default function CaseView() {
   const { meta, can, toast } = useApp()
   const [c, setC] = useState<Case | null>(null)
   const [report, setReport] = useState<Report | null>(null)
-  const [kind, setKind] = useState('reviewer')
+  const kind = 'reviewer'                       // one report view: the full reviewer report
   const [geo, setGeo] = useState<any>(null)
   const [geoLoading, setGeoLoading] = useState(true)
   const [sel, setSel] = useState<string | null>(null)
@@ -165,7 +160,7 @@ export default function CaseView() {
           </div>
 
           {tab === 'findings' && (
-            <FindingsPanel c={c} report={report} kind={kind} setKind={setKind} reports={REPORTS} sel={sel} setSel={setSel}
+            <FindingsPanel c={c} report={report} sel={sel} setSel={setSel}
               onCite={setCite} canDecide={can('finding.decide')} locked={locked} onDecide={decide} />
           )}
           {tab === 'files' && <Files c={c} onChange={reloadFiles} locked={locked} />}

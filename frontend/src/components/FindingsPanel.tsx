@@ -30,12 +30,12 @@ const sourceOf = (f: Finding) => f.citations[0]?.title_he?.trim() || 'ללא מ�
 const decisionOf = (f: Finding) => !NEEDS_DECISION(f) ? 'none' : (f.reviewer_decision || 'pending')
 
 interface Props {
-  c: Case; report: Report | null; kind: string; setKind: (k: string) => void; reports: { key: string; label: string }[]
+  c: Case; report: Report | null
   sel: string | null; setSel: (id: string) => void; onCite: (c: Citation) => void
   canDecide: boolean; locked: boolean; onDecide: (id: string, decision: string, note: string) => Promise<void>
 }
 
-export default function FindingsPanel({ c, report, kind, setKind, reports, sel, setSel, onCite, canDecide, locked, onDecide }: Props) {
+export default function FindingsPanel({ c, report, sel, setSel, onCite, canDecide, locked, onDecide }: Props) {
   const [fl, setFl] = useState<Filters>(load)
   const [open, setOpen] = useState<string | null>(null)
   const [full, setFull] = useState(false)
@@ -85,9 +85,6 @@ export default function FindingsPanel({ c, report, kind, setKind, reports, sel, 
   return (
     <div className={'fpanel' + (full ? ' full' : '')}>
       <div className="card-head">
-        <select value={kind} onChange={e => setKind(e.target.value)} aria-label="סוג דוח">
-          {reports.map(r => <option key={r.key} value={r.key}>{r.label}</option>)}
-        </select>
         <div className="seg" role="tablist" aria-label="תצוגה">
           <button className={view === 'results' ? 'active' : ''} onClick={() => setView('results')}>תוצאות</button>
           <button className={view === 'report' ? 'active' : ''} onClick={() => setView('report')}>דוח מלא</button>
