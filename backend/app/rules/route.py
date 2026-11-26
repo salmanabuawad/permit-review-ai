@@ -189,6 +189,39 @@ def _select(r: dict, lot: str | None, use: str | None, land_use: str | None, lot
     return merged, f"{zone['name']}"
 
 
+def building_provisions(p: "Proposal", zone: str | None = None, folder: Path | None = None) -> tuple[dict | None, str]:
+    """Building provisions (not rights) that apply to the lot on the submission date — e.g. a council-wide plan that
+    changes the residential lots of listed plans. (provisions, note)"""
+    folder = folder or Path(settings.knowledge_dir, "building_provisions")
+    norm = lambda s: re.sub(r"[\s\"״׳']", "", s or "")
+    if not folder.exists() or not p.main_use or "מגורים" not in p.main_use:
+        return None, ""
+    for path in sorted(folder.glob("*.yaml")):
+        b = yaml.safe_load(path.read_text(encoding="utf-8"))
+        frm = _date(b.get("effective_from"))
+        if frm and p.submission_date < frm:
+            continue
+        if zone and any(x in zone for x in b.get("excludes", [])):
+            continue
+        for e in b.get("changes_plans", []):
+            plan, lots = (e, None) if isinstance(e, str) else (e["plan"], e.get("lots"))
+            if any(norm(plan) == norm(q) for q in p.plans) and (lots is None or _lot_in(p.lot, lots)):
+                return b, (f"מ־{frm:%d.%m.%Y} חלות על המגרש הוראות הבינוי של תכנית {b['plan']} (שינוי לתכנית {plan}); "
+                           "התכנית אינה מוסיפה שטחי בנייה")
+    return None, ""
+
+
+def _provisions_check(b: dict) -> "Check":
+    v = b["provisions"]
+    return Check("building_provisions", f"הוראות בינוי (תכנית {b['plan']})", "NOT_CHECKED",
+                 f"גובה עד {v['height']['sloped_ridge_max_m']} מ׳ (גג משופע) / {v['height']['flat_with_railing_max_m']} מ׳ "
+                 f"(גג שטוח) ממפלס הכניסה; מפלס כניסה עד {v['entrance_level']['above_sidewalk_mean_max_m']} מ׳ מעל המדרכה; "
+                 f"מחסן עד {v['storage']['area_max_m2']} מ\"ר וגובה פנימי {v['storage']['inner_height_max_m']} מ׳; חניה מקורה "
+                 f"עד {v['covered_parking']['area_max_m2']} מ\"ר; מרתף בגובה עד {v['basement']['height_max_m']} מ׳; גדרות "
+                 f"עד {v['fences']['between_lots_max_m']} מ׳ — נבדקים מול החתכים, החזיתות ותכנית הפיתוח; חריגה טעונה הקלה.",
+                 source_id=b["source_id"], needs=["חתכים וחזיתות עם מפלסים", "תכנית פיתוח וגדרות"])
+
+
 def load_rights(plans: list[str], land_use: str | None, on: dt.date, folder: Path | None = None, *, lot: str | None = None,
                 use: str | None = None, lot_area: float | None = None) -> tuple[dict | None, str]:
     """The rights file of a plan that applies on the date, for the lot's land use. (rights, note)"""
@@ -476,12 +509,19 @@ def validate(p: Proposal, rights_folder: Path | None = None, law_path: Path | No
         # while filed without reliefs) — that needs no rights file
         declared = check_declared(p, {})
         decisive = [c for c in declared if c.status == "RELIEF"]
+        prov, pnote = building_provisions(p, None, rights_folder.parent / "building_provisions" if rights_folder else None)
+        notes = [rnote, lnote] + ([pnote] if prov else [])
+        extra = [_provisions_check(prov)] if prov else []     # building provisions apply whatever the rights file
         if decisive and p.selected_route == "REGULAR":
             return RouteResult(p.application_id, p.selected_route, "NOT_REGULAR", "WRONG_ROUTE",
-                               all(c.confirmable for c in decisive), short + declared, [rnote, lnote])
-        return RouteResult(p.application_id, p.selected_route, "UNKNOWN", "NO_RIGHTS", False, short + declared, [rnote, lnote])
+                               all(c.confirmable for c in decisive), short + declared + extra, notes)
+        return RouteResult(p.application_id, p.selected_route, "UNKNOWN", "NO_RIGHTS", False, short + declared + extra, notes)
     checks = short + check_aggregate(p, rights) + check_floors(p, rights, law) + check_declared(p, rights)
     checks += [classify_setback(sb, law) for sb in p.setbacks]
+    prov, pnote = building_provisions(p, rights.get("zone"), rights_folder.parent / "building_provisions" if rights_folder else None)
+    if prov:
+        checks.append(_provisions_check(prov))
+        lnote = f"{lnote}; {pnote}" if lnote else pnote
     if p.lot_area_m2 is not None and rights.get("lot_min_m2"):
         lo = rights["lot_min_m2"] * (1 - rights.get("lot_min_tolerance_pct", 0) / 100)
         checks.append(Check("lot_area", "שטח מגרש מינימלי", "WITHIN" if p.lot_area_m2 >= lo else "DEVIATION_UNCLASSIFIED",

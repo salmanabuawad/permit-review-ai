@@ -102,5 +102,15 @@ def test_no_plan_is_assumed_for_zikim():
     # Zikim lot 368 is governed by 633-0723718; plan 633-0928358 (cited in another committee's opinion) is not assumed
     rights, note = R.load_rights(["633-0723718"], "מגורים", dt.date(2026, 11, 11))
     assert rights is None or "0928358" not in str(rights.get("plan")) + str(rights.get("aliases"))
+    # 633-0928358 is a council-wide building-provisions plan for listed plans' residential lots; it never reaches
+    # lot 368: 633-0723718 is not among the plans it changes, and in Zikim it covers only lots 1-104 of 6/120/03/6
     for p in (ROOT / "knowledge").rglob("*.yaml"):
-        assert "633-0928358" not in p.read_text(encoding="utf-8"), p
+        if p.parent.name not in ("building_provisions", "sources.d"):
+            assert "633-0928358" not in p.read_text(encoding="utf-8"), p
+    lot368 = R.Proposal(application_id="Z", submission_date=dt.date(2026, 11, 11), plans=["633-0723718"], lot="368",
+                        main_use="מגורים")
+    assert R.building_provisions(lot368) == (None, "")
+    for lot, hit in (("368", False), ("40", True)):
+        z = R.Proposal(application_id="Z", submission_date=dt.date(2026, 11, 11), plans=["6/120/03/6"], lot=lot,
+                       main_use="מגורים")
+        assert (R.building_provisions(z)[0] is not None) is hit

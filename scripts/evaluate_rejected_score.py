@@ -60,6 +60,8 @@ def engine_on(topic: str, e: dict) -> str:
         if e["route_filed"] is None:
             return "NO_INPUT"    # an old paper application: the register does not say which route was filed
         return "MISSED" if e["verdict"] != "NO_RIGHTS" else "NO_INPUT"
+    if topic in ("height_level", "building_lines") and any(c["topic"] == "building_provisions" for c in e["checks"]):
+        return "FLAGGED"         # the building-provisions limits apply and are open until the drawings are read
     if topic in RIGHTS_TOPICS:
         if e["verdict"] == "NO_RIGHTS":
             return "NO_INPUT"

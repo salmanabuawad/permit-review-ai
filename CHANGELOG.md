@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-11-26 — building provisions 633-0928358
+
+- `knowledge/building_provisions/hof_633_0928358.yaml`: council-wide building provisions (in force 05.04.2022, no
+  building area) for the residential lots of 29 listed plans; farm holdings and Zikim lot 368 out of scope.
+- Route engine: `building_provisions()` — an open check with the limits for requests from 05.04.2022 on listed plans'
+  residential lots. Zikim scoping test narrowed to "never applied to lot 368".
+- Last-5-years re-run: 4 of 12 reason topics in scope (1 detected, 3 flagged), 0 missed, 0 unsupported.
+
 ## 2026-11-26 — regional outline plan 234/02/6; last-5-years focus
 
 - `knowledge/rights/hof_234_02_6_regional_outline.yaml`: moshav farm holdings, 3 units (2 × 160 + 55 m² gross). The

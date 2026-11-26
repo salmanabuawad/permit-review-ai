@@ -1,0 +1,64 @@
+# Plan 633-0928358 — "הוראות בינוי במגרשי מגורים — תכנית תקנונית למ"א חוף אשקלון" (local outline plan with detailed
+# provisions; committee: local). In force 05.04.2022 (Reshumot). Text-layer PDF from the council GIS (instructions
+# printed 24.03.2022, 18 pages). It ADDS NO BUILDING AREA (§5 "לא רלוונטי"; explanatory note "התכנית אינה מוסיפה שטחי
+# בנייה") — it sets building provisions only.
+# Scope (explanatory note and §1.6): residential zones — מגורים א', מגורים, מגורים חד משפחתי — of the plans it changes;
+# NOT farm holdings (נחלות), auxiliary farms (משקי עזר), professionals' houses, or the "old camp" of kibbutzim. In
+# kibbutzim only: Zikim — residential lots 1-104 of 6/120/03/6; Karmiya — lots 201-257 of 6/109/03/6; Yad Mordechai,
+# Gvar'am, Nitzanim excluded. Zikim lot 368 (plan 633-0723718) is outside it.
+plan: "633-0928358"
+source_id: HOF-PLAN-633-0928358
+effective_from: "2022-04-05"
+adds_building_area: false
+subordinate_to: ["תמא 39"]            # "כפיפות" — where TAMA 39 governs, its provisions prevail
+applies_to_zones: ["מגורים א'", "מגורים", "מגורים חד משפחתי"]
+excludes: ["נחלה", "משק עזר", "בתים מקצועיים", "מחנה ותיק"]
+changes_plans:                        # §1.6, "שינוי" — only these plans' residential lots
+  - "4/234/02/6"
+  - "3/166/03/6"
+  - "2/291/03/6"
+  - "6/מק/2010"
+  - {plan: "6/109/03/6", lots: ["201-257"]}
+  - {plan: "6/120/03/6", lots: ["1-104"]}
+  - "4/123/03/6"
+  - "5/123/03/6"
+  - "6/123/03/6"
+  - "2/127/03/6"
+  - "1/136/03/6"
+  - "3/136/03/6"
+  - "4/136/03/6"
+  - "3/138/03/6"
+  - "2/156/03/6"
+  - "4/158/03/6"
+  - "8/158/03/6"
+  - "2/162/03/6"
+  - "3/162/03/6"
+  - "3/170/03/6"
+  - "1/200/03/6"
+  - "1/228/03/6"
+  - "3/228/03/6"
+  - "270/03/6"
+  - "291/03/6"
+  - "6/מק/2016"
+  - "6/מק/2113"
+  - "633-0187765"
+  - "633-0572289"
+provisions:                           # §4.1.2; heights in metres, areas in m²
+  storage: {area_max_m2: 12, inner_height_max_m: 2.20, outer_height_max_m: 2.5, building_line_rear_side_m: 0.0,
+            counts_as: service, split_max: 2, split_min_m2: 5}
+  covered_parking: {area_max_m2: 30, spaces: 2, top_max_m: 2.5, inner_max_m: 2.2, building_line_front_side_m: 0.0,
+                    counts_as: service, convertible_to_other_service_m2: 15}
+  pergola: {open_share_min: 0.40, building_line_side_rear_m: 0.0, front_projection_share_max: 0.40}
+  basement: {height_max_m: 2.2, external_entrances_max: 1, external_stair_from_line_max_m: 1.5,
+             english_court_max_m: 1.5, main_to_basement_max_m2: 10, main_to_basement_uses: "wet rooms only",
+             floors_above_max: 2}
+  technical_systems: {screen_area_max_m2: 3, screen_height_above_flat_roof_max_m: 2, cumulative_height_max_m: 10,
+                      railing_excluded_up_to_m: 1.2}
+  service_yard: {wall_height_max_m: 1.8, length_max_m: 3, screen_height_max_m: 1.5, awning_max_m: 1.9}
+  fences: {between_lots_max_m: 1.8, public_side_min_m: 1.5, public_side_max_m: 1.8, front_min_m: 1.1, front_max_m: 1.8,
+           gate_element_max_m: 2.5}
+  roofs: {flat_or_sloped: allowed, roof_terrace_access: "stairs from inside the house only"}
+  height: {sloped_ridge_max_m: 10.5, flat_with_railing_max_m: 9.0, measured_from: "entrance level",
+           excludes: "technical-system screens"}
+  entrance_level: {above_sidewalk_mean_max_m: 1.2}
+conditions: ["permits under this plan and the plans of §1.6", "an addition needs a structural-strengthening check (ת\"י 413)"]

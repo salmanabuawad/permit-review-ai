@@ -114,6 +114,26 @@ NO_RIGHTS 10. Official reason topics: 12 mentions, 2 in engine scope (1 detected
 
 The recent refusals are mostly about **building provisions** — storey height (2.20 m where 2.50 m is required), a
 third storey, parking height relief, 3 m walls around a roof terrace — and about unauthorised use, encroachment on
-public land and missing ownership/consent. Most building provisions in moshav residential lots have, since 05.04.2022,
-been governed by the council-wide plan for building provisions (cited in the recent protocols alongside the lot's
-plan). Its instructions are on apps.land.gov.il and have not been read yet — they are the next input for this window.
+public land and missing ownership/consent. Since 05.04.2022 these are governed by the council-wide plan for building
+provisions, 633-0928358 (cited in the recent protocols alongside the lot's plan).
+
+### Building provisions 633-0928358 (in force 05.04.2022)
+
+Read from its instructions (text-layer PDF, from the council GIS — apps.land.gov.il returned an error page; SHA-256
+327daa37…; `knowledge/building_provisions/hof_633_0928358.yaml`). It **adds no building area** (§5 "לא רלוונטי"). It
+changes the residential lots (מגורים א', מגורים, חד משפחתי) of the 29 plans in its §1.6 and is subordinate to TAMA 39;
+it does not apply to farm holdings, auxiliary farms, professionals' houses or kibbutz "old camps". In kibbutzim only
+Zikim lots 1-104 of 6/120/03/6 and Karmiya lots 201-257 of 6/109/03/6 — **not Zikim lot 368** (633-0723718 is not
+among the plans it changes; the scoping test now checks exactly that instead of banning the plan number).
+
+Encoded provisions: height ≤10.5 m (sloped ridge) / ≤9 m (flat, incl. railing) from the entrance level; entrance
+≤1.2 m above the pavement; storage ≤12 m², inner ≤2.20 m; covered parking ≤30 m² (2 spaces), ≤2.5 / 2.2 m; pergolas
+to a 0.00 side/rear line; basement ≤2.20 m, one external entrance, ≤10 m² main area for wet rooms; fences ≤1.8 m;
+technical screens; service yard. The route engine applies it from 05.04.2022 to listed plans' residential lots as an
+open check that names the limits and the drawings needed (sections, elevations, site plan) — with or without a
+rights file.
+
+Re-run of the 13 (development): the provisions apply to 6 requests (082, 085, 094, 114, 123, 128; CASE_000037 is a
+farm holding — not covered). Reason topics in engine scope 4 of 12: DETECTED 1 (route), FLAGGED 3 (the three height
+reasons — storey/parking/roof-terrace walls — with the limits that apply), MISSED 0, unsupported 0. The rest need the
+drawings or are outside any plan check (ownership, unauthorised use, encroachment, incomplete submission).

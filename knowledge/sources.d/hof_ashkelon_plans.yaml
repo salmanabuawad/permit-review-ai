@@ -66,3 +66,12 @@ sources:
   verification: VERIFIED_READ
   jurisdiction: hof-ashkelon
   sha256: 3c6e3751e06a3ea4a227a39acf1f8b2393b0b0fe1916c27442080e2a7580ceb9
+- id: HOF-PLAN-633-0928358
+  category: STATUTORY_PLAN
+  title_he: "תכנית 633-0928358 — הוראות בינוי במגרשי מגורים, תכנית תקנונית למ\"א חוף אשקלון"
+  url: https://mg2.gis-net.co.il/authoritydata/HofAshkelon/takanon/633-0928358.pdf
+  edition: "בתוקף מ-05/04/2022 (רשומות); תדפיס הוראות 24/03/2022"
+  verification: VERIFIED_READ
+  jurisdiction: hof-ashkelon
+  sha256: 327daa3785722c59024da3ea2c71a950b185987f89db2c504f2f7809818ebc38
+  notes: "Building provisions only, no building area. Not for farm holdings; in Zikim only lots 1-104 of 6/120/03/6 — never lot 368 (633-0723718)."

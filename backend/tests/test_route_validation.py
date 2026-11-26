@@ -360,3 +360,14 @@ def test_half_lot_gets_its_zone_but_not_whole_lot_rights():
     assert res.verdict == "INSUFFICIENT_EVIDENCE"
     assert [(c.topic, c.status) for c in res.checks] == [("aggregate", "NOT_CHECKED"), ("floors", "NOT_CHECKED")]
     assert "דו־משפחתי" in res.checks[0].explanation_he
+
+
+def test_building_provisions_plan_applies_from_2022_to_listed_residential_lots_only():
+    res = _hof("291/03/6", "650", submission_date=dt.date(2024, 1, 1))
+    bp = [c for c in res.checks if c.topic == "building_provisions"]
+    assert bp and bp[0].status == "NOT_CHECKED" and "10.5" in bp[0].explanation_he
+    assert not [c for c in _hof("291/03/6", "650").checks if c.topic == "building_provisions"]          # 2020: before it
+    assert not [c for c in _hof("ד/822", "5", submission_date=dt.date(2024, 1, 1)).checks
+                if c.topic == "building_provisions"]                                                    # farm holding
+    res = _hof("1/200/03/6", "237", submission_date=dt.date(2024, 1, 1))                                  # no rights file
+    assert res.verdict == "NO_RIGHTS" and any("633-0928358" in n for n in res.law_notes)
