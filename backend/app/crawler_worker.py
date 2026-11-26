@@ -7,7 +7,8 @@ ports 80/443 (plus the local DNS resolver) — so a redirect, a DNS rebinding an
 never reach the server itself, the private network or a cloud metadata address. The app process queues crawls and
 onboarding jobs in the database (BBP_CRAWLER_SEPARATE=true); this worker claims and runs them:
   * queued source crawls (oldest first) — a user's "crawl now", or a schedule the authority's administrator chose;
-  * authority onboarding jobs (official-directory discovery + first crawl) a user started.
+  * authority onboarding jobs (official-directory discovery + first crawl) a user started;
+  * committee site probes a platform administrator queued (national committee register).
 Crawls run on demand only unless the administrator sets a daily or weekly schedule. Nothing is retried or resumed on
 its own: a crawl left 'running' by a crawler that died is marked failed at start, an onboarding job whose lease
 expired becomes FAILED; a user starts it again.
@@ -35,6 +36,12 @@ def run_once() -> bool:
     if tenant:
         log.info("onboarding %s", tenant)
         A.run_onboarding(SessionLocal, tenant)
+        return True
+    from . import committees
+    cid = committees.claim_probe(SessionLocal)     # committee site probes an administrator queued
+    if cid:
+        log.info("committee probe %s", cid)
+        committees.run_probe(SessionLocal, cid)
         return True
     due = service.queue_due(SessionLocal)                 # only authorities whose administrator set a schedule
     if due:

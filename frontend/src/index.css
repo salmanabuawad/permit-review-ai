@@ -560,3 +560,4 @@ tr.muted td { color: var(--muted); }
 .user-actions { display: flex; flex-wrap: wrap; gap: 4px; }
 .filters-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 10px; }
 .filters-row input { min-width: 200px; }
+.source-list { list-style: none; padding: 0; margin: 4px 0 8px; display: grid; gap: 3px; }

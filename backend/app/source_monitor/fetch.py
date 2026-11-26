@@ -28,6 +28,7 @@ class Fetched:
     etag: str | None = None
     last_modified: str | None = None
     message: str | None = None
+    final_url: str | None = None    # after redirects (to resolve relative links)
 
 
 def canonical(url: str) -> str:
@@ -83,7 +84,8 @@ def fetch(url: str, cfg: dict, allowed: set[str], etag: str | None = None, last_
         with opener.open(urllib.request.Request(wire(url), headers=headers), timeout=cfg["timeout_s"]) as r:
             data = r.read(limit + 1)
             ct = r.headers.get_content_type()
-            res = Fetched("ok", url, r.status, ct, data, r.headers.get("ETag"), r.headers.get("Last-Modified"))
+            res = Fetched("ok", url, r.status, ct, data, r.headers.get("ETag"), r.headers.get("Last-Modified"),
+                          final_url=r.geturl())
     except urllib.error.HTTPError as e:
         if e.code == 304:
             return Fetched("not_modified", url, 304)
@@ -95,7 +97,8 @@ def fetch(url: str, cfg: dict, allowed: set[str], etag: str | None = None, last_
     except (urllib.error.URLError, socket.timeout, TimeoutError, ConnectionError, OSError) as e:
         reason = getattr(e, "reason", e)
         if "outside the register" in str(reason):
-            return Fetched("error", url, message="הפניה לאתר שאינו ברשם המקורות — לא נשלפה")
+            where = str(reason).rsplit(":", 1)[-1].strip()
+            return Fetched("error", url, message=f"הפניה לאתר שאינו ברשם המקורות — לא נשלפה ({where})")
         return Fetched("unreachable", url, message=f"האתר אינו זמין מהשרת ({type(reason).__name__})")
     if len(res.body) > limit:
         return Fetched("too_large", url, res.http_status, res.content_type, message=f"המסמך גדול מ־{limit // 2**20} MB")

@@ -14,6 +14,14 @@ export default function Committees() {
   const [open, setOpen] = useState<string | null>(null), [edit, setEdit] = useState<any>({}), [busy, setBusy] = useState(false)
   const load = () => api.get<any>('/api/committees').then(setD).catch(e => toast(e.message, true))
   useEffect(() => { load() }, [])
+  const probing = (d?.committees ?? []).filter((c: any) => ['queued', 'running'].includes(c.kb_detail?.probe?.state)).length
+  useEffect(() => { if (!probing) return; const t = window.setTimeout(load, 5000); return () => window.clearTimeout(t) }, [d])
+  const probeAll = async () => {
+    if (!confirm('לסרוק את אתרי כל 131 הוועדות? הסורק קורא את דף הבית ועד 5 דפים רלוונטיים בכל אתר, בקשה אחת בשנייה.')) return
+    setBusy(true)
+    try { const r = await api.post<any>('/api/committees/probe', {}); toast(`${r.queued} ועדות נכנסו לתור הסריקה`); await load() }
+    catch (e: any) { toast(e.message, true) } finally { setBusy(false) }
+  }
   const rows = useMemo(() => (d?.committees ?? []).filter((c: any) =>
     (!district || c.district === district) && (!vendor || c.vendor === vendor) && (!status || c.kb_status === status) &&
     (!q || c.name_he.includes(q) || c.settlements.some((t: string) => t.includes(q)))), [d, q, district, vendor, status])
@@ -27,7 +35,10 @@ export default function Committees() {
   const host = (u: string | null) => { try { return u ? new URL(u).hostname.replace(/^www\./, '') : '' } catch { return u ?? '' } }
   return <>
     <div className="page-head"><div><h1>מאגר ועדות ארצי</h1>
-      <p>כל הוועדות המקומיות והמרחביות לפי <a href={d.committees[0]?.registry_source?.url} target="_blank" rel="noreferrer">רשימת מינהל התכנון</a> (עודכנה {d.committees[0]?.registry_source?.page_updated}, נקראה {d.committees[0]?.registry_source?.retrieved}). בסיס הידע נבנה מראש לכל ועדה, גם לפני שרשות מצטרפת.</p></div></div>
+      <p>כל הוועדות המקומיות והמרחביות לפי <a href={d.committees[0]?.registry_source?.url} target="_blank" rel="noreferrer">רשימת מינהל התכנון</a> (עודכנה {d.committees[0]?.registry_source?.page_updated}, נקראה {d.committees[0]?.registry_source?.retrieved}). בסיס הידע נבנה מראש לכל ועדה, גם לפני שרשות מצטרפת.</p></div>
+      <span className="spacer" />
+      {probing > 0 && <span className="chip warn">סריקה פעילה — {probing} ועדות בתור</span>}
+      {d.can_edit && <button className="primary" disabled={busy || probing > 0} onClick={probeAll}>סריקת אתרי כל הוועדות</button>}</div>
     <div className="summary-strip">
       <div><b className="num">{t.committees}</b><span>ועדות ({t.regional} מרחביות)</span></div>
       {Object.entries(t.by_vendor).map(([k, n]) => <div key={k}><b className="num">{n as number}</b><span>{VENDOR_HE[k] ?? k}</span></div>)}
@@ -43,7 +54,7 @@ export default function Committees() {
     <div className="card" style={{ padding: 0, overflowX: 'auto' }}>
       <table><thead><tr><th>ועדה</th><th>מחוז</th><th>יישובים</th><th>אתר הוועדה</th><th>איתור בקשות</th><th>ספק</th><th>בסיס ידע</th></tr></thead><tbody>
         {rows.map((c: any) => <Fragment key={c.id}>
-          <tr className={d.can_edit ? 'clickable' : ''} onClick={() => { if (!d.can_edit) return; setOpen(open === c.id ? null : c.id); setEdit({ committee_code: c.committee_code ?? '', engineering_url: c.engineering_url ?? '', request_search_url: c.request_search_url ?? '', vendor: c.vendor }) }}>
+          <tr className="clickable" onClick={() => { setOpen(open === c.id ? null : c.id); setEdit({ committee_code: c.committee_code ?? '', engineering_url: c.engineering_url ?? '', request_search_url: c.request_search_url ?? '', vendor: c.vendor }) }}>
             <td><b>{c.name_he}</b>{c.kind === 'regional' && <span className="chip outline" style={{ marginInlineStart: 6 }}>{KIND_HE[c.kind]}</span>}{c.committee_code && <div className="small muted ltr">{c.committee_code}</div>}</td>
             <td>{c.district}</td>
             <td className="small" title={c.settlements.join(' · ')}>{c.settlements.length === 1 && c.settlements[0] === c.name_he ? '—' : c.settlements.join(' · ')}</td>
@@ -52,16 +63,22 @@ export default function Committees() {
             <td title={c.vendor_evidence ?? ''}>{VENDOR_HE[c.vendor] ?? c.vendor}</td>
             <td><span className={'chip ' + (c.kb_status === 'IN_SYSTEM' ? 'ok' : c.kb_status === 'SOURCES_FOUND' ? 'warn' : c.kb_status === 'BLOCKED' ? 'bad' : 'outline')}>{c.kb_status_he}</span>
               {c.authorities.length > 0 && <div className="small muted">{c.authorities.map((a: any) => a.name_he).join(', ')}</div>}
-              {c.sources.length > 0 && <div className="small muted">{c.sources.length} מקורות</div>}</td>
+              {c.sources.length > 0 && <div className="small muted">{c.sources.length} מקורות מועמדים</div>}
+              {['queued', 'running'].includes(c.kb_detail?.probe?.state) && <div className="small muted">{c.kb_detail.probe.state === 'running' ? 'נסרק כעת…' : 'בתור לסריקה'}</div>}</td>
           </tr>
-          {open === c.id && <tr><td colSpan={7}><form className="user-form" onSubmit={e => { e.preventDefault(); save(c.id) }}>
+          {open === c.id && <tr><td colSpan={7}>
+            {c.kb_detail?.probe?.at && <div className="small" style={{ marginBottom: 6 }}>סריקה אחרונה: {new Date(c.kb_detail.probe.at).toLocaleString('he-IL', { dateStyle: 'short', timeStyle: 'short' })} · {c.kb_detail.probe.pages} דפים{c.kb_detail.probe.redirected_to ? ` · הופנה ל־${c.kb_detail.probe.redirected_to}` : ''}
+              {(c.kb_detail.probe.errors ?? []).length > 0 && <span className="muted"> · {c.kb_detail.probe.errors.join(' · ')}</span>}</div>}
+            {c.sources.length > 0 && <ul className="small source-list">{c.sources.map((x: any) => <li key={x.url}><span className="chip outline">{({ guideline: 'הנחיות', plan: 'תכנית', bylaw: 'חוק עזר', procedure: 'נוהל / טפסים' } as any)[x.kind] ?? x.kind}</span> <a href={x.url} target="_blank" rel="noreferrer">{x.title || x.url}</a> <span className="muted">— מועמד, טרם אומת</span></li>)}</ul>}
+            {c.engineering_url && <div className="small">אתר הנדסה: <a className="ltr" href={c.engineering_url} target="_blank" rel="noreferrer">{c.engineering_url}</a></div>}
+            {d.can_edit && <form className="user-form" onSubmit={e => { e.preventDefault(); save(c.id) }}>
             <label>קוד ועדה רשמי<input dir="ltr" value={edit.committee_code} onChange={e => setEdit({ ...edit, committee_code: e.target.value })} /></label>
             <label>אתר הנדסה ורישוי<input dir="ltr" value={edit.engineering_url} onChange={e => setEdit({ ...edit, engineering_url: e.target.value })} placeholder="https://" /></label>
             <label>מערכת איתור בקשות<input dir="ltr" value={edit.request_search_url} onChange={e => setEdit({ ...edit, request_search_url: e.target.value })} placeholder="https://" /></label>
             <label>ספק<select value={edit.vendor} onChange={e => setEdit({ ...edit, vendor: e.target.value })}>{VENDORS.map(k => <option key={k} value={k}>{VENDOR_HE[k]}</option>)}</select></label>
             <button className="primary" disabled={busy}>שמירה</button><button type="button" onClick={() => setOpen(null)}>ביטול</button>
             {c.vendor_evidence && <span className="small muted">ספק: {c.vendor_evidence}</span>}
-          </form></td></tr>}
+          </form>}</td></tr>}
         </Fragment>)}
         {!rows.length && <tr><td colSpan={7} className="empty">אין ועדות התואמות לסינון</td></tr>}
       </tbody></table>

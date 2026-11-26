@@ -159,3 +159,176 @@ def update(s: Session, c: PlanningCommittee, changes: dict) -> dict:
     c.updated_at = dt.datetime.now(dt.timezone.utc)
     s.flush()
     return out
+
+
+# ------------------------------------------------------------------ site probe (runs only in the crawler process)
+# Reads a committee's published site: the home page and at most MAX_PAGES further pages on the same site whose link
+# text is about permits, plans or guidelines; one request per second. Records the vendor fingerprint, a candidate
+# request-search system, the engineering site and candidate regulation / guideline sources. Everything found is a
+# candidate for a person to confirm; nothing becomes a rule. Fields an administrator filled in are never replaced.
+
+MAX_PAGES, MAX_SOURCES = 5, 40
+SEARCH_WORDS = ("איתור בקשות", "חיפוש בקשות", "בקשות להיתר", "מעקב בקשות", "מעקב אחר בקשות", "תיק בניין", "תיקי בניין",
+                "תיק בנין", "מידע על בקשות", "חיפוש תיק", "חיפוש היתרים", "מאגר היתרים", "מידע על תיק")
+ENGINEERING_WORDS = ("מחלקת הנדסה", "אגף הנדסה", "מינהל הנדסה", "הנדסה", "רישוי ופיקוח", "רישוי בנייה")
+SOURCE_WORDS = {"guideline": ("הנחיות מרחביות", "הנחיות מרחבית", "הנחיות הוועדה", "הנחיות תכנון", "הנחיות בינוי", "מדיניות"),
+                "plan": ("תב\"ע", "תב״ע", "תכניות בניין עיר", "תוכניות בניין עיר", "תכנית מתאר", "תוכנית מתאר", "תקנון"),
+                "bylaw": ("חוקי עזר", "חוק עזר"),
+                "procedure": ("נהלים", "נוהל", "טפסים", "מידע תכנוני", "תיק מידע")}
+PAGE_WORDS = ("הנדסה", "רישוי", "תכנון", "ועדה", "מידע", "הנחיות", "בקשות", "תכניות", "תוכניות")
+FINGERPRINTS = (("BarTech", re.compile(r"bartech", re.I)), ("Complot", re.compile(r"complot", re.I)))
+
+
+def _links(html_text: str, base: str) -> list[tuple[str, str]]:
+    from html.parser import HTMLParser
+    from urllib.parse import urljoin
+
+    out: list[tuple[str, str]] = []
+
+    class P(HTMLParser):
+        href = None
+        text: list[str] = []
+
+        def handle_starttag(self, tag, attrs):
+            if tag == "a":
+                self.href, self.text = dict(attrs).get("href"), [dict(attrs).get("title") or ""]
+
+        def handle_data(self, data):
+            if self.href is not None:
+                self.text.append(data)
+
+        def handle_endtag(self, tag):
+            if tag == "a" and self.href:
+                h = self.href.strip()
+                if not h.lower().startswith(("javascript:", "mailto:", "tel:", "#")):
+                    out.append((urljoin(base, h).split("#")[0], re.sub(r"\s+", " ", " ".join(self.text)).strip()[:200]))
+            if tag == "a":
+                self.href = None
+
+    try:
+        P().feed(html_text)
+    except Exception:                                   # noqa: BLE001 — a broken page yields what was parsed
+        pass
+    return out
+
+
+def _hosts(url: str) -> set[str]:
+    h = (urlsplit(url).hostname or "").lower()
+    bare = h[4:] if h.startswith("www.") else h
+    return {bare, "www." + bare} - {"www."}
+
+
+def probe(s: Session, c: PlanningCommittee, fetcher=None, sleep=None) -> dict:
+    """Read the committee's site and record what it shows. Returns the probe summary."""
+    import time
+
+    from .source_monitor import fetch as F
+    from .source_monitor.service import load_config
+    fetcher, sleep = fetcher or F.fetch, sleep or time.sleep
+    cfg = load_config()
+    now = dt.datetime.now(dt.timezone.utc)
+    summary: dict = {"at": now.isoformat(), "pages": 0, "errors": []}
+    if not c.website_url:
+        summary["errors"].append("אין כתובת אתר ברשימה")
+        return _finish(s, c, summary, blocked=True)
+    allowed = _hosts(c.website_url)
+    queue, seen, pages = [c.website_url], set(), []
+    while queue and summary["pages"] < 1 + MAX_PAGES:
+        url = queue.pop(0)
+        if url in seen:
+            continue
+        seen.add(url)
+        if summary["pages"]:
+            sleep(cfg["delay_between_requests_s"])
+        r = fetcher(url, cfg, allowed)
+        if r.status == "error" and "הפניה לאתר" in (r.message or "") and not pages:
+            m = re.search(r"\(([^()]+)\)\s*$", r.message or "")     # the home page moved to another site: follow once
+            if m and "." in m.group(1):
+                allowed |= _hosts("https://" + m.group(1))
+                summary["redirected_to"] = m.group(1)
+                r = fetcher(url, cfg, allowed)
+        summary["pages"] += 1
+        if r.status != "ok" or not (r.content_type or "").startswith(("text/html", "application/xhtml")):
+            summary["errors"].append(f"{url}: {r.message or r.status}")
+            continue
+        text = F.decode_html(r.body)
+        base = r.final_url or url
+        pages.append((base, text))
+        if len(pages) == 1:
+            for link, label in _links(text, base):
+                if urlsplit(link).hostname in allowed and any(w in label for w in PAGE_WORDS) and link not in seen:
+                    queue.append(link)
+    if not pages:
+        return _finish(s, c, summary, blocked=True)
+    # vendor: a fingerprint in the pages or their links
+    blob = " ".join(t[:200000] for _, t in pages)
+    for name, rx in FINGERPRINTS:
+        if rx.search(blob):
+            summary["vendor"] = name
+            break
+    links = [(u, l) for base, t in pages for u, l in _links(t, base)]
+    search = next((u for u, l in links if any(w in l for w in SEARCH_WORDS)), None)
+    engineering = next((u for u, l in links if any(w in l for w in ENGINEERING_WORDS)), None)
+    found = []
+    for u, label in links:
+        kind = next((k for k, words in SOURCE_WORDS.items() if any(w in label for w in words)), None)
+        if kind and u not in {f["url"] for f in found}:
+            found.append({"url": u, "title": label, "kind": kind, "status": "candidate", "found_at": now.isoformat()})
+    summary.update(request_search_url=search, engineering_url=engineering, sources_found=len(found[:MAX_SOURCES]))
+    return _finish(s, c, summary, sources=found[:MAX_SOURCES])
+
+
+def _finish(s: Session, c: PlanningCommittee, summary: dict, blocked: bool = False, sources: list | None = None) -> dict:
+    c.last_probed_at = dt.datetime.now(dt.timezone.utc)
+    if blocked:
+        c.kb_status = "BLOCKED"
+    else:
+        if c.vendor == "unknown" and summary.get("vendor"):
+            c.vendor, c.vendor_evidence = summary["vendor"], "זוהה בדף האתר"
+        if not c.request_search_url and summary.get("request_search_url"):
+            c.request_search_url = summary["request_search_url"]
+        if not c.engineering_url and summary.get("engineering_url"):
+            c.engineering_url = summary["engineering_url"]
+        known = {x["url"] for x in (c.sources or [])}
+        c.sources = (c.sources or []) + [x for x in (sources or []) if x["url"] not in known]
+        c.kb_status = "SOURCES_FOUND" if c.sources else "SITE_PROBED"
+    c.kb_detail = {**(c.kb_detail or {}), "probe": {**summary, "state": "done"}}
+    c.updated_at = c.last_probed_at
+    s.commit()
+    return summary
+
+
+def queue_probes(s: Session, ids: list[str] | None = None) -> int:
+    """Mark committees for the crawler to probe (all when ids is None)."""
+    q = select(PlanningCommittee)
+    if ids:
+        q = q.where(PlanningCommittee.id.in_(ids))
+    n = 0
+    for c in s.scalars(q):
+        if ((c.kb_detail or {}).get("probe") or {}).get("state") not in ("queued", "running"):
+            c.kb_detail = {**(c.kb_detail or {}), "probe": {"state": "queued", "queued_at": dt.datetime.now(dt.timezone.utc).isoformat()}}
+            n += 1
+    s.commit()
+    return n
+
+
+def claim_probe(session_factory) -> str | None:
+    with session_factory() as s:
+        for c in s.scalars(select(PlanningCommittee).order_by(PlanningCommittee.district, PlanningCommittee.name_he)):
+            if ((c.kb_detail or {}).get("probe") or {}).get("state") == "queued":
+                c.kb_detail = {**c.kb_detail, "probe": {**c.kb_detail["probe"], "state": "running"}}
+                s.commit()
+                return c.id
+    return None
+
+
+def run_probe(session_factory, cid: str, fetcher=None, sleep=None) -> None:
+    with session_factory() as s:
+        c = s.get(PlanningCommittee, cid)
+        try:
+            probe(s, c, fetcher, sleep)
+        except Exception as e:                          # noqa: BLE001 — recorded; the worker goes on
+            s.rollback()
+            c = s.get(PlanningCommittee, cid)
+            c.kb_detail = {**(c.kb_detail or {}), "probe": {"state": "failed", "error": f"{type(e).__name__}: {e}"[:300]}}
+            s.commit()

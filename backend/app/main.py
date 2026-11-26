@@ -1734,3 +1734,18 @@ def committees_update(committee_id: str, body: CommitteePatch, account: User = D
         audit.record(s, account.tenant_id, account.id, "committee.update", "planning_committee", c.id, change)
     s.commit()
     return committees.as_dict(s, c)
+
+
+class ProbeIn(BaseModel):
+    ids: list[str] | None = None          # none: every committee
+
+
+@app.post("/api/committees/probe")
+def committees_probe(body: ProbeIn, account: User = Depends(_platform_admin), s: Session = Depends(get_session)):
+    """Queue site probes for the crawler process (public sites only, one request per second)."""
+    from . import committees
+    n = committees.queue_probes(s, body.ids)
+    audit.record(s, account.tenant_id, account.id, "committee.probe.queue", "planning_committee", None,
+                 {"count": n, "ids": (body.ids or [])[:50]})
+    s.commit()
+    return {"queued": n}

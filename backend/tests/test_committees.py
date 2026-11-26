@@ -52,3 +52,79 @@ def test_api_access_and_update(monkeypatch):
     r = c.patch(f"/api/committees/{row['id']}", headers={"X-User": "u-ha-admin"},
                 json={"request_search_url": "https://hoa.bartech-net.co.il/search", "committee_code": "614"})
     assert r.status_code == 200 and r.json()["committee_code"] == "614"
+
+
+def _site(pages, redirect_to=None):
+    from app.source_monitor import fetch as F
+    calls = []
+
+    def fetch(url, cfg, allowed, *a):
+        calls.append(url)
+        host = F.host(url)
+        if redirect_to and host in redirect_to[1] and redirect_to[0] not in allowed:
+            return F.Fetched("error", url, message=f"הפניה לאתר שאינו ברשם המקורות — לא נשלפה ({redirect_to[0]})")
+        if host not in allowed:
+            return F.Fetched("error", url, message="כתובת מחוץ לרשם המקורות")
+        body = pages.get(url)
+        if body is None:
+            return F.Fetched("error", url, 404, message="not found")
+        return F.Fetched("ok", url, 200, "text/html", body.encode(), final_url=url)
+    return fetch, calls
+
+
+def test_probe_finds_vendor_search_and_sources():
+    seed(reset=True, samples=False)
+    home = """<html><body><a href="/handasa">אגף הנדסה</a><a href="/search">איתור בקשות להיתר</a>
+      <a href="https://other.example/x">הנחיות מרחביות באתר אחר</a><script src="//cdn.complot.co.il/x.js"></script></body></html>"""
+    handasa = """<a href="/docs/guide.pdf">הנחיות מרחביות 2024</a><a href="/docs/taba.pdf">תב"ע 101-0012345</a>
+      <a href="/forms">טפסים</a><a href="javascript:void(0)">הנחיות</a>"""
+    fetch, calls = _site({"https://c.example/": home, "https://c.example/handasa": handasa})
+    with SessionLocal() as s:
+        committees.import_register(s)
+        c = s.scalars(select(PlanningCommittee).where(PlanningCommittee.vendor == "unknown")).first()
+        c.website_url, c.request_search_url = "https://c.example/", None
+        s.commit()
+        out = committees.probe(s, c, fetch, sleep=lambda _: None)
+        assert out["vendor"] == "Complot" and c.vendor == "Complot" and c.vendor_evidence == "זוהה בדף האתר"
+        assert c.request_search_url == "https://c.example/search" and c.engineering_url == "https://c.example/handasa"
+        kinds = {x["url"]: x["kind"] for x in c.sources}
+        assert kinds["https://c.example/docs/guide.pdf"] == "guideline" and kinds["https://c.example/docs/taba.pdf"] == "plan"
+        assert all(x["status"] == "candidate" for x in c.sources) and c.kb_status == "SOURCES_FOUND"
+        assert "https://other.example/x" not in calls                      # other sites are listed, never fetched
+        # a second probe keeps admin-set values and does not duplicate sources
+        c.request_search_url = "https://c.example/official-search"
+        s.commit()
+        committees.probe(s, c, fetch, sleep=lambda _: None)
+        assert c.request_search_url == "https://c.example/official-search" and len(c.sources) == len(kinds)
+
+
+def test_probe_redirect_once_and_blocked():
+    seed(reset=True, samples=False)
+    fetch, calls = _site({"https://old.example/": "<a href='/x'>מידע הנדסי</a>"}, redirect_to=("new.example", {"old.example"}))
+    with SessionLocal() as s:
+        committees.import_register(s)
+        a, b = s.scalars(select(PlanningCommittee).limit(2)).all()
+        a.website_url, b.website_url = "https://old.example/", "https://down.example/"
+        s.commit()
+        out = committees.probe(s, a, fetch, sleep=lambda _: None)
+        assert out.get("redirected_to") == "new.example" and a.kb_status == "SITE_PROBED"
+        committees.probe(s, b, fetch, sleep=lambda _: None)
+        assert b.kb_status == "BLOCKED" and b.kb_detail["probe"]["errors"]
+
+
+def test_probe_queue_and_worker(monkeypatch):
+    monkeypatch.setenv("BBP_AUTHORITY_CREATORS", '["u-ha-admin"]')
+    seed(reset=True, samples=False)
+    with SessionLocal() as s:
+        committees.import_register(s)
+        s.commit()
+    c = TestClient(app)
+    assert c.post("/api/committees/probe", headers={"X-User": "u-ha-engineer"}, json={}).status_code == 403
+    assert c.post("/api/committees/probe", headers={"X-User": "u-ha-admin"}, json={}).json()["queued"] == 131
+    assert c.post("/api/committees/probe", headers={"X-User": "u-ha-admin"}, json={}).json()["queued"] == 0   # already queued
+    fetch, _ = _site({})
+    cid = committees.claim_probe(SessionLocal)
+    committees.run_probe(SessionLocal, cid, fetch, sleep=lambda _: None)
+    with SessionLocal() as s:
+        done = s.get(PlanningCommittee, cid)
+        assert done.kb_detail["probe"]["state"] == "done" and done.kb_status == "BLOCKED"
