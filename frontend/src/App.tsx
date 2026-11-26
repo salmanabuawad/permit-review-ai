@@ -52,8 +52,7 @@ const DEFAULT_ORG = 'hof-ashkelon'
 export default function App() {
   const [me, setMe] = useState<Me | null>(null)
   const [meta, setMeta] = useState<any>(null)
-  const [users, setUsers] = useState<any[]>([])
-  const [userId, setUserId] = useState(getUser())
+  const [userId] = useState(getUser())
   const [mobileOpen, setMobileOpen] = useState(false)
   const [msg, setMsg] = useState<{ text: string; err: boolean } | null>(null)
 
@@ -64,7 +63,6 @@ export default function App() {
 
   useEffect(() => {
     api.get<any>('/api/meta').then(setMeta)
-    api.get<any[]>('/api/users').then(setUsers)
   }, [])
   useEffect(() => {
     setUser(userId)
@@ -106,10 +104,7 @@ export default function App() {
             <div className="topbar-location"><span className="topbar-eyebrow">סביבת עבודה / {org.org}</span><strong>{isDemo ? 'סביבת הדגמה' : org.unit}</strong></div>
             <span className="spacer" />
             <span className="topbar-policy"><span className="live-dot" /> כל תוצר הוא המלצה בלבד — ההחלטה בסמכות בעל תפקיד מוסמך</span>
-            <label className="small muted" htmlFor="user-switch">משתמש:</label>
-            <select className="user-switch" id="user-switch" value={userId} onChange={e => setUserId(e.target.value)}>
-              {users.map(u => <option key={u.id} value={u.id}>{u.display_name} — {u.role_he}</option>)}
-            </select>
+            <span className="small muted">משתמש: {me?.display_name ?? 'מנהל מערכת'}</span>
           </header>
           <main className="content" key={userId}>
             {me && meta ? (

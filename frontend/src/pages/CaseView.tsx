@@ -124,14 +124,15 @@ export default function CaseView() {
               {(['FAIL', 'UNCERTAIN', 'PASS', 'NA'] as const).map(s => <span key={s}><StatusChip s={s} /> <span className="num">{counts[s]}</span></span>)}
             </div>
           </div>
-          {report.run.ai_summary && <div className="notice info small" style={{ whiteSpace: 'pre-line' }}>{report.run.ai_summary}
+          {report.run.ai_summary && <details className="notice info small"><summary style={{ cursor: 'pointer' }}>סיכום אוטומטי וקטעי ידע</summary>
+            <div style={{ whiteSpace: 'pre-line' }}>{report.run.ai_summary}</div>
             {(report.run.kb_passages ?? []).length > 0 && <div style={{ marginTop: 6 }}>
               <b>קטעי ידע שנמסרו לסיכום</b> (מהתכניות והנחיות הוועדה של התיק; לעיון — אינם ממצאים):
               {[...(report.run.kb_passages ?? [])].sort((a, b) => Number(b.cited) - Number(a.cited)).map(k => (
                 <div key={k.id}><span className="mono">[{k.id}]</span> {k.section} — {k.source_title_he}{k.page ? `, עמ׳ ${k.page}` : ''}
                   {k.cited && <span className="chip ok" style={{ marginInlineStart: 4 }}>צוטט בסיכום</span>}
                   {k.url && <> · <a href={k.url} target="_blank" rel="noreferrer">מקור</a></>}</div>))}
-            </div>}</div>}
+            </div>}</details>}
           <div className="card-head no-print" style={{ marginTop: 10, marginBottom: 0 }}>
             <span className="small muted">ייצוא:</span>
             <button className="sm" onClick={() => openBlob(`/api/runs/${c.last_run!.id}/defects.pdf`).catch(e => toast(e.message, true))}>

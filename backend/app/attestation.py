@@ -30,7 +30,7 @@ from .config import settings
 from .models import CheckRun, ReviewAttestation
 
 DECISIONS = ("REVIEWED", "APPROVED_FOR_REPORT", "REJECTED_RUN")
-ATTEST_ROLES = {"reviewer", "dept_manager", "city_engineer"}
+ATTEST_ROLES = {"sysadmin", "reviewer", "dept_manager", "city_engineer"}
 
 
 def _key() -> bytes:

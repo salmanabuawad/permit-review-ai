@@ -29,9 +29,10 @@ PERMISSIONS = {
     "file.delete":     {"sysadmin", "dept_manager", "city_engineer"},
     "case.run":        {"sysadmin", "dept_manager", "reviewer"},
     "case.assign":     {"sysadmin", "dept_manager", "city_engineer"},
-    "finding.decide":  {"reviewer", "dept_manager", "city_engineer"},
-    "case.lock":       {"reviewer", "dept_manager", "city_engineer"},
-    "rule.approve":    {"city_engineer", "dept_manager"},
+    # single-user deployment: the system administrator does the professional steps too
+    "finding.decide":  {"sysadmin", "reviewer", "dept_manager", "city_engineer"},
+    "case.lock":       {"sysadmin", "reviewer", "dept_manager", "city_engineer"},
+    "rule.approve":    {"sysadmin", "city_engineer", "dept_manager"},
     "source.crawl":    {"sysadmin", "city_engineer", "dept_manager"},
     "rule.edit":       {"sysadmin", "city_engineer", "dept_manager"},   # authoring; approval stays rule.approve
     "ai.configure":    {"sysadmin"},

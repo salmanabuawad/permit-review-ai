@@ -41,15 +41,10 @@ export interface Case {
 
 // Hof Ashkelon is the active committee: the site opens as its plan reviewer. A Bnei Brak user remembered from
 // before the switch is moved once (flag bbp_user_v2); a Hof Ashkelon user, or any user picked after that, is kept.
-const DEFAULT_USER = 'u-ha-reviewer'
+const DEFAULT_USER = 'u-ha-admin'
 let currentUser = initialUser()
-function initialUser(): string {
-  const saved = localStorageGet('bbp_user')
-  if (saved && (saved.startsWith('u-ha-') || localStorageGet('bbp_user_v2') === '1')) return saved
-  try {
-    window.localStorage.setItem('bbp_user_v2', '1')
-    window.localStorage.setItem('bbp_user', DEFAULT_USER)
-  } catch { /* private mode: default for this page load only */ }
+function initialUser(): string {        // one user: the Hof Ashkelon system administrator
+  try { window.localStorage.setItem('bbp_user', DEFAULT_USER) } catch { /* private mode */ }
   return DEFAULT_USER
 }
 function localStorageGet(k: string): string | null {
