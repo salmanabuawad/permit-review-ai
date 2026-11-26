@@ -44,6 +44,12 @@ export default function CaseView() {
     else setReport(null)
   }, [id, kind])
   useEffect(() => { load().catch(e => toast(e.message, true)) }, [load, toast])
+  const processing = !!c?.processing && !c.processing.ready
+  useEffect(() => {                                   // while the request is still processing, refresh every 15 s
+    if (!processing) return
+    const t = window.setInterval(() => { load().catch(() => undefined) }, 15000)
+    return () => window.clearInterval(t)
+  }, [processing, load])
   const reloadFiles = useCallback(async () => { await load(); loadGeo().catch(e => toast(e.message, true)) }, [load, loadGeo, toast])
 
   const run = async () => {

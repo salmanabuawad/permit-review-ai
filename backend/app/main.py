@@ -80,7 +80,8 @@ def case_dict(c: PermitCase, with_files=True) -> dict:
          "locked_version": c.locked_version, "created_at": c.created_at.isoformat(),
          "last_run": None if not last else {"id": last.id, "version": last.version, "summary": last.summary,
                                             "at": last.started_at.isoformat(), "duration_ms": last.duration_ms,
-                                            "locked": last.locked}}
+                                            "locked": last.locked},
+         "processing": services.processing_status(c)}
     if with_files:
         d["files"] = [{"id": f.id, "filename": f.filename, "doc_type": f.doc_type, "kind": f.kind,
                        "suggested_doc_type": f.suggested_doc_type, "sha256": f.sha256, "size_bytes": f.size_bytes,
@@ -549,6 +550,9 @@ def defects_file(run_id: str, p: Principal = Depends(require("case.read")), s: S
     from urllib.parse import quote
     from .defects_report import build_defects, render_defects_pdf
     r = _run(s, p, run_id)
+    ps = services.processing_status(r.case)
+    if not ps["ready"]:
+        raise HTTPException(409, "הדוח עדיין לא מוכן — " + "; ".join(ps["pending"][:5]))
     rep = build_defects(r.case, r)
     data = render_defects_pdf(rep)
     audit.record(s, p.tenant_id, p.id, "report.export", "check_run", r.id, {"kind": "defects", "format": "pdf",

@@ -195,3 +195,20 @@ def test_geometric_height_settles_a_stray_reading():
     r3 = mk()
     guard_single_read_height([r3], rules, {k: v for k, v in facts.items() if "geometric" not in k}, {})
     assert r3.status == "UNCERTAIN"                                   # no geometry: the stray read stays unresolved
+
+
+def test_report_not_ready_while_drawings_or_typing_pending():
+    from types import SimpleNamespace as NS
+    from app.services import processing_status
+    f = lambda **k: NS(**{"lifecycle": "ACTIVE", "kind": "pdf", "doc_type": "other", "ingest_status": "OK",
+                          "ingest_report": {"ai_typed": "local_ollama"}, "filename": "x", **k})
+    ready = NS(source="import", files=[f(), f(kind="dwfx", doc_type="architectural_plan",
+                                           ingest_report={"ai_typed": 1, "drawing_read": {"state": "done"}})])
+    assert processing_status(ready) == {"ready": True, "pending": []}
+    conv = NS(source="import", files=[f(kind="dwfx", ingest_status="PENDING_CONVERSION", ingest_report={})])
+    assert not processing_status(conv)["ready"] and "המרת" in processing_status(conv)["pending"][0]
+    read = NS(source="import", files=[f(kind="dwfx", doc_type="architectural_plan", ingest_report={"ai_typed": 1})])
+    assert "קריאת" in processing_status(read)["pending"][0]
+    typing = NS(source="import", files=[f(ingest_report={})])
+    assert "סיווג" in processing_status(typing)["pending"][0]
+    assert processing_status(NS(source="manual", files=[f(ingest_report={})]))["ready"]   # manual upload: no AI typing pass

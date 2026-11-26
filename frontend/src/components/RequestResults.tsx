@@ -35,6 +35,13 @@ function lines(f: Finding, want: St[]): Line[] {
 interface Props { c: Case; report: Report; onCite: (c: Citation) => void; onSelect: (id: string) => void }
 
 export default function RequestResults({ c, report, onCite, onSelect }: Props) {
+  if (c.processing && !c.processing.ready) return (
+    <div className="rr">
+      <h2 className="rr-title">הדוח עדיין לא מוכן</h2>
+      <p className="rr-verdict">הבקשה <span className="ltr">{c.case_number}</span> עדיין בעיבוד. הדוח יוצג כשכל השלבים יסתיימו:</p>
+      <ul className="rr-ok">{c.processing.pending.map((x, i) => <li key={i}>{x}</li>)}</ul>
+      <p className="small muted rr-note">העמוד מתעדכן אוטומטית.</p>
+    </div>)
   const ext = report.findings.filter(f => f.flags.includes('EXTERNAL'))
   const defects: Line[] = [], discrepancies: Line[] = []
   for (const f of ext) {

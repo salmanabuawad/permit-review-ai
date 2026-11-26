@@ -53,6 +53,24 @@ DOC_TYPES_HE = {
 }
 
 
+def processing_status(case: PermitCase) -> dict:
+    """Whether the request's report is ready: nothing may still be converting, waiting to be read on the AI PC, or
+    waiting for its document type from the local AI. {"ready": bool, "pending": [Hebrew lines]}"""
+    pending = []
+    for f in case.files:
+        if f.lifecycle != "ACTIVE":
+            continue
+        rep = f.ingest_report or {}
+        if f.kind == "dwfx" and f.ingest_status == "PENDING_CONVERSION":
+            pending.append(f"המרת שרטוט במחשב ה-AI: {f.filename}")
+        elif (f.kind == "dwfx" and f.doc_type == "architectural_plan" and f.ingest_status == "OK"
+              and (rep.get("drawing_read") or {}).get("state") not in ("done", "failed")):
+            pending.append(f"קריאת גיליונות השרטוט: {f.filename}")
+        if case.source == "import" and not rep.get("ai_typed") and f.kind in ("pdf", "dwfx") and f.ingest_status != "PENDING_CONVERSION":
+            pending.append(f"סיווג המסמך ב-AI מקומי: {f.filename}")
+    return {"ready": not pending, "pending": pending}
+
+
 def classify_case_files(s: Session, case: PermitCase, user: str, gateway: AIGateway | None = None,
                         only: set[str] | None = None) -> list[dict]:
     """Re-type every document of a request with the AI gateway (local model through the relay; keyword fallback):
@@ -71,14 +89,31 @@ def classify_case_files(s: Session, case: PermitCase, user: str, gateway: AIGate
                     text = "\n".join(p.get_text() for p in list(d)[:3])
         except Exception:  # noqa: BLE001 — unreadable: classify on the name
             text = ""
-        ai = gw.route("Classification", "CASE_DOCUMENT", {"filename": f.filename, "text": text[:20000]},
-                      log=gateway_logger(s, case.tenant_id, case.id, user))
-        out = ai.output if ai.outcome in ("OK", "FALLBACK") and isinstance(ai.output, dict) else {}
+        out, provider = {}, None
+        if f.kind == "dwfx" and len(text.strip()) < 50 and converted_pdf_path(f):
+            # a vector sheet without text: the local vision model looks at the first sheet
+            try:
+                with pymupdf.open(converted_pdf_path(f)) as d:
+                    pg = d[0]
+                    zoom = min(1.0, 1100 / max(pg.rect.width, pg.rect.height))
+                    png = pg.get_pixmap(matrix=pymupdf.Matrix(zoom, zoom)).tobytes("png")
+                from .ai.gateway import vision_drawing_type
+                out, provider = vision_drawing_type(png, f.filename, settings.vision_model), "local_vision"
+            except Exception as e:  # noqa: BLE001 — no vision answer: fall back to the text route
+                out, provider = {}, None
+                audit.record(s, case.tenant_id, user, "file.classify", "case_file", f.id, {"vision_error": str(e)[:200]})
+        if provider is None:
+            ai = gw.route("Classification", "CASE_DOCUMENT", {"filename": f.filename, "text": text[:20000]},
+                          log=gateway_logger(s, case.tenant_id, case.id, user))
+            out = ai.output if ai.outcome in ("OK", "FALLBACK") and isinstance(ai.output, dict) else {}
+            provider = ai.provider_id
+        ai = type("R", (), {"provider_id": provider})()
         label, conf = out.get("label"), float(out.get("confidence") or 0)
-        model = (ai.provider_id or "") not in ("local_keyword", "-")
+        model = (provider or "") not in ("local_keyword", "-")
         if f.kind in ("dwfx", "dwg") and label not in ("survey_map", "architectural_plan", "sections_elevations"):
             label = None                          # a drawing package is a plan or a survey, never a letter
         f.suggested_doc_type = label
+        f.ingest_report = {**(f.ingest_report or {}), "ai_typed": ai.provider_id or True}
         if label in DOC_TYPES_HE and label != f.doc_type and conf >= (0.5 if model else 0.6):
             changes.append({"file": f.filename, "from": f.doc_type, "to": label, "confidence": conf,
                             "provider": ai.provider_id})

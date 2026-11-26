@@ -48,6 +48,7 @@ class Settings:
     llm_timeout_s: float = float(_env("LLM_TIMEOUT", "180"))
     # LLM relay (app/ai/relay.py, its own process): the AI PC's agent pulls model calls from it over HTTPS.
     llm_relay_token: str = _env("LLM_RELAY_TOKEN", "")
+    vision_model: str = _env("VISION_MODEL", "ministral-3-8b-vision")   # local image model (AI PC, via the relay)
     llm_relay_poll_interval_s: float = float(_env("LLM_RELAY_POLL_INTERVAL", "1"))
     llm_relay_pickup_timeout_s: float = float(_env("LLM_RELAY_PICKUP_TIMEOUT", "15"))
     llm_relay_response_timeout_s: float = float(_env("LLM_RELAY_RESPONSE_TIMEOUT", "300"))

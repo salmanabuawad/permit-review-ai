@@ -127,6 +127,33 @@ def llm_chat(model: str, prompt: str, json_mode: bool = False) -> str:
     return data["choices"][0]["message"]["content"]
 
 
+DRAWING_TYPES = {
+    "survey_map": "מפת מדידה של מודד מוסמך: גבולות מגרש וחלקות, מספרי חלקות, נקודות גובה (רומים), רשת קואורדינטות, "
+                  "עצים ומבנים קיימים, חותמת מודד — בלי חלוקת חדרים",
+    "architectural_plan": "תכנית הגשה / גרמושקה: תכניות קומה עם חדרים, קירות ומידות, טבלאות שטחים, דף תנאים וחתימות",
+    "sections_elevations": "חתכים וחזיתות של בניין בלבד",
+}
+
+
+def vision_drawing_type(png: bytes, filename: str, model: str) -> dict:
+    """The local vision model types a drawing sheet that has no text layer. {"label", "confidence"} or raises."""
+    import base64
+    prompt = ("לפניך גיליון ראשון של קובץ שרטוט מתוך בקשה להיתר בנייה (שם הקובץ: " + filename + "). "
+              "קבע את סוג המסמך לאחת האפשרויות:\n" + "\n".join(f"{k}: {v}" for k, v in DRAWING_TYPES.items()) +
+              "\nהחזר JSON בלבד: {\"label\": <קוד>, \"confidence\": 0..1}.")
+    body = {"model": model, "stream": False, "temperature": 0, "response_format": {"type": "json_object"},
+            "messages": [{"role": "user", "content": [
+                {"type": "text", "text": prompt},
+                {"type": "image_url", "image_url": {"url": "data:image/png;base64," + base64.b64encode(png).decode()}}]}]}
+    req = urllib.request.Request(settings.llm_base_url.rstrip("/") + "/chat/completions",
+                                 data=json.dumps(body).encode(), headers={"Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=settings.llm_timeout_s) as r:
+        out = json.loads(json.loads(r.read())["choices"][0]["message"]["content"])
+    if not isinstance(out, dict) or out.get("label") not in DRAWING_TYPES:
+        raise ValueError(f"label outside the drawing types: {str(out)[:80]}")
+    return out
+
+
 # token usage of the model calls made inside one route() (a list per context: threads and requests do not mix)
 import contextvars  # noqa: E402
 _USAGE: contextvars.ContextVar[list | None] = contextvars.ContextVar("llm_usage", default=None)
