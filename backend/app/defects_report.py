@@ -12,30 +12,18 @@ import datetime as dt
 import io
 import re
 from zoneinfo import ZoneInfo
-from pathlib import Path
 
-from .config import settings
 from .models import CheckRun, PermitCase
 
 EXTERNAL = ("CONFIRMED_DEFECT", "DOCUMENTED_DISCREPANCY")
-KIND_HE = {"CONFIRMED_DEFECT": "ליקוי", "DOCUMENTED_DISCREPANCY": "פער לבירור"}
 DECISION_HE = {"RETURN_FOR_CORRECTIONS": "החזרה לתיקון ולהשלמה", "REJECT_RECOMMENDATION": "המלצה לדחייה",
                "NO_DEFECTS_IDENTIFIED": "לא נמצאו ליקויים בבדיקות שהושלמו",
                "INSUFFICIENT_EVIDENCE_FOR_FINAL_DECISION": "אין די ראיות להמלצה סופית"}
-RED, ORANGE, NEUTRAL, LINE = "#FDE2E2", "#FFE8CC", "#F2F4F7", "#C9CED6"
 SEV = {"critical": 0, "high": 1, "medium": 2, "low": 3}
 
 
 def _status(f) -> str:
     return next((x[7:] for x in f.flags if x.startswith("STATUS_")), "")
-
-
-def _image(e: dict) -> str | None:
-    p = e.get("image")
-    if not p:
-        return None
-    path = Path(settings.knowledge_dir, "lots", p)
-    return str(path) if path.exists() else None
 
 
 def build_defects(case: PermitCase, run: CheckRun) -> dict:
@@ -100,23 +88,6 @@ def _evidence_text(it: dict) -> str:
         q = re.sub(r"[\ue000-\uf8ff\u25a0-\u25ff\ufffd]", "", e.get("quote") or "").strip()   # glyphs the font cannot draw
         out.append(f"{where}: ״{q[:220]}{'…' if len(q) > 220 else ''}״" if q else where)
     return "\n".join(out)
-
-
-def _rows(it: dict) -> list[tuple[str, str]]:
-    rows = [("ממצא", it["found"])]
-    if it.get("diff"):
-        rows.append(("פער", it["diff"]))
-    if it.get("where"):
-        rows.append(("היכן", it["where"]))
-    ev = _evidence_text(it)
-    if ev:
-        rows.append(("אסמכתה", ev))
-    if it.get("regulation"):
-        rows.append(("דרישה", it["regulation"]))
-    if it.get("impact"):
-        rows.append(("השפעה על הבקשה", it["impact"]))
-    rows.append(("תיקון נדרש", it.get("correction") or "לתקן או להבהיר בהתאם לממצא."))
-    return rows
 
 
 # ------------------------------------------------------------------ PDF

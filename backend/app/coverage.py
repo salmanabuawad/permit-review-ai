@@ -112,7 +112,6 @@ def disclaimer_he(cov: dict) -> str:
     fams = cov.get("families") or {}
     if not fams:
         return "לא הוגדרה רשימת בדיקות נדרשות — אין לראות בדוח זה אישור התאמה."
-    done = [f["label_he"] for f in fams.values() if f["state"] == "COMPLETE"]
     part = [f["label_he"] for f in fams.values() if f["state"] in ("PARTIAL", "NONE", "NO_CHECKS")]
     s = "הדוח מפרט ליקויים שאומתו בבדיקות שהושלמו בלבד ואינו אישור התאמה."
     if part:

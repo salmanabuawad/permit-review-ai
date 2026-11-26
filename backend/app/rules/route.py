@@ -32,10 +32,8 @@ ROUTES_HE = {"REGULAR": "רישוי רגיל (ללא הקלות)", "RELIEF": "ב
 REGISTER_ROUTE = {"81": "REGULAR", "82": "RELIEF", "83": "SHORT"}      # committee register: application type code
 STATUS_ORDER = ("WITHIN", "NOT_CHECKED", "POSSIBLE_DEVIATION", "RELIEF", "DEVIATION_UNCLASSIFIED", "PROHIBITED")
 # a contradiction between the applicant's own fields (e.g. net vs gross area): needs clarification, never a deviation
-DOCUMENT_STATUSES = ("DOCUMENT_DISCREPANCY",)
 # the request adds to / regularises an existing building: the register's areas may be only the addition
 ADDITION = re.compile(r"תוספת|הרחבת|בדיעבד|הסדרת|תכנית שינויים|גרמושקת שינויים|קיים בהיתר")
-MAIN_USES = re.compile(r"מגורים|חדר שינה|סלון|חדר עבודה|משרד|מטבח|יחידת דיור")
 
 
 @dataclass

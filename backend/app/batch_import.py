@@ -18,16 +18,13 @@ reviewed the preview. Applicant names / ID numbers are deliberately NOT extracte
 """
 from __future__ import annotations
 
-import csv
 import io
 import re
-import uuid
 import zipfile
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass
 from pathlib import PurePosixPath
 
 import pymupdf
-from openpyxl import load_workbook
 
 SUPPORTED = {".pdf": "pdf", ".dxf": "dxf", ".dwg": "dwg", ".xlsx": "xlsx", ".xlsm": "xlsx", ".csv": "csv"}
 MAX_ZIP_MEMBERS = 500

@@ -27,7 +27,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(ROOT / "backend"), str(ROOT / "agent")]
 sys.path.insert(0, str(ROOT / "scripts"))
-from evaluate_blind import DECISION_WORDS, eval_store  # noqa: E402
+from evaluate_blind import DECISION_WORDS  # noqa: E402
 
 COMMITTEE_LETTER = re.compile(r"הועדה המקומית לתכנון ולבניה|מנהלת? ועדה|הנחיות לפרסום|לכבוד\s|א\.ג\.נ")
 APPLICATION_NO = re.compile(r"(?<!\d)(?:19|20)\d{6}(?!\d)")

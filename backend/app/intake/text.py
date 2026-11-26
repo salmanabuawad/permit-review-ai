@@ -76,9 +76,6 @@ class Flat:
                 return p
         return self.spans[-1][2] if self.spans else None
 
-    def pages_between(self, a: int, b: int) -> list[int]:
-        return sorted({p for s, e, p in self.spans if s < b and e > a})
-
 
 def flatten(pages: list[tuple[int, str]]) -> Flat:
     """pages: [(page_no, cleaned_text)] -> single-spaced text with page spans."""

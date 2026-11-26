@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import { NavLink, Route, Routes } from 'react-router-dom'
-import { api, getUser, setUser } from './api'
+import { api } from './api'
 import Dashboard from './pages/Dashboard'
 import Cases from './pages/Cases'
 import CaseView from './pages/CaseView'
@@ -53,7 +53,6 @@ const DEFAULT_ORG = 'hof-ashkelon'
 export default function App() {
   const [me, setMe] = useState<Me | null>(null)
   const [meta, setMeta] = useState<any>(null)
-  const [userId] = useState(getUser())
   const [mobileOpen, setMobileOpen] = useState(false)
   const [needLogin, setNeedLogin] = useState(false)
   const [msg, setMsg] = useState<{ text: string; err: boolean } | null>(null)
@@ -67,9 +66,8 @@ export default function App() {
     api.get<any>('/api/meta').then(setMeta)
   }, [])
   useEffect(() => {
-    setUser(userId)
     api.get<Me>('/api/me').then(setMe).catch(e => { setMe(null); if (e?.status === 401) setNeedLogin(true) })
-  }, [userId])
+  }, [])
   useEffect(() => {
     const on = () => setNeedLogin(true)
     window.addEventListener('bbp-unauth', on)
@@ -117,7 +115,7 @@ export default function App() {
             <span className="small muted">משתמש: {me?.display_name ?? 'מנהל מערכת'}</span>
             <button className="sm" onClick={logout}>יציאה</button>
           </header>
-          <main className="content" key={userId}>
+          <main className="content">
             {me && meta ? (
               <Routes>
                 <Route path="/" element={<Dashboard />} />

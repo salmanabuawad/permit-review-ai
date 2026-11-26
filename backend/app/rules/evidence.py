@@ -955,7 +955,6 @@ def r_licensing_route(ctx):
         return Resolution("PASS", text + notes)
     if res.verdict == "INSUFFICIENT_EVIDENCE":
         return Resolution("UNCERTAIN", text + notes, review="NOT_CHECKED")
-    items = _route_items(res, ("RELIEF", "DEVIATION_UNCLASSIFIED", "PROHIBITED"))
     prohibited = res.verdict == "PROHIBITED_DEVIATION" and res.confirmed
     head = {"review": "CONFIRMED_DEFECT" if res.confirmed else "DOCUMENTED_DISCREPANCY",
             "title_he": "סטייה ניכרת מהתכנית" if res.verdict == "PROHIBITED_DEVIATION" else "מסלול רישוי שגוי",

@@ -29,11 +29,13 @@ def test_generated_pdf_has_hebrew_text(tmp_path):
     with TestClient(app) as c:
         case = next(x for x in c.get("/api/cases", headers={"X-User": "u-reviewer"}).json()
                     if x["case_number"] == "DEMO-0001")
-        pdf = c.get(f"/api/runs/{case['last_run']['id']}/pdf/reviewer", headers={"X-User": "u-reviewer"}).content
+        r = c.get(f"/api/runs/{case['last_run']['id']}/defects.pdf", headers={"X-User": "u-reviewer"})
+        assert r.status_code == 200, r.text
+        pdf = r.content
     p = tmp_path / "r.pdf"
     p.write_bytes(pdf)
     doc = pymupdf.open(p)
     text = "".join(pg.get_text() for pg in doc)
     # visual-order Hebrew is stored; check a reversed token and the case number
     assert "DEMO-0001" in text
-    assert get_display("דוח בודק") in text or "דוח בודק" in text
+    assert get_display("דוח ליקויים") in text or "דוח ליקויים" in text

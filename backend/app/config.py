@@ -41,7 +41,6 @@ class Settings:
     # Optional DWG -> DXF converter (ODA File Converter). Without it DWG files are
     # stored and flagged NEEDS_CONVERSION; they are never "measured" from an image.
     oda_converter: str = _env("ODA_CONVERTER", "")
-    ollama_url: str = _env("OLLAMA_URL", "http://127.0.0.1:11434")
     # The language model, OpenAI-compatible (/v1/chat/completions). Default: local Ollama's /v1. With the model on
     # a separate AI PC (as muniflow.kortexd.com does), point it at the LLM relay: http://127.0.0.1:18112/v1.
     llm_base_url: str = _env("LLM_BASE_URL", _env("OLLAMA_URL", "http://127.0.0.1:11434").rstrip("/") + "/v1")

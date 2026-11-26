@@ -23,7 +23,7 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "backend"))
 
-from app.lifecycle import ApplicationVersion, ApplicationVersionComparator, Decision, build_lifecycle  # noqa: E402
+from app.lifecycle import ApplicationVersion, ApplicationVersionComparator, build_lifecycle  # noqa: E402
 from app.rules import route as R  # noqa: E402
 from app.rules.applicability import AppContext, ApplicableRegulationResolver  # noqa: E402
 from app.rules.components import Component, Measure, validate_component  # noqa: E402

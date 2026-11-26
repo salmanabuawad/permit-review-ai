@@ -74,7 +74,7 @@ def test_full_flow_upload_run_report_pdf(client):
     assert by_rule["QA-REQ-APPLICATION-FORM"]["computed_result"] == "FAIL"
     assert by_rule["QA-REQ-APPLICATION-FORM"]["status"] == "UNCERTAIN"       # rule not yet approved
     assert all(f["citations"] for f in rep["findings"])
-    pdf = client.get(f"/api/runs/{run['run_id']}/pdf/reviewer", headers=H("u-reviewer"))
+    pdf = client.get(f"/api/runs/{run['run_id']}/defects.pdf", headers=H("u-reviewer"))
     assert pdf.status_code == 200 and pdf.content[:5] == b"%PDF-"
     geo = client.get(f"/api/cases/{cid}/geometry", headers=H("u-reviewer")).json()
     assert len(geo["features"]) >= 5 and geo["units"] == "m"

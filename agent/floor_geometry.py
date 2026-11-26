@@ -95,10 +95,6 @@ def wall_colour(hex_: str) -> str | None:
     return "red" if (h <= 0.04 or h >= 0.96) else "blue" if 0.58 <= h <= 0.68 else None
 
 
-def is_wall_colour(hex_: str) -> bool:
-    return wall_colour(hex_) is not None
-
-
 def _slab_cut(blue, x0: float, x1: float, y0: float, y1: float, k: float) -> bool:
     """A section cuts the floor / roof slabs: a thin concrete band across most of the drawing's width. A plan's
     concrete is columns and the protected room, never such a band."""

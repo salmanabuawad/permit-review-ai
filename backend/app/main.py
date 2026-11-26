@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 
 import yaml
-from fastapi import BackgroundTasks, Depends, FastAPI, File, Form, Header, HTTPException, Request, UploadFile
+from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import BaseModel
@@ -18,14 +18,14 @@ from sqlalchemy.orm import Session
 from . import __version__, audit, batch_import, metrics, services
 from .ai.gateway import AIGateway
 from .config import settings
-from .db import Base, SessionLocal, engine, get_session, run_migrations
+from .db import SessionLocal, get_session, run_migrations
 from .ingest.files import IntakeError
 from .ingest.pdf import render_page_png
-from .knowledge import load_sources, search
+from .knowledge import load_sources
 from .models import (AIPolicyRow, AuditEvent, CadEntity, CaseFile, CheckRun, CommitteeDecision, ExtractedField,
                      Finding, ImportBatch, InferenceCost, Municipality, PlanningComment, SourceReference,
                      PermitCase, RuleApproval, RuleDefinition, RuleDraft, SourceCrawl, SourceDocument, User)
-from .reports import build_report, render_pdf
+from .reports import build_report
 from .rules.engine import (AUTHOR_REVIEW_STATES, CHECK_FIELDS, CONDITION_OPS, LEGAL_LEVEL_RANK, OPERATORS, REPORTS,
                            SEVERITIES, bump_version, validate_rule)
 from .source_monitor import service as source_service
@@ -287,7 +287,7 @@ async def upload(case_id: str, file: UploadFile = File(...), doc_type: str = For
         raise HTTPException(422, "סוג מסמך לא מוכר")
     data = await file.read()
     try:
-        cf = services.ingest_file(s, c, file.filename or "upload", data, doc_type, p.id, declared_units_m)
+        services.ingest_file(s, c, file.filename or "upload", data, doc_type, p.id, declared_units_m)
     except IntakeError as e:
         s.rollback()
         raise HTTPException(422, str(e)) from e
@@ -406,7 +406,7 @@ def agent_conversion_source(file_id: str, s: Session = Depends(get_session)):
 
 
 @app.post("/api/agent/conversions/{file_id}/result", dependencies=[Depends(_agent)])
-async def agent_conversion_result(file_id: str, request: Request, background: BackgroundTasks,
+async def agent_conversion_result(file_id: str, request: Request,
                                   s: Session = Depends(get_session),
                                   x_conversion_status: str = Header("ok"), x_conversion_info: str = Header("{}")):
     """Body: the PDF (X-Conversion-Status: ok) or a UTF-8 error message (X-Conversion-Status: failed)."""
@@ -525,19 +525,6 @@ def report(run_id: str, kind: str, p: Principal = Depends(require("case.read")),
     return build_report(s, r.case, r, kind)
 
 
-@app.get("/api/runs/{run_id}/pdf/{kind}")
-def report_pdf(run_id: str, kind: str, p: Principal = Depends(require("case.read")), s: Session = Depends(get_session)):
-    if kind not in ("completeness", "rights", "reviewer"):
-        raise HTTPException(404)
-    r = _run(s, p, run_id)
-    rep = build_report(s, r.case, r, kind)
-    pdf = render_pdf(s, r.case, rep)
-    audit.record(s, p.tenant_id, p.id, "report.export", "check_run", r.id, {"kind": kind, "format": "pdf"})
-    s.commit()
-    return Response(pdf, media_type="application/pdf",
-                    headers={"Content-Disposition": f'inline; filename="{kind}_{r.case.case_number}_v{r.version}.pdf"'})
-
-
 @app.get("/api/runs/{run_id}/defects")
 def defects_report(run_id: str, p: Principal = Depends(require("case.read")), s: Session = Depends(get_session)):
     """The external defects report's content (JSON): confirmed defects and documented discrepancies only."""
@@ -623,10 +610,10 @@ def prioritize(case_id: str, p: Principal = Depends(require("case.run")), s: Ses
 
 
 @app.post("/api/cases/{case_id}/classify-documents")
-def classify_documents(case_id: str, background: BackgroundTasks, p: Principal = Depends(require("case.run")),
+def classify_documents(case_id: str, p: Principal = Depends(require("case.run")),
                        s: Session = Depends(get_session)):
-    """Re-type the request's documents with the local AI (keyword fallback), then re-run the checks — in the
-    background: one model call per document takes seconds."""
+    """Re-type the request's documents with the local AI (keyword fallback), then re-run the checks. The typing worker
+    does it: one model call per document takes seconds."""
     c = get_case(s, p, case_id)
     for f in c.files:                              # the report shows "not ready" until each document is typed again
         f.ingest_report = {k: v for k, v in (f.ingest_report or {}).items() if k != "ai_typed"}
@@ -828,7 +815,7 @@ class ImportCommitIn(BaseModel):
 
 
 @app.post("/api/import/commit")
-def import_commit(body: ImportCommitIn, background: BackgroundTasks, p: Principal = Depends(require("case.create")),
+def import_commit(body: ImportCommitIn, p: Principal = Depends(require("case.create")),
                   s: Session = Depends(get_session)):
     import shutil
     from .intake.commit import commit_preview
@@ -888,17 +875,6 @@ def case_extracted(case_id: str, p: Principal = Depends(require("case.read")), s
                  for x in s.scalars(select(CommitteeDecision).where(CommitteeDecision.case_id == c.id))]
     return {"fields": [f for f in fields if f["field"] != "area"], "areas": [f for f in fields if f["field"] == "area"],
             "comments": comments, "decisions": decisions}
-
-
-@app.get("/api/cases/{case_id}/export")
-def export_case(case_id: str, p: Principal = Depends(require("case.read")), s: Session = Depends(get_session)):
-    """Open-format export (JSON) of a case with all runs and findings — no vendor lock-in."""
-    c = get_case(s, p, case_id)
-    data = case_dict(c)
-    data["runs"] = [build_report(s, c, r, "reviewer") for r in c.runs]
-    audit.record(s, p.tenant_id, p.id, "case.export", "permit_case", c.id, {})
-    s.commit()
-    return JSONResponse(data, headers={"Content-Disposition": f'attachment; filename="case_{c.case_number}.json"'})
 
 
 # ------------------------------------------------------------------ rules / knowledge
@@ -1142,14 +1118,6 @@ def source_crawl(wait: bool = False, p: Principal = Depends(require("source.craw
         raise HTTPException(409, str(e)) from e
     with SessionLocal() as s:
         return _crawl_dict(s.get(SourceCrawl, cid))
-
-
-@app.get("/api/source-monitor/crawls/{crawl_id}")
-def source_crawl_status(crawl_id: str, p: Principal = Depends(require("case.read")), s: Session = Depends(get_session)):
-    c = s.get(SourceCrawl, crawl_id)
-    if not c or c.tenant_id != p.tenant_id:
-        raise HTTPException(404)
-    return _crawl_dict(c)
 
 
 @app.post("/api/source-monitor/upload")

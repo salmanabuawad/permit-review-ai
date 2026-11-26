@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 
 from . import audit, services
 from .config import ROOT, settings
-from .db import Base, drop_everything, engine, run_migrations
+from .db import drop_everything, engine, run_migrations
 from .models import Municipality, PermitCase, User
 
 FIX = ROOT / "fixtures" / "demo"

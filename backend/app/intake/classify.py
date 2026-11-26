@@ -13,7 +13,6 @@ from . import text as T
 from .schemas import Classification
 
 INDEX_COLUMNS = re.compile(r"מספר\s*בקשה|request.?(?:id|number)|case.?number", re.I)
-FILE_COLUMN = re.compile(r"(?<![֐-׿])קובץ|file|תיקי(?:י)?ה|folder", re.I)
 
 
 def looks_like_index(header_cells: list[str]) -> bool:

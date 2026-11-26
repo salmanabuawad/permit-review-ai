@@ -1,4 +1,4 @@
-// Thin typed client over the FastAPI backend. POC auth = X-User header (demo user switcher).
+// Thin typed client over the FastAPI backend. Auth: the session cookie set by the login page.
 export type Status = 'PASS' | 'FAIL' | 'UNCERTAIN' | 'NA'
 
 export interface Citation {
@@ -39,26 +39,16 @@ export interface Case {
   files?: CaseFile[]
 }
 
-// Hof Ashkelon is the active committee: the site opens as its plan reviewer. A Bnei Brak user remembered from
-// before the switch is moved once (flag bbp_user_v2); a Hof Ashkelon user, or any user picked after that, is kept.
-const DEFAULT_USER = 'u-ha-admin'
-let currentUser = initialUser()
-function initialUser(): string {        // one user: the Hof Ashkelon system administrator
-  try { window.localStorage.setItem('bbp_user', DEFAULT_USER) } catch { /* private mode */ }
-  return DEFAULT_USER
-}
-export function setUser(u: string) {
-  currentUser = u
-  try { window.localStorage.setItem('bbp_user', u) } catch { /* ignore */ }
-}
-export function getUser() { return currentUser }
+// One user: the committee's administrator. With the app login on, the server takes the user from the session cookie
+// and ignores this header; without it (local development) the header names the user.
+const USER = 'u-ha-admin'
 
 export class ApiError extends Error {
   constructor(public status: number, message: string) { super(message) }
 }
 
 async function req<T>(method: string, path: string, body?: any, isForm = false): Promise<T> {
-  const headers: Record<string, string> = { 'X-User': currentUser }
+  const headers: Record<string, string> = { 'X-User': USER }
   if (body && !isForm) headers['Content-Type'] = 'application/json'
   const r = await fetch(path, { method, headers, body: isForm ? body : body ? JSON.stringify(body) : undefined })
   if (r.status === 401 && !path.startsWith('/api/auth/')) window.dispatchEvent(new Event('bbp-unauth'))
@@ -79,7 +69,7 @@ export const api = {
   upload: <T,>(p: string, fd: FormData) => req<T>('POST', p, fd, true),
   // binary downloads need the auth header too
   async blob(p: string): Promise<Blob> {
-    const r = await fetch(p, { headers: { 'X-User': currentUser } })
+    const r = await fetch(p, { headers: { 'X-User': USER } })
     if (r.status === 401) window.dispatchEvent(new Event('bbp-unauth'))
     if (!r.ok) throw new ApiError(r.status, r.statusText)
     return r.blob()
@@ -91,7 +81,7 @@ export function uploadWithProgress<T>(path: string, fd: FormData, onProgress: (p
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest()
     xhr.open('POST', path)
-    xhr.setRequestHeader('X-User', currentUser)
+    xhr.setRequestHeader('X-User', USER)
     xhr.upload.onprogress = e => { if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100)) }
     xhr.onload = () => {
       let body: any = null

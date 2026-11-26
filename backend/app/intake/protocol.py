@@ -13,7 +13,7 @@ import re
 from dataclasses import dataclass
 
 from . import text as T
-from .schemas import (DECISION_OUTCOMES_HE, ApplicationExtraction, AreaItem, Comment, Decision, Extracted,
+from .schemas import (ApplicationExtraction, AreaItem, Comment, Decision, Extracted,
                       PlanningItem, SourceRef)
 
 APP_MARK = re.compile(r"BAKPIRUT\d+")
@@ -366,6 +366,3 @@ def parse_planning(pages: list[tuple[int, str]]) -> PlanningItem:
     m = re.search(NOT_HEB_BEFORE + r"החלטה\s*:?\s*(.{2,300})", t)
     item.decision_text = T.tidy(m.group(1)) if m else None
     return item
-
-
-OUTCOME_HE = DECISION_OUTCOMES_HE

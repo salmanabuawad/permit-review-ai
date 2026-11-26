@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 
 from .. import audit, services
 from ..ingest.files import IntakeError
-from ..models import (CaseFile, CommitteeDecision, DocumentClassification, ExtractedField, ImportBatch, Municipality,
+from ..models import (CommitteeDecision, DocumentClassification, ExtractedField, ImportBatch, Municipality,
                       PermitCase, PlanningComment, ProcessingJob, SourceReference)
 
 CASE_FIELDS = {"address": "address", "gush": "gush", "helka": "helka", "building_file_number": "building_file_number",
@@ -41,7 +41,6 @@ def _src_row(s: Session, tenant: str, src: dict | None, file_id: str | None) -> 
 def commit_preview(s: Session, tenant: str, user: str, batch: ImportBatch, preview: dict, blobs_dir: Path,
                    decisions: list[dict], run_checks: bool, permit_types: set[str]) -> dict:
     apps = {a["key"]: a for a in preview["applications"]}
-    docs_by_ref = {d["ref"]: d for d in preview["documents"]}
     tenant_row = s.get(Municipality, tenant)
     gw = services.gateway_for(s, tenant, bulk=True)    # many documents: deterministic providers, no LLM wait
     results, counts = [], Counter()

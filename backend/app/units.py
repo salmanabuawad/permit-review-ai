@@ -18,7 +18,3 @@ def scale_for_insunits(code: int | None) -> tuple[str, float | None]:
     if code in INSUNITS_TO_M:
         return INSUNITS_TO_M[code]
     return ("unitless" if code in (0, None) else f"code_{code}", None)
-
-
-def fmt_m(v: float | None, digits: int = 2) -> str:
-    return "—" if v is None else f"{v:.{digits}f}"
