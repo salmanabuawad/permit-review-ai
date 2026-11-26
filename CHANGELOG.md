@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-11-26 — Professional feedback engine and regression cases (Permit360 §15)
+
+- Overriding a finding now records a classified feedback record (`feedback_records`, migration 0016): original and
+  corrected result, reason, category (algorithm / measurement defect, extraction error, interpretation error, missing
+  knowledge, application-specific exception, prompt deficiency), the affected rule and version, other open findings of
+  the same rule in the authority's latest runs, and a regression candidate built from the exact facts the rule read
+  (dependency graph). A case-specific exception never becomes a candidate.
+- An approver (`rule.approve`) accepts a record into a regression case (`regression_cases`) or dismisses it; shared
+  rules, prompts and algorithms are never edited by this path. `GET /api/feedback/regression` runs the current rules
+  against every accepted case.
+- UI: decisions (confirm / override with category and corrected result) in the case's "בקרת דיוק" tab — the findings
+  list had lost its decision controls; the learning page shows feedback and the regression run (also to reviewers).
+
 ## 2026-11-26 — Permit Dependency Graph v1 and revision reports (Permit360 phase 2)
 
 - Every run records one graph node per rule evaluation (`pdg_nodes`, migration 0015): the exact facts the engine read

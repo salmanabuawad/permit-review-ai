@@ -755,3 +755,39 @@ class PdgNode(Base):
     fingerprint: Mapped[str] = mapped_column(String(64), index=True)
     inputs: Mapped[dict] = mapped_column(JSON, default=dict)
     output: Mapped[dict] = mapped_column(JSON, default=dict)
+
+
+class FeedbackRecord(Base):
+    """A professional's correction of a finding (override), classified, with a regression candidate and similar open
+    findings. Never changes a shared rule by itself: an administrator accepts it into a regression case or dismisses it."""
+    __tablename__ = 'feedback_records'
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_id)
+    tenant_id: Mapped[str] = mapped_column(ForeignKey('municipalities.id'), index=True)
+    finding_id: Mapped[str] = mapped_column(String(32), index=True)
+    run_id: Mapped[str] = mapped_column(String(32))
+    case_id: Mapped[str] = mapped_column(String(32))
+    rule_id: Mapped[str] = mapped_column(String(80), index=True)
+    rule_version: Mapped[str] = mapped_column(String(20))
+    category: Mapped[str] = mapped_column(String(40))
+    reason: Mapped[str] = mapped_column(Text)
+    original: Mapped[dict] = mapped_column(JSON, default=dict)
+    corrected: Mapped[dict] = mapped_column(JSON, default=dict)
+    candidate: Mapped[dict] = mapped_column(JSON, default=dict)        # {facts, expect} from the run's dependency graph
+    similar: Mapped[list] = mapped_column(JSON, default=list)          # other open findings of the same rule
+    status: Mapped[str] = mapped_column(String(20), default='open')    # open | accepted | dismissed
+    created_by: Mapped[str] = mapped_column(String(40))
+    created_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), default=_now)
+    decided_by: Mapped[str | None] = mapped_column(String(40))
+    decision_note: Mapped[str | None] = mapped_column(Text)
+
+
+class RegressionCase(Base):
+    """An accepted correction: the rule's inputs and the professionally expected outcome; run against current rules."""
+    __tablename__ = 'regression_cases'
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    tenant_id: Mapped[str] = mapped_column(ForeignKey('municipalities.id'), index=True)
+    rule_id: Mapped[str] = mapped_column(String(80), index=True)
+    facts: Mapped[dict] = mapped_column(JSON, default=dict)
+    expect: Mapped[str] = mapped_column(String(20))
+    feedback_id: Mapped[str] = mapped_column(String(32))
+    created_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), default=_now)

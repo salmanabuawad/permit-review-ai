@@ -224,6 +224,9 @@ class AttestIn(BaseModel):
 class DecisionIn(BaseModel):
     decision: str     # CONFIRMED | OVERRIDDEN
     note: str
+    category: str | None = None             # feedback category when overriding (feedback.CATEGORIES)
+    corrected_status: str | None = None     # what the result should have been (PASS / FAIL / UNCERTAIN / NA)
+    corrected_value: float | None = None
 
 
 class StatusIn(BaseModel):

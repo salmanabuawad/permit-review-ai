@@ -365,8 +365,15 @@ def decide(finding_id: str, body: DecisionIn, p: Principal = Depends(require("fi
     f.reviewer_decision, f.reviewer_note, f.reviewer_id = body.decision, body.note, p.id
     audit.record(s, p.tenant_id, p.id, f"finding.{body.decision.lower()}", "finding", f.id,
                  {"rule_id": f.rule_id, "status": f.status, "note": body.note})
+    fb = None
+    if body.decision == "OVERRIDDEN":               # the correction becomes a classified feedback record
+        from .. import feedback
+        try:
+            fb = feedback.record_override(s, f, p.id, body.note.strip(), body.category, body.corrected_status, body.corrected_value)
+        except ValueError as e:
+            raise HTTPException(422, str(e)) from e
     s.commit()
-    return {"ok": True}
+    return {"ok": True, "feedback_id": fb.id if fb else None}
 
 
 @router.post("/api/cases/{case_id}/workflow")
@@ -601,3 +608,51 @@ def run_revision(run_id: str, p: Principal = Depends(require("case.read")), s: S
     from .. import pdg
     run = _run(s, p, run_id)
     return {**pdg.revision(s, run), "pdg": (run.summary or {}).get("pdg")}
+
+
+# ------------------------------------------------------------------ professional feedback and regression (Permit360 §15)
+
+class FeedbackDecisionIn(BaseModel):
+    action: str        # accept | dismiss
+    note: str
+
+
+@router.get("/api/feedback")
+def feedback_list(status: str = "open", p: Principal = Depends(require("finding.decide")), s: Session = Depends(get_session)):
+    from .. import feedback as FB
+    from ..models import FeedbackRecord
+    q = select(FeedbackRecord).where(FeedbackRecord.tenant_id == p.tenant_id)
+    if status != "all":
+        q = q.where(FeedbackRecord.status == status)
+    rows = s.scalars(q.order_by(FeedbackRecord.created_at.desc()).limit(500))
+    return {"categories": FB.CATEGORIES, "records": [{
+        "id": r.id, "rule_id": r.rule_id, "rule_version": r.rule_version, "case_id": r.case_id, "category": r.category,
+        "reason": r.reason, "original": r.original, "corrected": r.corrected, "has_candidate": bool(r.candidate),
+        "similar": len(r.similar or []), "status": r.status, "created_by": r.created_by, "created_at": r.created_at.isoformat(),
+        "decided_by": r.decided_by, "decision_note": r.decision_note} for r in rows]}
+
+
+@router.post("/api/feedback/{feedback_id}/decision")
+def feedback_decide(feedback_id: str, body: FeedbackDecisionIn, p: Principal = Depends(require("rule.approve")),
+                    s: Session = Depends(get_session)):
+    """Accept a correction into a regression case, or dismiss it. Shared rules are never edited here."""
+    from .. import feedback as FB
+    from ..models import FeedbackRecord
+    rec = s.get(FeedbackRecord, feedback_id)
+    if not rec or rec.tenant_id != p.tenant_id:
+        raise HTTPException(404)
+    if len(body.note.strip()) < 3:
+        raise HTTPException(422, "נדרש נימוק")
+    try:
+        FB.decide(s, rec, p.id, body.action, body.note.strip())
+    except ValueError as e:
+        raise HTTPException(422, str(e)) from e
+    s.commit()
+    return {"ok": True, "status": rec.status}
+
+
+@router.get("/api/feedback/regression")
+def feedback_regression(p: Principal = Depends(require("finding.decide")), s: Session = Depends(get_session)):
+    """Run the current rules against every accepted regression case of this authority."""
+    from .. import feedback as FB
+    return FB.run_regression(s, p.tenant_id, services.rules_for_tenant(s, p.tenant_id))

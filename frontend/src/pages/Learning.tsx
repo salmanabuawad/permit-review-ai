@@ -1,3 +1,4 @@
+import FeedbackPanel from '../components/FeedbackPanel'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../api'
@@ -8,7 +9,10 @@ export default function Learning() {
   const { can, toast } = useApp()
   const [d, setD] = useState<any>(null)
   useEffect(() => { if (can('learning.manage')) api.get<any>('/api/learning').then(setD).catch(e => toast(e.message, true)) }, [])
-  if (!can('learning.manage')) return <div className="notice">עמוד זה זמין למנהל המערכת.</div>
+  if (!can('learning.manage')) return <>
+    <div className="page-head"><div><h1>למידה ומשוב מקצועי</h1><p>דחיות ממצאים של הבודקים, מקרי בדיקה ורגרסיה.</p></div></div>
+    <FeedbackPanel />
+  </>
   if (!d) return <div className="empty">טוען…</div>
   const stats = Object.entries(d.rule_stats as Record<string, any>).sort((a, b) => b[1].confirmed - a[1].confirmed)
   return (
@@ -34,6 +38,7 @@ export default function Learning() {
             <td className="num">{v.not_raised_in_approval}</td></tr>)}</tbody></table>
         <p className="small muted">כלל שחוזר ומסומן ממצא בבקשות שאושרו — מומלץ לבחון אותו במאגר הכללים.</p>
       </div>}
+      <FeedbackPanel />
     </>
   )
 }
