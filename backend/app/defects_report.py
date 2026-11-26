@@ -46,6 +46,8 @@ def build_defects(case: PermitCase, run: CheckRun) -> dict:
         if "EXTERNAL" not in f.flags:
             continue
         subs = [e for e in (f.evidence or []) if e.get("type") == "item" and e.get("review") in EXTERNAL and not e.get("internal")]
+        if not subs and any(e.get("type") == "item" for e in f.evidence or []):
+            continue                                     # every sub-item is internal: nothing for the applicant
         docs = [e for e in (f.evidence or []) if e.get("type") in ("document", "measurement")]
         # the requirement as the case's own jurisdiction states it, when a rule cites more than one source
         cite = next((x for x in f.citations or [] if x.get("jurisdiction") == case.tenant_id), None) or (f.citations or [{}])[0]

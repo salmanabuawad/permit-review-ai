@@ -545,6 +545,15 @@ def review_status(rule: Rule | None, r, issue: str, stage: str) -> str:
     return "DOCUMENTED_DISCREPANCY" if issue == "CONFLICT" else "CONFIRMED_DEFECT"
 
 
+def report_lines(evidence) -> int:
+    """How many lines an external finding is in the defects report: one per external sub-item (e.g. per building) when
+    it has sub-items, else one. The recommendation counts the same lines the report and the screen show."""
+    items = [e for e in (evidence or []) if isinstance(e, dict) and e.get("type") == "item"]
+    if not items:
+        return 1
+    return sum(1 for e in items if e.get("review") in ("CONFIRMED_DEFECT", "DOCUMENTED_DISCREPANCY") and not e.get("internal"))
+
+
 def final_decision(results, by_id: dict, coverage: dict | None = None) -> tuple[str, str]:
     """NO_DEFECTS_IDENTIFIED | RETURN_FOR_CORRECTIONS | REJECT_RECOMMENDATION | INSUFFICIENT_EVIDENCE_FOR_FINAL_DECISION.
     Rejection needs a substantive basis — a confirmed defect of a rule marked reject_basis; never missing documents,
@@ -556,7 +565,8 @@ def final_decision(results, by_id: dict, coverage: dict | None = None) -> tuple[
            for r in external):
         return "REJECT_RECOMMENDATION", "נמצא ליקוי מהותי שאינו ניתן לתיקון במסגרת הבקשה"
     if external:
-        return "RETURN_FOR_CORRECTIONS", f"{len(external)} ליקויים ופערים מתועדים מחייבים תיקון או הבהרה"
+        n = sum(report_lines(r.evidence) for r in external)
+        return "RETURN_FOR_CORRECTIONS", f"{n} ליקויים ופערים מתועדים מחייבים תיקון או הבהרה"
     open_ = [r for r in results if status[r.rule_id] in ("UNRESOLVED", "NOT_CHECKED")
              and (by_id.get(r.rule_id) and by_id[r.rule_id].severity in ("high", "critical"))]
     if open_:
