@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { api, ApiError } from '../api'
+import { api, ApiError, setAuthority } from '../api'
 
 /** Sign-in screen: one administrator; the server sets an HttpOnly session cookie. */
 export default function Login() {
@@ -13,7 +13,8 @@ export default function Login() {
     setBusy(true); setErr(null)
     try {
       await api.post('/api/auth/login', { username, password })
-      window.location.reload()
+      setAuthority('')
+      window.location.assign('/')
     } catch (x) {
       setErr(x instanceof ApiError ? x.message : 'שגיאת רשת')
       setBusy(false)
