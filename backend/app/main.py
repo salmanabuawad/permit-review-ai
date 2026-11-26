@@ -36,7 +36,7 @@ def _startup():
         threading.Thread(target=authorities.worker, args=(SessionLocal,), daemon=True, name="onboarding-worker").start()
 
 # ------------------------------------------------------------------ routers (URLs unchanged)
-from .api import architect, building, cases, identity, monitor, platform, process, rules  # noqa: E402
+from .api import architect, building, cases, construction, identity, monitor, platform, process, rules  # noqa: E402
 
-for _r in (identity, cases, rules, monitor, platform, architect, process, building):
+for _r in (identity, cases, rules, monitor, platform, architect, process, building, construction):
     app.include_router(_r.router)

@@ -21,10 +21,12 @@ ROLES = {
     "planner":       {"label_he": "מתכנן/עורך בקשה"},
     "secretariat":   {"label_he": "מזכירות"},
     "external":      {"label_he": "גורם חיצוני מאושר"},
+    "inspector":     {"label_he": "פקח/ית בנייה"},
 }
 
 PERMISSIONS = {
-    "case.read":       {"sysadmin", "city_engineer", "dept_manager", "reviewer", "secretariat", "planner", "external"},
+    "case.read":       {"sysadmin", "city_engineer", "dept_manager", "reviewer", "secretariat", "planner", "external", "inspector"},
+    "inspection.manage": {"sysadmin", "dept_manager", "city_engineer", "inspector"},   # Construction360 site inspections
     "case.create":     {"sysadmin", "dept_manager", "secretariat", "reviewer"},
     "case.upload":     {"sysadmin", "dept_manager", "secretariat", "reviewer", "planner"},
     "file.delete":     {"sysadmin", "dept_manager", "city_engineer"},

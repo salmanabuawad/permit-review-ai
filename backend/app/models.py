@@ -864,3 +864,22 @@ class PropertyFact(Base):
     recorded_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), default=_now)
     superseded_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime())
     recorded_by: Mapped[str] = mapped_column(String(40), default='system')
+
+
+class Inspection(Base):
+    """Construction360: a site inspection of a permitted case at a milestone; observations compare approved with observed."""
+    __tablename__ = 'inspections'
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    tenant_id: Mapped[str] = mapped_column(ForeignKey('municipalities.id'), index=True)
+    case_id: Mapped[str] = mapped_column(ForeignKey('permit_cases.id', ondelete='CASCADE'), index=True)
+    milestone: Mapped[str] = mapped_column(String(40))
+    scheduled_for: Mapped[dt.date | None] = mapped_column(sa_Date)
+    inspector_id: Mapped[str | None] = mapped_column(String(40))
+    status: Mapped[str] = mapped_column(String(20), default='scheduled')      # scheduled | done | cancelled
+    result: Mapped[str | None] = mapped_column(String(20))                   # pass | deviations | fail
+    observations: Mapped[list] = mapped_column(JSON, default=list)           # [{item, unit, approved, observed, tolerance, deviation}]
+    photos: Mapped[list] = mapped_column(JSON, default=list)                 # [{sha256, path, lat, lon, taken_at}]
+    notes: Mapped[str | None] = mapped_column(Text)
+    done_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime())
+    created_by: Mapped[str] = mapped_column(String(40))
+    created_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), default=_now)

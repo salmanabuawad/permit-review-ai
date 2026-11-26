@@ -13,6 +13,7 @@ import AccuracyPanel from '../components/AccuracyPanel'
 import RevisionPanel from '../components/RevisionPanel'
 import ProcessPanel from '../components/ProcessPanel'
 import PropertyPanel from '../components/PropertyPanel'
+import InspectionPanel from '../components/InspectionPanel'
 
 const LIFECYCLE_HE: Record<string, string> = { ACTIVE: 'פעיל', ARCHIVED: 'בארכיון', DELETED: 'נמחק' }
 const INGEST_HE: Record<string, string> = {
@@ -30,7 +31,7 @@ export default function CaseView() {
   const [geoLoading, setGeoLoading] = useState(true)
   const [sel, setSel] = useState<string | null>(null)
   const [cite, setCite] = useState<Citation | null>(null)
-  const [tab, setTab] = useState<'findings' | 'files' | 'data' | 'extracted' | 'history' | 'decision' | 'scope' | 'accuracy' | 'revision' | 'process' | 'property'>('findings')
+  const [tab, setTab] = useState<'findings' | 'files' | 'data' | 'extracted' | 'history' | 'decision' | 'scope' | 'accuracy' | 'revision' | 'process' | 'property' | 'inspection'>('findings')
   const [busy, setBusy] = useState(false)
   const [runs, setRuns] = useState<any[]>([])
 
@@ -175,6 +176,7 @@ export default function CaseView() {
             <button className={tab === 'revision' ? 'active' : ''} onClick={() => setTab('revision')}>השוואה לגרסה קודמת</button>
             {c.kind !== 'design' && <button className={tab === 'process' ? 'active' : ''} onClick={() => setTab('process')}>תהליך</button>}
             <button className={tab === 'property' ? 'active' : ''} onClick={() => setTab('property')}>נכס</button>
+            {c.kind !== 'design' && <button className={tab === 'inspection' ? 'active' : ''} onClick={() => setTab('inspection')}>פיקוח</button>}
           </div>
 
           {tab === 'findings' && (
@@ -190,6 +192,7 @@ export default function CaseView() {
           {tab === 'revision' && <RevisionPanel c={c} />}
           {tab === 'process' && <ProcessPanel c={c} />}
           {tab === 'property' && <PropertyPanel c={c} />}
+          {tab === 'inspection' && <InspectionPanel c={c} />}
           {tab === 'history' && (
             <table>
               <thead><tr><th>גרסה</th><th>מועד</th><th>תוצאות</th><th>Ruleset</th></tr></thead>

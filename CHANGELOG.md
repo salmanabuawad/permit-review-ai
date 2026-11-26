@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-11-26 — Construction360: site inspections (base)
+
+- `inspections` (migration 0020): per case and milestone (start, foundations, frame, roof, envelope, completion);
+  results record each item's approved and observed value with a tolerance; a difference beyond it is a deviation —
+  a finding for a professional, never an automatic sanction. Every observation becomes an OBSERVED fact in the
+  property passport (Building360). Photos: JPEG / PNG only, ≤ 15 MB, content-addressed, optional location.
+- New role "פקח/ית בנייה" (`inspector`) and permission `inspection.manage`. Case tab "פיקוח".
+- Not built (later): mobile app, photogrammetry / LiDAR / point clouds, BIM comparison.
+
 ## 2026-11-26 — Management dashboard
 
 - `GET /api/dashboard/management`, dashboard section: workflow bottlenecks per step (open, overdue, average waiting
