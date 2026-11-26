@@ -77,6 +77,8 @@ def gateway_logger(s: Session, tenant: str, case_id: str | None, user: str | Non
 # ------------------------------------------------------------------ ingest
 
 DWFX_PENDING_HE = "ממתין להמרה במחשב ה-AI (DWFX ← PDF)"
+# document-presence rules a submitted drawing package can satisfy (sheets inside the DWFX)
+DRAWING_DOC_RULES = {"QA-REQ-SECTIONS", "QA-REQ-ELEVATIONS", "QA-REQ-ARCH-PLANS", "HA-633-DOC-PLANS-100"}
 DWFX_CLAIM_TTL_S = 30 * 60       # a claimed conversion that never came back is offered again after this
 
 
@@ -520,6 +522,17 @@ def run_checks(s: Session, case: PermitCase, user: str, gateway: AIGateway | Non
         if key in doc_facts and key not in case.declared:
             r.evidence = list(r.evidence or []) + (drawing.get("evidence", {}).get(key) or area_evidence)
     resolve(results, docs, case.declared, case.title, doc_facts, area_evidence, drawing, case.gush)
+    # a drawing still waiting for conversion on the AI PC may hold the "missing" sheets: never a confirmed absence
+    pending = [f.filename for f in usable if f.kind == "dwfx"
+               and ((f.ingest_report or {}).get("conversion") or {}).get("state") not in ("done", "converted")
+               and not ((f.ingest_report or {}).get("conversion") or {}).get("pdf_path")]
+    if pending:
+        for r in results:
+            if r.rule_id in DRAWING_DOC_RULES and "FAIL" in (r.status, r.computed_result):
+                r.status = r.computed_result = "UNCERTAIN"
+                r.explanation_he = (r.explanation_he or "") + f" — {DWFX_PENDING_HE}: {', '.join(pending)}."
+                r.flags = list(r.flags) + ["NEEDS_DRAWING_READ"]
+    guard_single_read_height(results, rules, drawing_fact_values, case.declared)
     for r in results:
         if survey_evidence and r.rule_id == "QA-SURVEY-MAP-AGE" and r.status in ("PASS", "FAIL", "UNCERTAIN"):
             r.evidence = list(r.evidence or []) + survey_evidence
@@ -606,6 +619,26 @@ def run_checks(s: Session, case: PermitCase, user: str, gateway: AIGateway | Non
                   "duration_ms": run.duration_ms})
     return run
 
+
+
+def guard_single_read_height(results, rules, drawing_facts: dict, declared: dict) -> int:
+    """The height checked is the highest ridge read (never too low), but a value read only once cannot confirm a
+    violation: when the twice-read ridge is within the limit, the excess is unresolved until the sheet is checked."""
+    corroborated = drawing_facts.get("building_height_corroborated_m")
+    if corroborated is None or "building_height_m" in declared:
+        return 0
+    operands = {x.id: x.check.get("operand") or "" for x in rules}
+    n = 0
+    for r in results:
+        if (operands.get(r.rule_id, "").endswith(".building_height_m") and "FAIL" in (r.status, r.computed_result)
+                and r.threshold is not None and corroborated <= r.threshold):
+            r.status = r.computed_result = "UNCERTAIN"
+            r.explanation_he = (f"רום רכס הגג שנקרא פעמיים: +{corroborated:.2f} מ׳ (בתחום ≤ {r.threshold:.2f}); "
+                                f"ערך גבוה יותר (+{drawing_facts['building_height_m']:.2f}) נקרא פעם אחת בלבד "
+                                "ואינו מאומת — נדרשת בדיקת הגיליון לפני קביעה.")
+            r.flags = list(r.flags) + ["REVIEW:UNRESOLVED", "INTERNAL", "NEEDS_DRAWING_READ"]
+            n += 1
+    return n
 
 def run_metrics(files, duration_ms: int, docs_s: float, cpu0: float, draft, cache_before: dict, cache_after: dict) -> dict:
     """V9 §Output: wall time, CPU, model tokens / cost, cache hits and the AI-PC work behind the run's inputs.

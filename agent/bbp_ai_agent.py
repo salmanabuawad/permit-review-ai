@@ -222,12 +222,29 @@ class DrawingReader:
                                      headers={**self.auth, **(headers or {})})
         return urllib.request.urlopen(req, timeout=timeout)
 
+    def _free_gpu(self) -> None:
+        """The router may keep a text model resident (--models-max > 1); on a small GPU the image model then fails to
+        load and every sheet read returns 500. Unload the other loaded models first — they reload on demand."""
+        base = self.llm_url.split("/v1/")[0]
+        try:
+            with urllib.request.urlopen(f"{base}/v1/models", timeout=10) as r:
+                models = json.loads(r.read()).get("data", [])
+            for m in models:
+                if m.get("id") != self.model and (m.get("status") or {}).get("value") == "loaded":
+                    req = urllib.request.Request(f"{base}/models/unload", data=json.dumps({"model": m["id"]}).encode(),
+                                                 headers={"Content-Type": "application/json"}, method="POST")
+                    urllib.request.urlopen(req, timeout=30).close()
+                    log.info("drawing reader: unloaded %s to make room for %s", m["id"], self.model)
+        except (urllib.error.URLError, OSError, ValueError) as e:      # a plain llama-server has no router API
+            log.info("drawing reader: could not free the GPU (%s)", e)
+
     def once(self) -> bool:
         with self._call("/next", data=b"") as r:
             if r.status == 204:
                 return False
             job = json.loads(r.read())
         fid = job["file_id"]
+        self._free_gpu()
         with tempfile.TemporaryDirectory(prefix="bbp-read-") as tmp:
             src = Path(tmp) / "plan.dwfx"
             with self._call(f"/{fid}/source", method="GET", timeout=600) as r, src.open("wb") as f:

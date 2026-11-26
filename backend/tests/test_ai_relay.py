@@ -152,3 +152,44 @@ def test_model_error_comes_back_and_falls_back(agent):
     policy["providers"]["local_ollama"]["model_version"] = "not-installed"
     res = gateway.AIGateway(policy).route("Classification", "CASE_DOCUMENT", {"filename": "a.pdf", "text": "מפת מדידה"})
     assert res.outcome == "FALLBACK" and "404" in res.trail[0]["error"]
+
+
+def test_drawing_reader_frees_the_gpu_before_reading(monkeypatch):
+    """A resident text model on a small GPU made the image model fail to load (every sheet → 500). The reader unloads
+    the other loaded models first; a server without the router API is tolerated."""
+    import bbp_ai_agent as AG
+    calls = []
+
+    class Resp:
+        def __init__(self, body=b"{}"):
+            self.body = body
+
+        def read(self):
+            return self.body
+
+        def close(self):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    def fake(req, timeout=None):
+        url = req if isinstance(req, str) else req.full_url
+        calls.append((url, None if isinstance(req, str) else req.data))
+        if url.endswith("/v1/models"):
+            return Resp(json.dumps({"data": [{"id": "text-8b", "status": {"value": "loaded"}},
+                                             {"id": "vision", "status": {"value": "unloaded"}},
+                                             {"id": "other", "status": {"value": "unloaded"}}]}).encode())
+        return Resp()
+    monkeypatch.setattr(AG.urllib.request, "urlopen", fake)
+    r = AG.DrawingReader("http://app", "t", sys.executable, threading.Event(), "vision", "http://llm/v1/chat/completions")
+    r._free_gpu()
+    assert calls[1] == ("http://llm/models/unload", b'{"model": "text-8b"}') and len(calls) == 2
+
+    def down(req, timeout=None):
+        raise urllib.error.URLError("no router")
+    monkeypatch.setattr(AG.urllib.request, "urlopen", down)
+    r._free_gpu()                                            # no exception

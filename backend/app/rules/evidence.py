@@ -334,6 +334,8 @@ def drawing_facts(files) -> tuple[dict, dict]:
                       if isinstance(x, (int, float)) and 2 <= x <= 20]
             top = max([float(h["value_m"]), *single])
             facts["building_height_m"] = top
+            if top > float(h["value_m"]):         # the highest value rests on one reading only
+                facts["building_height_corroborated_m"] = float(h["value_m"])
             if h.get("roof_type") in ("tiled", "flat"):
                 facts["roof_type"] = h["roof_type"]           # the height limit depends on it (9 m tiled, 8 m flat)
             r0 = (h.get("readings") or [{}])[0]

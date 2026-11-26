@@ -1,5 +1,28 @@
 # Changelog
 
+## 2026-11-26 — V9 unified integration
+
+Details, results and blockers: `docs/11_v9_integration.md`. Baseline tag `pre-v9-baseline`.
+
+- Required-check inventory per rule family (`knowledge/coverage/required_checks.yaml`, `app/coverage.py`): no
+  NO_DEFECTS_IDENTIFIED unless every family is complete; NOT_IMPLEMENTED checks are listed; independent checks need
+  measured or document evidence.
+- Signed review attestations bound to the run digest (`app/attestation.py`), VALID / STALE / INVALID; derivation cache
+  keyed by SHA-256 + algorithm version (+ jurisdiction + revision) with invalidation; run metrics (wall, CPU, tokens,
+  cache, AI-PC work). Migration 0005. API: attestations, coverage, internal audit, metrics.
+- Legacy DWF inventory with archive limits — BLOCKED_NO_DECODER (no licensed W2D decoder). BIM source D:
+  NOT_AVAILABLE for Zikim (the "Model" DWFX is a 2D plot of a DWG).
+- Route engine: short-track size on gross new construction, net/gross mismatch is a document discrepancy (Karmiya
+  20260265, development dataset). Spatial margins with uncertainty; well zones by plan 633-0723718 §6.4 wording.
+- Source C: fragmented floor outlines → UNRESOLVED, internal. Unconverted drawings never confirm missing sheets.
+- Blind evaluation: input allowlist + decision-vocabulary scan, freeze before reveal, ground truth moved out of the
+  repository. `scripts/unified.py` runner. Linux PDF font default.
+- A height read only once can no longer confirm a violation: when the twice-read ridge is within the limit the
+  height is UNRESOLVED (339-340: ridge +6.85 twice, one stray +13.20).
+- AI-PC drawing reader unloads other router models before reading (a resident text model made the vision model fail
+  to load on the 6 GB GPU: every sheet read returned 500).
+- Zikim 10000611793-1 and 10000615058-2 imported from their original packages and run; 10000612352-1 re-run.
+
 ## 2026-11-26 — licensing route validation
 
 - `backend/app/rules/route.py`: per-floor and basement rights, the regulation's basement definition, deviation

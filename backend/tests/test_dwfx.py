@@ -142,3 +142,35 @@ def test_unsupported_extension_message_lists_dwfx(client):
     r = client.post(f"/api/cases/{case['id']}/files", headers=H, data={"doc_type": "other"},
                     files={"file": ("x.jpg", b"\xff\xd8\xff")})
     assert r.status_code == 422 and "DWFX" in r.json()["detail"]
+
+
+def test_unconverted_drawing_never_confirms_missing_sheets(client):
+    """V9: a DWFX still waiting for the AI PC may contain the sections and elevations — their absence is NOT_CHECKED,
+    not a confirmed defect, until the drawing is converted."""
+    H = {"X-User": "u-secretary"}
+    cid = client.post("/api/cases", headers=H, json={"case_number": "V9-PEND-1", "title": "t", "permit_type": "addition_extension",
+                                                     "applicable_plans": ["DEMO/1"], "zone": "residential_B"}).json()["id"]
+    client.post(f"/api/cases/{cid}/files", headers=H, data={"doc_type": "architectural_plan"},
+                files={"file": ("PLAN-PENDING.dwfx", make_dwfx("א ב"))})
+    run = client.post(f"/api/cases/{cid}/run", headers={"X-User": "u-reviewer"}).json()["run_id"]
+    rep = client.get(f"/api/runs/{run}/report/reviewer", headers={"X-User": "u-reviewer"}).json()
+    by = {f["rule_id"]: f for f in rep["findings"]}
+    for rid in ("QA-REQ-SECTIONS", "QA-REQ-ELEVATIONS"):
+        assert by[rid]["status"] != "FAIL" and "STATUS_CONFIRMED_DEFECT" not in by[rid]["flags"], rid
+        assert "STATUS_NOT_CHECKED" in by[rid]["flags"]
+
+
+def test_single_read_height_never_confirms_a_violation():
+    """339-340: ridge read twice +6.85, one stray reading +13.20 — the excess is UNRESOLVED, not a confirmed defect;
+    a corroborated value above the limit still fails."""
+    from types import SimpleNamespace as NS
+    from app.services import guard_single_read_height
+    rules = [NS(id="HA-633-HEIGHT", check={"operand": "declared.building_height_m"})]
+    r = NS(rule_id="HA-633-HEIGHT", status="FAIL", computed_result="FAIL", threshold=9.0, explanation_he="", flags=[])
+    facts = {"building_height_m": 13.2, "building_height_corroborated_m": 6.85}
+    assert guard_single_read_height([r], rules, facts, {}) == 1
+    assert r.status == "UNCERTAIN" and "REVIEW:UNRESOLVED" in r.flags and "+13.20" in r.explanation_he
+    r2 = NS(rule_id="HA-633-HEIGHT", status="FAIL", computed_result="FAIL", threshold=9.0, explanation_he="", flags=[])
+    assert guard_single_read_height([r2], rules, {"building_height_m": 13.2, "building_height_corroborated_m": 9.6}, {}) == 0
+    assert r2.status == "FAIL"
+    assert guard_single_read_height([r2], rules, facts, {"building_height_m": 13.2}) == 0      # declared: not ours

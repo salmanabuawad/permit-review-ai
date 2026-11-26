@@ -101,7 +101,7 @@ def test_drawing_read_answers_views_height_parking():
     once = SimpleNamespace(doc_type="architectural_plan", filename="PERMIT.dwfx", ingest_report={"drawing_read": {
         **DRAWING, "levels_read": [{"ridge": 8.85}, {"ridge": 24.03}, {"ridge": None}]}})
     _, f2 = E.drawing_facts([once])
-    assert f2["building_height_m"] == 8.85
+    assert f2["building_height_m"] == 8.85 and f2["building_height_corroborated_m"] == 6.85
     ctx = E.Context([], {}, "", "368", {}, [], drawing)
     assert E.RESOLVERS["QA-REQ-SECTIONS"](ctx).status == "PASS"
     assert E.RESOLVERS["HA-633-PARKING"](ctx).status == "PASS"
