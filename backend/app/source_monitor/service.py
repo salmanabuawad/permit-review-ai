@@ -96,7 +96,9 @@ def match_register(url: str, text: str, tenant_id: str | None = None) -> str | N
 def start_crawl(session_factory, tenant: str, user: str, wait: bool = False,
                 fetcher: Callable | None = None, sleep: Callable = time.sleep) -> str:
     """Create a crawl record and run it: inline when wait=True; queued for the crawler process when the app is set to
-    never fetch itself (BBP_CRAWLER_SEPARATE); else in a background thread."""
+    never fetch itself (BBP_CRAWLER_SEPARATE); else in a background thread.
+    A crawl that stopped part-way (failure, interruption or the per-run document budget) keeps its queue in
+    `checkpoint`; the next request resumes that same crawl without re-fetching what it already committed."""
     queue_only = not wait and settings.crawler_separate
     with session_factory() as s:
         running = s.scalars(select(SourceCrawl).where(SourceCrawl.tenant_id == tenant,
@@ -109,9 +111,15 @@ def start_crawl(session_factory, tenant: str, user: str, wait: bool = False,
                 c.summary = {**(c.summary or {}), "error": why}
             else:
                 raise RuntimeError("סריקה כבר רצה")
-        crawl = SourceCrawl(tenant_id=tenant, triggered_by=user, summary={}, status="queued" if queue_only else "running")
-        s.add(crawl)
-        audit.record(s, tenant, user, "source.crawl.start", "source_crawl", None, {})
+        s.flush()
+        crawl = resumable(s, tenant)
+        state = "queued" if queue_only else "running"
+        if crawl is None:
+            crawl = SourceCrawl(tenant_id=tenant, triggered_by=user, summary={}, status=state)
+            s.add(crawl)
+        else:
+            crawl.status, crawl.finished_at, crawl.started_at = state, None, now
+        audit.record(s, tenant, user, "source.crawl.start", "source_crawl", None, {"resumed": crawl.checkpoint is not None})
         s.commit()
         cid = crawl.id
 
@@ -134,6 +142,14 @@ def start_crawl(session_factory, tenant: str, user: str, wait: bool = False,
     return cid
 
 
+def resumable(s: Session, tenant: str) -> SourceCrawl | None:
+    """The authority's latest crawl, if it stopped with its queue saved."""
+    last = s.scalars(select(SourceCrawl).where(SourceCrawl.tenant_id == tenant)
+                     .order_by(SourceCrawl.started_at.desc())).first()
+    return last if last and last.status in ("failed", "partial") and last.checkpoint is not None else None
+
+
+RETRY_FAILED_AFTER = dt.timedelta(hours=1)
 SCHEDULES = {"on_demand": None, "daily": dt.timedelta(days=1), "weekly": dt.timedelta(days=7)}
 SCHEDULE_HE = {"on_demand": "לפי דרישה בלבד", "daily": "יומית", "weekly": "שבועית"}
 
@@ -157,12 +173,23 @@ def queue_due(session_factory) -> list[str]:
                 continue
             last = s.scalars(select(SourceCrawl).where(SourceCrawl.tenant_id == org.id)
                              .order_by(SourceCrawl.started_at.desc())).first()
-            if last and (last.status in ("running", "queued") or now - last.started_at < every):
+            if last and last.status in ("running", "queued"):
                 continue
-            c = SourceCrawl(tenant_id=org.id, triggered_by="system:schedule", summary={}, status="queued")
-            s.add(c)
+            resume = last if last and last.status in ("failed", "partial") and last.checkpoint is not None else None
+            if resume is not None:
+                # a scheduled crawl cut by the per-run budget goes on; one that failed waits an hour
+                ended = resume.finished_at or resume.started_at
+                if resume.status == "failed" and now - ended < RETRY_FAILED_AFTER:
+                    continue
+                c = resume
+                c.status, c.finished_at, c.started_at = "queued", None, now
+            elif last and now - last.started_at < every:
+                continue
+            else:
+                c = SourceCrawl(tenant_id=org.id, triggered_by="system:schedule", summary={}, status="queued")
+                s.add(c)
             audit.record(s, org.id, "system:schedule", "source.crawl.start", "source_crawl", None,
-                         {"schedule": schedule_of(org)})
+                         {"schedule": schedule_of(org), "resumed": c.checkpoint is not None})
             s.commit()
             out.append(c.id)
     return out
@@ -193,7 +220,8 @@ def run_claimed(session_factory, cid: str, fetcher: Callable | None = None, slee
 
 
 def fail_interrupted(session_factory) -> int:
-    """At crawler start: a crawl still 'running' belonged to a crawler process that died."""
+    """At crawler start: a crawl still 'running' belonged to a crawler process that died. Its saved queue is kept,
+    so the next request (or the authority's schedule) resumes it."""
     with session_factory() as s:
         n = 0
         for c in s.scalars(select(SourceCrawl).where(SourceCrawl.status == "running")):
@@ -211,18 +239,28 @@ def execute_crawl(s: Session, crawl: SourceCrawl, fetcher: Callable | None = Non
     hosts = allowed_hosts(tenant, s)
     summary = {"checked": 0, "ok": 0, "new": 0, "changed": 0, "unchanged": 0, "blocked": 0, "unreachable": 0,
                "error": 0, "documents_found": 0, "links_ignored": 0, "drafts_new": 0, "skipped_limit": 0}
-    queue = register_targets(tenant, s)
-    visited: set[str] = set()
+    cp = crawl.checkpoint
+    if cp is not None:
+        queue, visited = list(cp["queue"]), set(cp["visited"])
+        summary.update(cp["summary"])
+    else:
+        queue, visited = list(register_targets(tenant, s)), set()
+    # the queue is saved before any fetch and again with every committed document
+    crawl.checkpoint = {"queue": queue, "visited": sorted(visited), "summary": dict(summary)}
+    s.commit()
+    batch = 0
     last_host_hit: dict[str, float] = {}
     while queue:
+        if batch >= cfg["max_documents_per_crawl"]:
+            crawl.status, crawl.finished_at = "partial", dt.datetime.now(dt.timezone.utc)
+            crawl.summary = {**summary, "remaining": len(queue), "coverage_complete": False}
+            s.commit()
+            return
         t = queue.pop(0)
         url = t["url"]
         if url in visited:
             continue
         visited.add(url)
-        if summary["checked"] >= cfg["max_documents_per_crawl"]:
-            summary["skipped_limit"] += 1
-            continue
         h = F.host(url)
         wait_s = cfg["delay_between_requests_s"] - (time.monotonic() - last_host_hit.get(h, -1e9))
         if wait_s > 0:
@@ -238,6 +276,7 @@ def execute_crawl(s: Session, crawl: SourceCrawl, fetcher: Callable | None = Non
         res = fetcher(url, cfg, hosts, doc.etag, doc.last_modified)
         last_host_hit[h] = time.monotonic()
         summary["checked"] += 1
+        batch += 1
         doc.last_checked = dt.datetime.now(dt.timezone.utc)
         doc.http_status, doc.message = res.http_status, res.message
         if res.status == "ok":
@@ -266,9 +305,13 @@ def execute_crawl(s: Session, crawl: SourceCrawl, fetcher: Callable | None = Non
                 queue.append({"url": ln["url"], "source_id": match_register(ln["url"], ln["text"], tenant),
                               "title": ln["text"], "from": url, "discovery": t.get("discovery",False)})
         crawl.summary = dict(summary)
+        crawl.checkpoint = {"queue": list(queue), "visited": sorted(visited), "summary": dict(summary)}
         s.commit()
     crawl.status, crawl.finished_at = "done", dt.datetime.now(dt.timezone.utc)
-    crawl.summary = dict(summary)
+    crawl.checkpoint = None
+    # a finished crawl is not proof of full statutory coverage: only that every queued document was reached
+    crawl.summary = {**summary, "remaining": 0, "coverage_complete": bool(summary["checked"]) and not any(
+        summary[k] for k in ("blocked", "unreachable", "error", "skipped_limit"))}
     audit.record(s, tenant, crawl.triggered_by, "source.crawl.done", "source_crawl", crawl.id, summary)
     s.commit()
 

@@ -8,6 +8,7 @@ import { StatusChip } from '../components/FindingCard'
 import FindingsPanel from '../components/FindingsPanel'
 import SourceDrawer from '../components/SourceDrawer'
 import DecisionPanel from '../components/DecisionPanel'
+import ScopePanel from '../components/ScopePanel'
 
 const LIFECYCLE_HE: Record<string, string> = { ACTIVE: 'פעיל', ARCHIVED: 'בארכיון', DELETED: 'נמחק' }
 const INGEST_HE: Record<string, string> = {
@@ -25,7 +26,7 @@ export default function CaseView() {
   const [geoLoading, setGeoLoading] = useState(true)
   const [sel, setSel] = useState<string | null>(null)
   const [cite, setCite] = useState<Citation | null>(null)
-  const [tab, setTab] = useState<'findings' | 'files' | 'data' | 'extracted' | 'history' | 'decision'>('findings')
+  const [tab, setTab] = useState<'findings' | 'files' | 'data' | 'extracted' | 'history' | 'decision' | 'scope'>('findings')
   const [busy, setBusy] = useState(false)
   const [runs, setRuns] = useState<any[]>([])
 
@@ -165,6 +166,7 @@ export default function CaseView() {
             <button className={tab === 'extracted' ? 'active' : ''} onClick={() => setTab('extracted')}>נתונים מחולצים</button>
             <button className={tab === 'history' ? 'active' : ''} onClick={() => setTab('history')}>גרסאות</button>
             <button className={tab === 'decision' ? 'active' : ''} onClick={() => setTab('decision')}>החלטת ועדה</button>
+            <button className={tab === 'scope' ? 'active' : ''} onClick={() => setTab('scope')}>תחולה</button>
           </div>
 
           {tab === 'findings' && (
@@ -175,6 +177,7 @@ export default function CaseView() {
           {tab === 'data' && <CaseData c={c} onChange={load} locked={locked} />}
           {tab === 'extracted' && <Extracted caseId={c.id} />}
           {tab === 'decision' && <DecisionPanel c={c} />}
+          {tab === 'scope' && <ScopePanel c={c} />}
           {tab === 'history' && (
             <table>
               <thead><tr><th>גרסה</th><th>מועד</th><th>תוצאות</th><th>Ruleset</th></tr></thead>

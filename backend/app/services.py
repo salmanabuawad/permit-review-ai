@@ -690,6 +690,11 @@ def run_checks(s: Session, case: PermitCase, user: str, gateway: AIGateway | Non
                    + (["EXTERNAL"] if status in EXTERNAL_STATUSES and not internal else []))
     from .coverage import disclaimer_he, family_coverage
     coverage = family_coverage(results)
+    # no "no defects" verdict while the case's regulatory coverage is not proven (it never is yet)
+    regulation = resolve_regulation(s, case, facts)
+    if not (regulation.get("verified_scope") or {}).get("coverage_complete"):
+        coverage["full_compliance_possible"] = False
+        coverage["open"] = list(dict.fromkeys([*coverage["open"], "regulation.source_coverage"]))
     decision, decision_why = final_decision(results, by_id, coverage)
     ver = (s.scalar(select(func.max(CheckRun.version)).where(CheckRun.case_id == case.id)) or 0) + 1
     run = CheckRun(tenant_id=case.tenant_id, case_id=case.id, version=ver, ruleset_hash=ruleset_hash(rules),
@@ -714,7 +719,6 @@ def run_checks(s: Session, case: PermitCase, user: str, gateway: AIGateway | Non
     run.duration_ms = int((time.perf_counter() - t0) * 1000)
     cache_after = dcache.stats()
     metrics = run_metrics(usable, run.duration_ms, t_docs, cpu0, draft, cache_before, cache_after)
-    regulation = resolve_regulation(s, case, facts)
     review_counts: dict = {}
     for r in results:
         st = next(f[7:] for f in r.flags if f.startswith("STATUS_"))
@@ -798,10 +802,15 @@ def resolve_regulation(s: Session, case: PermitCase, facts: dict) -> dict:
     """ApplicableRegulationResolver for the case (internal record). Cached by property + knowledge-base version."""
     from . import derivation_cache as dcache
     from .rules.applicability import AppContext, ApplicableRegulationResolver
+    from .regulatory import resolve_case
+    try:                                          # verified scope registry (internal audit; never complete yet)
+        scoped = resolve_case(s, case)
+    except Exception as e:                        # noqa: BLE001
+        scoped = {"coverage_complete": False, "unresolved": [f"scope resolver: {type(e).__name__}"]}
     try:
         decl = case.declared or {}
         if not decl.get("submission_date"):
-            return {"unresolved": ["חסר תאריך הגשה מאומת — לא ניתן לקבוע תחולת דין במועד ההגשה"]}
+            return {"unresolved": ["חסר תאריך הגשה מאומת — לא ניתן לקבוע תחולת דין במועד ההגשה"], "verified_scope": scoped}
         ref = dt.date.fromisoformat(str(decl["submission_date"]))
         lot = decl.get("lot") or decl.get("plot")
         app = AppContext(case.case_number, ref, list(case.applicable_plans or []), case.gush, case.helka,
@@ -811,12 +820,12 @@ def resolve_regulation(s: Session, case: PermitCase, facts: dict) -> dict:
 
         def cache(key, compute):
             return dcache.get_or_compute(s, algorithm="applicability", version="1",
-                                         sha256=hashlib.sha256(key.encode()).hexdigest(), compute=compute)[0]
+                                         sha256=hashlib.sha256((case.tenant_id + "|" + key).encode()).hexdigest(), compute=compute)[0]
         res = rr.resolve(app, cache=cache)
         return {"sources": [{k: x.__dict__[k] for k in ("plan", "kind", "status", "reason")} for x in res.sources],
-                "unresolved": res.unresolved, "kb_version": rr.kb_version()}
+                "unresolved": res.unresolved, "kb_version": rr.kb_version(), "verified_scope": scoped}
     except Exception as e:                        # resolution never breaks a run; the failure is recorded
-        return {"error": f"{type(e).__name__}: {e}"[:300]}
+        return {"error": f"{type(e).__name__}: {e}"[:300], "verified_scope": scoped}
 
 
 def run_metrics(files, duration_ms: int, docs_s: float, cpu0: float, draft, cache_before: dict, cache_after: dict) -> dict:

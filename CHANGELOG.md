@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-11-26 — Regulatory scope registry, source conflicts, resumable crawls (V10 overlay, merged)
+
+- Crawls keep their queue (`checkpoint`): a failed, interrupted or budget-limited ("partial") crawl resumes where it
+  stopped, without re-fetching committed documents. On-demand authorities resume only when asked ("המשך הסריקה");
+  scheduled ones continue a partial crawl on the next worker pass and retry a failed one after an hour.
+  `coverage_complete` on a finished crawl means every queued URL was fetched — not full statutory coverage.
+- Verified regulatory registry (`regulatory_entries`, approval via API with an exact quote checked against the
+  ingested page): date, property, lot, use and EPSG:2039 geometry scope; contradictory limits, differing limits and
+  explicit replacements detected. Internal "תחולה" tab on each case. Not executable rules.
+- Candidate conflicts between sources (same wording, different numbers) listed on the source monitor page.
+- XPLAN parcel plan discovery module, off by default and never run in the app process while crawling is isolated.
+- No "no defects" recommendation while regulatory coverage is unproven (always, for now). Cases with defects unchanged.
+- Not taken from the overlay: its automatic all-authority scheduler and timer (crawls stay on demand / admin schedule),
+  its file lock (crawls are claimed through the database by the single crawler process), and UI it re-added that was
+  removed earlier (login restyle, evidence button, coverage block in the report). Migration renumbered to 0008.
+
 ## 2026-11-26 — Learning from decided cases; crawls on demand behind a restricted crawler
 
 - The administrator loads a whole case (normal import) and the committee's decision (file or text, "החלטת ועדה" tab).

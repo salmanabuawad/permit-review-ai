@@ -251,7 +251,7 @@ def candidate_search(q: str = "", p: Principal = Depends(require("source.crawl")
     stmt = select(CandidatePassage, SourceDocument, SourceSnapshot).join(SourceDocument, CandidatePassage.document_id == SourceDocument.id).join(SourceSnapshot, CandidatePassage.snapshot_id == SourceSnapshot.id).where(CandidatePassage.tenant_id == p.tenant_id, SourceDocument.tenant_id == p.tenant_id, SourceSnapshot.tenant_id == p.tenant_id, SourceDocument.sha256 == SourceSnapshot.sha256)
     if q.strip(): stmt = stmt.where(CandidatePassage.text_he.contains(q.strip()[:200], autoescape=True))
     rows = s.execute(stmt.order_by(CandidatePassage.id.desc()).limit(100))
-    return [{"id": x.id,"document_id":d.id,"title":d.title,"page":x.page,"text_he":x.text_he[:4000],"sha256":v.sha256,"verification":"UNVERIFIED"} for x,d,v in rows]
+    return [{"id": x.id,"document_id":d.id,"snapshot_id":v.id,"title":d.title,"page":x.page,"text_he":x.text_he[:4000],"sha256":v.sha256,"verification":"UNVERIFIED"} for x,d,v in rows]
 
 
 @app.get("/api/users")
@@ -1144,7 +1144,9 @@ def _crawl_dict(c: SourceCrawl | None) -> dict | None:
     if not c:
         return None
     return {"id": c.id, "status": c.status, "triggered_by": c.triggered_by, "started_at": c.started_at.isoformat(),
-            "finished_at": c.finished_at.isoformat() if c.finished_at else None, "summary": c.summary or {}}
+            "finished_at": c.finished_at.isoformat() if c.finished_at else None, "summary": c.summary or {},
+            "resumable": c.status in ("failed", "partial") and c.checkpoint is not None,
+            "remaining": len((c.checkpoint or {}).get("queue") or []) if c.checkpoint else 0}
 
 
 @app.get("/api/source-monitor")
@@ -1547,3 +1549,44 @@ def audit_list(limit: int = 200, p: Principal = Depends(require("audit.read")), 
     return {"chain_ok": ok, "first_bad_id": bad,
             "events": [{"id": e.id, "at": e.at.isoformat(), "actor": e.actor, "action": e.action, "entity": e.entity,
                         "entity_id": e.entity_id, "detail": e.detail, "hash": e.hash[:16]} for e in evs]}
+
+
+# ------------------------------------------------------------------ verified regulatory scope and parcel plan discovery
+from . import regulatory as reg  # noqa: E402
+from . import plan_discovery  # noqa: E402
+from .models import RegulatoryEntry  # noqa: E402
+
+
+@app.get("/api/regulatory/candidate-conflicts")
+def regulatory_candidate_conflicts(p: Principal = Depends(require("source.crawl")), s: Session = Depends(get_session)):
+    """Drafts from different documents worded alike but with different numbers. A lead to verify, not a finding."""
+    return reg.candidate_conflicts(s, p.tenant_id)
+
+
+@app.get("/api/regulatory/entries")
+def regulatory_entries(p: Principal = Depends(require("source.crawl")), s: Session = Depends(get_session)):
+    return [reg.serial(r) for r in s.scalars(select(RegulatoryEntry).where(RegulatoryEntry.tenant_id == p.tenant_id))]
+
+
+@app.post("/api/regulatory/entries", status_code=201)
+def regulatory_entry(body: reg.EntryIn, p: Principal = Depends(require("rule.approve")), s: Session = Depends(get_session)):
+    """A professional approves a scope or limit quoted exactly from an ingested official source. Not an executable rule."""
+    try:
+        r = reg.save_entry(s, p.tenant_id, p.id, body)
+    except LookupError as e:
+        raise HTTPException(404, str(e)) from e
+    except ValueError as e:
+        raise HTTPException(422, str(e)) from e
+    audit.record(s, p.tenant_id, p.id, "regulatory.entry.approve", "regulatory_entry", r.id, {"source_sha256": r.data["source_sha256"]})
+    s.commit()
+    return reg.serial(r)
+
+
+@app.get("/api/cases/{case_id}/regulatory-resolution")
+def case_regulatory_resolution(case_id: str, p: Principal = Depends(require("case.read")), s: Session = Depends(get_session)):
+    return reg.resolve_case(s, get_case(s, p, case_id))
+
+
+@app.post("/api/cases/{case_id}/discover-plans")
+def discover_case_plans(case_id: str, p: Principal = Depends(require("source.crawl")), s: Session = Depends(get_session)):
+    return plan_discovery.refresh(s, get_case(s, p, case_id))

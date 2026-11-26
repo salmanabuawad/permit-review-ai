@@ -21,12 +21,14 @@ export default function SourceMonitor() {
   const [data, setData] = useState<any>(null)
   const [openDoc, setOpenDoc] = useState<any>(null)
   const [regSources, setRegSources] = useState<any[]>([])
+  const [conflicts, setConflicts] = useState<any[]>([])
   const poll = useRef<number | null>(null)
   const canCrawl = can('source.crawl')
   const canSchedule = can('source.schedule')
 
   const load = () => api.get<any>('/api/source-monitor').then(d => {
     setData(d)
+    if (canCrawl && !['running', 'queued'].includes(d.last_crawl?.status)) api.get<any[]>('/api/regulatory/candidate-conflicts').then(setConflicts).catch(() => setConflicts([]))
     if (['running', 'queued'].includes(d.last_crawl?.status)) schedule()
     return d
   }).catch(e => toast(e.message, true))
@@ -73,7 +75,7 @@ export default function SourceMonitor() {
                 {Object.entries(data.schedules ?? {}).map(([k, v]) => <option key={k} value={k}>{String(v)}</option>)}
               </select></label>
           : <span className="small muted">תזמון סריקות: {data.schedules?.[data.schedule] ?? data.schedule}</span>)}
-        {canCrawl && <button className="primary" onClick={crawl} disabled={running}>{running ? 'סורק…' : 'סריקה עכשיו'}</button>}
+        {canCrawl && <button className="primary" onClick={crawl} disabled={running}>{running ? 'סורק…' : lc?.resumable ? 'המשך הסריקה' : 'סריקה עכשיו'}</button>}
       </div>
       <div className="notice info small" style={{ marginBottom: 14 }}>
         מסמך שנשלף <b>אינו משנה אף כלל</b>. המערכת שומרת כל גרסה (SHA-256), מסמנת מסמכים חדשים ושינויים, ומציעה סעיפים שנראים כמו דרישה (מספר + יחידה, מסמך נדרש, איסור).
@@ -82,14 +84,19 @@ export default function SourceMonitor() {
       </div>
 
       <div className="summary-strip">
-        <div><b className="small">{lc?.status === 'queued' ? 'ממתינה לסורק…' : running ? 'רצה כעת…' : lc ? fmtDT(lc.finished_at ?? lc.started_at) : 'טרם בוצעה'}</b><span>סריקה אחרונה{lc?.status === 'failed' ? ' — נכשלה' : ''}</span></div>
+        <div><b className="small">{lc?.status === 'queued' ? 'ממתינה לסורק…' : running ? 'רצה כעת…' : lc ? fmtDT(lc.finished_at ?? lc.started_at) : 'טרם בוצעה'}</b><span>סריקה אחרונה{lc?.status === 'failed' ? ' — נכשלה' : lc?.status === 'partial' ? ' — חלקית' : ''}</span></div>
         <div><b className="num">{sm.checked ?? 0}</b><span>כתובות נבדקו</span></div>
         <div className={sm.new ? 's-ok' : ''}><b className="num">{sm.new ?? 0}</b><span>חדשים</span></div>
         <div className={sm.changed ? 's-ok' : ''}><b className="num">{sm.changed ?? 0}</b><span>השתנו</span></div>
         <div><b className="num">{(sm.blocked ?? 0) + (sm.unreachable ?? 0) + (sm.error ?? 0)}</b><span>לא נשלפו</span></div>
         <div><b className="num">{data?.drafts?.open ?? 0}</b><span>הצעות ממתינות</span></div>
       </div>
-      {lc?.summary?.error && <div className="notice small" style={{ marginBottom: 14 }}>שגיאה בסריקה: {lc.summary.error}</div>}
+      {lc?.summary?.error && <div className="notice small" style={{ marginBottom: 10 }}>שגיאה בסריקה: {lc.summary.error}</div>}
+      {lc?.resumable && <div className="notice info small" style={{ marginBottom: 10 }}>הסריקה {lc.status === 'partial' ? 'נעצרה במכסת המסמכים לסבב' : 'הופסקה'} — {lc.remaining} כתובות נותרו בתור. "המשך הסריקה" ימשיך מאותה נקודה בלי לשלוף שוב מסמכים שכבר נקלטו.</div>}
+      {lc?.status === 'done' && lc.summary?.coverage_complete === false && <div className="notice small" style={{ marginBottom: 10 }}>הסבב הסתיים, אך חלק מהכתובות לא נשלפו — כיסוי המקורות אינו מלא.</div>}
+      {canCrawl && conflicts.length > 0 && <details className="card" style={{ marginBottom: 12 }}><summary style={{ cursor: 'pointer' }}><b>חשד לסתירות בין מקורות ({conflicts.length})</b> <span className="small muted">— ניסוח זהה עם ערכים שונים; נדרש אימות תחולה, אין בכך קביעה או שינוי כללים</span></summary>
+        {conflicts.map((c, i) => <div key={i} className="app-card" style={{ marginTop: 8 }}>{(c.entries ?? []).map((e: any) => <div key={e.draft_id} className="small"><b>{e.source}</b> · יחידה {e.page}: {e.text} <span className="num">({e.operator} {e.value} {e.unit})</span></div>)}</div>)}
+      </details>}
 
       <div className="card">
         <div className="card-head"><h3>מסמכים ועמודים</h3>{data?.attention > 0 && <span className="chip warn">{data.attention} ממתינים לעיון</span>}</div>

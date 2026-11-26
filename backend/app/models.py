@@ -363,8 +363,9 @@ class SourceCrawl(Base):
     triggered_by: Mapped[str] = mapped_column(String(40))
     started_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), default=_now)
     finished_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime())
-    status: Mapped[str] = mapped_column(String(20), default="running")     # running | done | failed
+    status: Mapped[str] = mapped_column(String(20), default="running")     # queued | running | partial | done | failed
     summary: Mapped[dict] = mapped_column(JSON, default=dict)
+    checkpoint: Mapped[dict | None] = mapped_column(JSON, nullable=True)   # saved queue of a crawl that stopped part-way
 
 
 class SourceDocument(Base):
@@ -532,3 +533,23 @@ class LearningRecord(Base):
     created_by: Mapped[str] = mapped_column(String(40))
     created_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), default=_now)
     processed_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime())
+
+
+class RegulatoryEntry(Base):
+    """Professionally reviewed scope/limit, tied to an immutable source snapshot."""
+    __tablename__ = 'regulatory_entries'
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_id)
+    tenant_id: Mapped[str] = mapped_column(ForeignKey('municipalities.id'), index=True)
+    snapshot_id: Mapped[int] = mapped_column(ForeignKey('source_snapshots.id'))
+    data: Mapped[dict] = mapped_column(JSON)
+    approved_by: Mapped[str] = mapped_column(ForeignKey('users.id'))
+    approved_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), default=_now)
+
+
+class ParcelPlanDiscovery(Base):
+    __tablename__ = 'parcel_plan_discovery'
+    case_id: Mapped[str] = mapped_column(ForeignKey('permit_cases.id', ondelete='CASCADE'), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(ForeignKey('municipalities.id'), index=True)
+    parcel_hash: Mapped[str] = mapped_column(String(64))
+    result: Mapped[dict] = mapped_column(JSON)
+    checked_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), default=_now)
