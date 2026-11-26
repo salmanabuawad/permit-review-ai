@@ -43,6 +43,25 @@ changes_plans:                        # §1.6, "שינוי" — only these plans
   - "6/מק/2113"
   - "633-0187765"
   - "633-0572289"
+approved_version: "instructions as approved — printout 24.03.2022 (Mavat print 13), same text as the version published for force on 05.04.2022"
+verified_applicability: "lot-defining plan in changes_plans AND zone residential (not excluded) AND submission on/after effective_from"
+definitions:                          # §4.1.2 ב (p.13-14) — never interchangeable
+  inner_height: {clause: "4.1.2 ב", page: 13, quote: "רום פנימי לא יעלה על 2.2 מ'", meaning: "floor of the parking to the underside of its roof"}
+  outer_height: {clause: "4.1.2 ב", page: 13, quote: "רום עליון של תקרת החניה לא יעלה על 2.5 מ' מגובה רצפת החנייה", meaning: "parking floor to the top of its roof"}
+relief_provisions:
+  storage: {clause: "4.1.2 א", page: 13, quote: "תותר סטייה מהוראות אלו במקרים מיוחדים ובכפוף להליך של הקלה"}
+  general: "a deviation from these provisions is decided as a relief (s.147, publication s.149); whether reg. 2(10) of the 2002 deviation regulations makes it substantial is a legal judgement"
+clauses:                              # clause and page of every executable provision below
+  storage: {clause: "4.1.2 א", page: 13}
+  covered_parking: {clause: "4.1.2 ב", page: "13-14"}
+  pergola: {clause: "4.1.2 ג", page: 14}
+  basement: {clause: "4.1.2 ד", page: 14}
+  technical_systems: {clause: "4.1.2 הוראות בינוי א", page: "14-15"}
+  service_yard: {clause: "4.1.2 הוראות בינוי ב", page: 15}
+  fences: {clause: "4.1.2 הוראות בינוי ג", page: 15}
+  roofs: {clause: "4.1.2 אדריכלות א", page: "15-16"}
+  height: {clause: "4.1.2 אדריכלות ב", page: 16}
+  entrance_level: {clause: "4.1.2 אדריכלות ב", page: 16}
 provisions:                           # §4.1.2; heights in metres, areas in m²
   storage: {area_max_m2: 12, inner_height_max_m: 2.20, outer_height_max_m: 2.5, building_line_rear_side_m: 0.0,
             counts_as: service, split_max: 2, split_min_m2: 5}

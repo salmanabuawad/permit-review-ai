@@ -1,0 +1,44 @@
+# Known-outcome regression case — NOT an independent blind test. Reviewer markup was found in the meeting-archive DWF
+# and the committee documents were read during inspection, so the case is classified "contaminated" for blind use.
+# Facts are public register / committee data on the property (no personal data). Each value carries its evidence.
+application_id: "20221189"
+blind_classification: CONTAMINATED
+contamination: "reviewer markup (36 labels) in meetingfile_443574.dwf; committee documents read during inspection"
+application:
+  locality: "תלמי יפה הרחבה"
+  block: "3161"
+  parcel: "151"
+  lot: "440"
+  plans: ["6/123/03/6"]
+  submission_date: "2022-10-26"
+  route_filed: RELIEF                     # register type "בקשה מקוונת כולל הקלות" (code 82)
+  main_use: "מגורים"
+  construction: "בנייה חדשה"
+  request_text: "הקמת בית מגורים דו קומתי הכולל מרתף , ממ\"ד , חניה מקורה , מחסן , פרגולות , מרפסת לא מקורה וגדרות כולל הקלות. 1. הקלה לגובה פנימי להחניה מקורה ,מבוקש 2.63 מ\"ר במקום 2.20 מ\"ר המותרים."
+  declared: {main_m2: 179.61, service_m2: 97.80}
+  reliefs:
+    - {component: covered_parking, attribute: inner_height_m, requested: 2.63, source: declared,
+       text: "הקלה לגובה פנימי להחניה מקורה ,מבוקש 2.63 מ\"ר במקום 2.20 מ\"ר המותרים", justification: null}
+committee_reported:                       # quoted from the subcommittee protocol 202315 — not independent geometry
+  main_above_m2: 179.61
+  service_below_m2: 49.27
+  service_above_m2: 24.10
+  parking_inner_height_permitted_m: 2.20
+  parking_outer_height_permitted_m: 2.50
+  regulatory_reference: "633-0928358"
+expected:
+  decisions:
+    - {type: RELIEF_REJECTED, date: "18/04/2023", meeting: "3_202315", rejected_component: covered_parking.height,
+       regulatory_reference: "633-0928358", reason: "אין כל הצדקה תכנונית לגובה המבוקש"}
+    - {type: RETURNED_FOR_CORRECTIONS, date: "22/05/2023"}
+    - {type: APPLICATION_APPROVED, date: "30/07/2023"}
+  final_status: PERMIT_ISSUED
+  relief:
+    permitted: 2.20
+    deviation_abs: 0.43
+    deviation_pct: 19.55
+    outcome_not: [CONFIRMED_VIOLATION, LEGALLY_UNAVAILABLE_RELIEF]
+  governing_parking_inner_height: {plan: "633-0928358", value: 2.2}
+approved_version:                         # validation evidence only (permit 30.07.2023, text layer)
+  areas: {main_m2: 179.61, service_m2: 97.80}
+  geometry_available: false              # the approved plan set is image-only

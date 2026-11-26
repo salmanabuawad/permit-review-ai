@@ -83,6 +83,10 @@ def main(pkg: Path, engine: dict) -> None:
     route_code = collections.Counter()
     for e in engine["cases"]:
         cid = e["case"]
+        if "contaminated" in e:                  # not an independent blind test: scored nowhere here
+            rows.append({"case": cid, "excluded": "contaminated: " + "; ".join(e["contaminated"])})
+            tally["excluded"] += 1
+            continue
         if "excluded" in e:
             rows.append({"case": cid, "excluded": e["excluded"]})
             tally["excluded"] += 1

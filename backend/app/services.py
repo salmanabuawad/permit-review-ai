@@ -584,6 +584,7 @@ def run_checks(s: Session, case: PermitCase, user: str, gateway: AIGateway | Non
     run.duration_ms = int((time.perf_counter() - t0) * 1000)
     cache_after = dcache.stats()
     metrics = run_metrics(usable, run.duration_ms, t_docs, cpu0, draft, cache_before, cache_after)
+    regulation = resolve_regulation(s, case, facts)
     review_counts: dict = {}
     for r in results:
         st = next(f[7:] for f in r.flags if f.startswith("STATUS_"))
@@ -598,6 +599,7 @@ def run_checks(s: Session, case: PermitCase, user: str, gateway: AIGateway | Non
                                            "full_compliance_possible": coverage["full_compliance_possible"],
                                            "inventory_version": coverage["inventory_version"]},
                               "disclaimer_he": disclaimer_he(coverage),
+                              "regulation_sources": regulation,     # internal record — never in external reports
                               "external_findings": sum(1 for r in results if "EXTERNAL" in r.flags),
                               "limitations_he": [
                                   ("מקור ג׳ של בדיקת השטחים נמדד לשטחים שבתוך הקירות; סככות ושטחים מקורים מחוץ לקירות לא נמדדו מהתכניות."
@@ -639,6 +641,28 @@ def guard_single_read_height(results, rules, drawing_facts: dict, declared: dict
             r.flags = list(r.flags) + ["REVIEW:UNRESOLVED", "INTERNAL", "NEEDS_DRAWING_READ"]
             n += 1
     return n
+
+def resolve_regulation(s: Session, case: PermitCase, facts: dict) -> dict:
+    """ApplicableRegulationResolver for the case (internal record). Cached by property + knowledge-base version."""
+    from . import derivation_cache as dcache
+    from .rules.applicability import AppContext, ApplicableRegulationResolver
+    try:
+        decl = case.declared or {}
+        ref = dt.date.fromisoformat(facts["case"]["reference_date"])
+        lot = decl.get("lot") or decl.get("plot")
+        app = AppContext(case.case_number, ref, list(case.applicable_plans or []), case.gush, case.helka,
+                         str(lot) if lot else None, decl.get("main_use") or "מגורים", activity=decl.get("request_text", ""))
+        rr = ApplicableRegulationResolver()
+
+        def cache(key, compute):
+            return dcache.get_or_compute(s, algorithm="applicability", version="1",
+                                         sha256=hashlib.sha256(key.encode()).hexdigest(), compute=compute)[0]
+        res = rr.resolve(app, cache=cache)
+        return {"sources": [{k: x.__dict__[k] for k in ("plan", "kind", "status", "reason")} for x in res.sources],
+                "unresolved": res.unresolved, "kb_version": rr.kb_version()}
+    except Exception as e:                        # resolution never breaks a run; the failure is recorded
+        return {"error": f"{type(e).__name__}: {e}"[:300]}
+
 
 def run_metrics(files, duration_ms: int, docs_s: float, cpu0: float, draft, cache_before: dict, cache_after: dict) -> dict:
     """V9 §Output: wall time, CPU, model tokens / cost, cache hits and the AI-PC work behind the run's inputs.

@@ -22,6 +22,11 @@ zones:
     floors_below: 1
     height_max_m: {sloped: 9.0, flat: 7.0}     # note (3)
     density_units_per_dunam: 2
+    components:                       # table note (1), (2) — limits inside the service area
+      protected_room: {area_max_m2: 7.0, clause: "5 הערה (1)", page: 13}
+      storage: {area_max_m2: 12.0, clause: "5 הערה (1)", page: 13}
+      covered_parking: {area_max_m2: 31.0, clause: "5 הערה (1)", page: 13, in_coverage: false}
+      building: {height_sloped_max_m: 9.0, height_flat_max_m: 7.0, clause: "5 הערה (3)", page: 13}
 quotes:
   table: "מגורים א' 2 | 401-469 | 490 | מעל: עיקרי 180, שירות 50 (1) | מתחת: שירות 50 | סה\"כ 280 | תכסית 36 (2) | 1 יח\"ד | 2 ליח\"ד לדונם | 7 (3) | 1 מתחת, 2 מעל"
   notes: "(1) מיועד עבור ממ\"ד בשטח מירבי של 7.0 מ\"ר, מחסן בשטח מירבי של 12 מ\"ר, חניה מקורה בשטח מירבי של 31 מ\"ר. (3) גובה מירבי עבור גגות משופעים – 9.0 מ', עבור גגות שטוחים - 7.0 מ'."

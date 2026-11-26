@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-11-26 — V9 update: regulation resolver, component and relief validation, blind sanitizer
+
+- `ApplicableRegulationResolver` (sources, applicability, limit conflicts by legal relation, cached; in every run's internal
+  record), component validation (internal ≠ external height), `ReliefValidationEngine`, rights by category and floor,
+  decision taxonomy + lifecycle, `ApplicationVersionComparator`, `BlindDatasetSanitizer` (gates the blind evaluator).
+- 20221189 known-outcome regression (contaminated for blind use): 7/7 points match the committee. Details: docs/13.
+- KB: 633-0928358 clauses, pages, height definitions, applicability; 6/123/03/6 component limits; `kb_compare.py`.
+
 ## 2026-11-26 — rights for 1/200/03/6 (Heletz) and 6/123/03/6 (Talmei Yafe)
 
 - Rights files from the plans' scanned tables; a zone can apply by use when the plan defines only one residential zone.

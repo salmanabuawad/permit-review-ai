@@ -131,7 +131,26 @@ def cmd_run(pkg: Path) -> None:
     if (pkg / "02_RESTRICTED_VALIDATION").exists():
         raise SystemExit("the restricted validation set is next to the blind set — move it to the evaluation store first")
     cases = sorted((pkg / "01_BLIND_REVIEW").glob("CASE_*"))
-    engine = {"package": pkg.name, "cases": [run_case(c) for c in cases]}
+    # every input goes through the BlindDatasetSanitizer first; contaminated cases are not blind tests
+    from app.blind_sanitizer import BlindDatasetSanitizer, save_report
+    known = json.loads((pkg.parent / "known_contaminated.json").read_text(encoding="utf-8")) \
+        if (pkg.parent / "known_contaminated.json").exists() else {}
+    san = BlindDatasetSanitizer(results_dir(pkg).parent / "blind_sanitized", known)
+    srep = san.report(san.run(pkg / "01_BLIND_REVIEW"))
+    results_dir(pkg).mkdir(exist_ok=True)
+    save_report(srep, results_dir(pkg) / "sanitization_report.json")
+    contaminated = set(srep["contaminated_cases"])
+    usable = {(d["case"], f["file"]) for d in srep["detail"] for f in d["files"] if f["action"] in ("CLEAN", "SANITIZED")}
+    engine = {"package": pkg.name, "cases": []}
+    for c in cases:
+        res = run_case(c)
+        for d in res.get("documents", []):
+            d["used"] = (c.name, d["file"]) in usable
+            d["reason"] = next((f["action"] + (": " + f["note"] if f["note"] else "") for x in srep["detail"]
+                                if x["case"] == c.name for f in x["files"] if f["file"] == d["file"]), d["reason"])
+        if c.name in contaminated:
+            res["contaminated"] = next(x["reasons"] for x in srep["detail"] if x["case"] == c.name)
+        engine["cases"].append(res)
     body = json.dumps(engine, ensure_ascii=False, indent=1)
     out = results_dir(pkg)
     out.mkdir(exist_ok=True)

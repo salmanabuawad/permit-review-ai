@@ -63,7 +63,7 @@ def test_basement_over_its_limit_while_totals_comply(tmp_path):
                                                 R.Floor("מרתף", 0.0, 75.0, below_entrance=True, ceiling_above_ground_m=0.9)])
     res = R.validate(p, rights_folder=_rights(tmp_path, to_basement=False))
     by = {c.topic: c for c in res.checks}
-    assert by["aggregate_main"].status == "WITHIN" and by["aggregate_service"].status == "WITHIN"
+    assert by["main_above"].status == "WITHIN" and by["service_above"].status == "WITHIN"   # per floor, not by total
     assert by["basement_area"].status == "RELIEF" and by["basement_area"].limit == 60
     assert res.verdict == "WRONG_ROUTE" and res.confirmed                 # regular route with a deviation needing relief
 
@@ -157,8 +157,9 @@ def test_20210885_blind_engine_result():
     assert p.selected_route == "REGULAR" and p.submission_date == D and p.plans == ["תמא 39"]
     res = R.validate(p)
     by = {c.topic: c for c in res.checks}
-    # aggregate rights are met — and that proves nothing about the basement
-    assert by["aggregate_main"].status == "WITHIN" and by["aggregate_service"].status == "WITHIN"
+    # main area is within; the service total (128.35) cannot be judged without its split by floor — the basement
+    assert by["aggregate_main"].status == "WITHIN" and by["aggregate_service"].status == "NOT_CHECKED"
+    assert "טבלת שטחים לפי קומה" in by["aggregate_service"].needs
     assert by["floors"].status == "NOT_CHECKED" and "תכנית קומת המרתף" in by["floors"].needs
     assert by["zero_level"].status == "POSSIBLE_DEVIATION"
     # no drawings: no confirmed defect, and the missing inputs are named
@@ -311,7 +312,7 @@ def _hof(plan, lot, **kw):
 def test_netiv_haasara_lot_rights_and_zone():
     res = _hof("2/228/03/6", "12")
     st = {c.topic: (c.status, c.limit) for c in res.checks}
-    assert st["aggregate_main"] == ("WITHIN", 640) and st["aggregate_service"] == ("WITHIN", 275)
+    assert st["aggregate_main"] == ("WITHIN", 640) and st["aggregate_service"] == ("WITHIN", 120)   # ≤ smaller category
     assert _hof("2/228/03/6", "12", total_main_m2=700.0).verdict == "WRONG_ROUTE"        # above 640 m² main
     assert _hof("2/228/03/6", "20").verdict == "NO_RIGHTS"                               # lot outside the residential zones
     assert _hof("2/228/03/6", "12", main_use="מבנה חקלאי").verdict == "NO_RIGHTS"         # residential rights only
@@ -375,7 +376,7 @@ def test_building_provisions_plan_applies_from_2022_to_listed_residential_lots_o
 
 def test_talmei_yafe_and_heletz_rights():
     st = {c.topic: (c.status, c.limit) for c in _hof("6/123/03/6", "440", total_main_m2=170.0).checks}
-    assert st["aggregate_main"] == ("WITHIN", 180) and st["aggregate_service"] == ("WITHIN", 100)
+    assert st["aggregate_main"] == ("WITHIN", 180) and st["aggregate_service"][0] == "NOT_CHECKED"   # 100 m² unsplit
     assert _hof("6/123/03/6", "440", total_main_m2=200.0).verdict == "WRONG_ROUTE"      # 200 > 180 m² main
     assert _hof("6/123/03/6", "300").verdict == "NO_RIGHTS"                              # outside lots 401-469
     assert _hof("1/200/03/6", "237").verdict == "NO_RIGHTS"                              # % of an unknown lot area

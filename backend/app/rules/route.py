@@ -83,6 +83,12 @@ class Proposal:
     gross_added_m2: float | None = None         # new construction (gross), from drawings or the applicant's description
     gross_added_source: str = ""                # "drawings" | "applicant description"
     cancelled_unbuilt_m2: float | None = None   # approved earlier but never built, removed by this request
+    # area by category and floor, when known — with its evidence ("declared", "measured", "committee_reported")
+    main_above_m2: float | None = None
+    main_below_m2: float | None = None
+    service_above_m2: float | None = None
+    service_below_m2: float | None = None
+    split_source: str | None = None
     lot: str | None = None                      # the lot number, to pick the plan's zone
     main_use: str | None = None                 # the register's main use (residential rights do not apply to a barn)
     # "total": the declared areas are the whole building; "addition": they may be only what this request adds
@@ -191,14 +197,15 @@ def _select(r: dict, lot: str | None, use: str | None, land_use: str | None, lot
     return merged, f"{zone['name']}"
 
 
-def building_provisions(p: "Proposal", zone: str | None = None, folder: Path | None = None) -> tuple[dict | None, str]:
+def building_provisions(p: "Proposal", zone: str | None = None, folder: Path | None = None,
+                        only: Path | None = None) -> tuple[dict | None, str]:
     """Building provisions (not rights) that apply to the lot on the submission date — e.g. a council-wide plan that
     changes the residential lots of listed plans. (provisions, note)"""
     folder = folder or Path(settings.knowledge_dir, "building_provisions")
     norm = lambda s: re.sub(r"[\s\"״׳']", "", s or "")
     if not folder.exists() or not p.main_use or "מגורים" not in p.main_use:
         return None, ""
-    for path in sorted(folder.glob("*.yaml")):
+    for path in ([only] if only else sorted(folder.glob("*.yaml"))):
         b = yaml.safe_load(path.read_text(encoding="utf-8"))
         frm = _date(b.get("effective_from"))
         if frm and p.submission_date < frm:
@@ -332,6 +339,9 @@ def check_aggregate(p: Proposal, r: dict) -> list[Check]:
            else rt["service_above_m2"] + rt["service_below_m2"])
     pairs = [("main", "שטח עיקרי כולל", p.total_main_m2, rt.get("main_m2")),
              ("service", "שטח שירות כולל (עילי ותת־קרקעי)", p.total_service_m2, svc)]
+    split = _category_checks(p, r)
+    if split is not None:                         # each category and floor on its own — a total never proves them
+        return split
     if rt.get("main_m2") is None and rt.get("total_m2") is not None:      # a plan before the main/service split
         both = None if p.total_main_m2 is None or p.total_service_m2 is None else p.total_main_m2 + p.total_service_m2
         pairs = [("total", "שטח בנייה כולל", both, rt["total_m2"])]
@@ -352,6 +362,93 @@ def check_aggregate(p: Proposal, r: dict) -> list[Check]:
                              f"{val:.2f} מ\"ר מעל {lim:.2f} מ\"ר בתכנית {r['plan']} — תוספת זכויות; האם ניתנת בהקלה אינו מוכרע "
                              "בתקנות המקודדות לתכנית שהופקדה אחרי 1.8.1989.", val, lim, source_id=r["source_id"], confirmable=True))
     return out
+
+
+def R_replace(p: "Proposal", **kw) -> "Proposal":
+    import dataclasses
+    return dataclasses.replace(p, **kw)
+
+
+def _category_checks(p: Proposal, r: dict) -> list[Check] | None:
+    """Rights checked per category and floor. Unused rights of one category are never moved to another unless the
+    plan's own transfer provision allows it (handled by the basement check). Returns None when the plan does not split
+    service area by floor (the plain aggregate check then applies)."""
+    rt = r["rights"]
+    if rt.get("service_above_m2") is None or rt.get("service_below_m2") is None or rt.get("main_m2") is None:
+        return None
+    if p.floors is not None and p.main_above_m2 is None and p.service_above_m2 is None:
+        ab = [f for f in p.floors if not f.below_entrance]
+        be = [f for f in p.floors if f.below_entrance]
+        p = R_replace(p, main_above_m2=sum(f.main_m2 for f in ab), main_below_m2=sum(f.main_m2 for f in be),
+                      service_above_m2=sum(f.service_m2 for f in ab), service_below_m2=sum(f.service_m2 for f in be),
+                      split_source=p.split_source or "declared")
+    src = p.split_source or "declared"
+    tag = " (נתון מפרוטוקול הוועדה — לא חושב באופן עצמאי)" if src == "committee_reported" else ""
+    out = []
+    cats = [("main_above", "שטח עיקרי מעל הקרקע", p.main_above_m2 if p.main_above_m2 is not None else
+             (p.total_main_m2 if p.main_below_m2 is None and p.split_source else None), rt["main_m2"]),
+            ("main_below", "שטח עיקרי מתחת לקרקע", p.main_below_m2, float(rt.get("main_below_m2") or 0.0)),
+            ("service_above", "שטח שירות מעל הקרקע", p.service_above_m2, rt["service_above_m2"]),
+            ("service_below", "שטח שירות מתחת לקרקע", p.service_below_m2, rt["service_below_m2"])]
+    known = any(v is not None for _, _, v, _ in cats[1:])
+    if not known:
+        # no split given: totals can only prove compliance when they fit inside the SMALLEST category limit
+        for key, he, val, lim in (("main", "שטח עיקרי כולל", p.total_main_m2, rt["main_m2"]),):
+            out.append(_agg(key, he, val, lim, r))
+        sv = p.total_service_m2
+        lo = min(rt["service_above_m2"], rt["service_below_m2"])
+        if sv is None:
+            out.append(Check("aggregate_service", "שטח שירות", "NOT_CHECKED", "השטח המבוקש לא נמסר.", None,
+                             rt["service_above_m2"] + rt["service_below_m2"], source_id=r["source_id"], needs=["שטחי הבקשה"]))
+        elif sv <= lo + 0.005:
+            out.append(Check("aggregate_service", "שטח שירות", "WITHIN", f"{sv:.2f} מ\"ר — אינו עולה אף על המגבלה הקטנה "
+                             f"מבין הקטגוריות ({lo:.2f} מ\"ר).", sv, lo, source_id=r["source_id"], confirmable=True))
+        else:
+            out.append(Check("aggregate_service", "שטח שירות לפי קומה", "NOT_CHECKED",
+                             f"סך שטח השירות {sv:.2f} מ\"ר אינו מוכיח עמידה: התכנית מתירה {rt['service_above_m2']:.2f} מ\"ר "
+                             f"מעל הקרקע ו־{rt['service_below_m2']:.2f} מ\"ר מתחתיה, וחלוקת השטח המבוקש בין הקומות לא נמסרה.",
+                             sv, rt["service_above_m2"] + rt["service_below_m2"], source_id=r["source_id"],
+                             needs=["טבלת שטחים לפי קומה"]))
+        return out
+    parts = [v for v in (p.service_above_m2, p.service_below_m2) if v is not None]
+    if p.total_service_m2 is not None and len(parts) == 2 and abs(sum(parts) - p.total_service_m2) > 0.5:
+        out.append(Check("split_reconciliation", "התאמת חלוקת שטחי השירות לסך המוצהר", "NOT_CHECKED",
+                         f"סך שטחי השירות המוצהר {p.total_service_m2:.2f} מ\"ר, אך החלוקה לקומות ({parts[0]:.2f} + "
+                         f"{parts[1]:.2f}) מסתכמת ב־{sum(parts):.2f} מ\"ר — {p.total_service_m2 - sum(parts):.2f} מ\"ר אינם "
+                         f"משויכים לקומה{tag}.", round(sum(parts), 2), p.total_service_m2, source_id=r["source_id"],
+                         needs=["טבלת שטחים לפי קומה"]))
+    from_floors = p.floors is not None
+    transfer = bool((r.get("transfers") or {}).get("to_basement"))
+    for key, he, val, lim in cats:
+        if from_floors and key.endswith("_below"):
+            continue                              # the basement check judges it, with the plan's transfer rule
+        if key == "service_below" and transfer and val is not None and val > lim + 0.005:
+            out.append(Check(key, he, "POSSIBLE_DEVIATION", f"{val:.2f} מ\"ר מעל {lim:.2f} מ\"ר — התכנית מתירה העברת "
+                             "שטחים למרתף; עמידה תלויה בשטחים העיליים שלא נוצלו ובאופן ההעברה.", val, lim,
+                             source_id=r["source_id"], needs=["טבלת שטחים לפי קומה"]))
+            continue
+        if val is None:
+            out.append(Check(key, he, "NOT_CHECKED", "השטח בקטגוריה זו לא נמסר.", None, lim, source_id=r["source_id"],
+                             needs=["טבלת שטחים לפי קומה"]))
+        elif val <= lim + 0.005:
+            out.append(Check(key, he, "WITHIN", f"{val:.2f} מ\"ר ≤ {lim:.2f} מ\"ר{tag}.", val, lim, source_id=r["source_id"],
+                             confirmable=src != "committee_reported"))
+        else:
+            out.append(Check(key, he, "DEVIATION_UNCLASSIFIED", f"{val:.2f} מ\"ר מעל {lim:.2f} מ\"ר בקטגוריה זו{tag} — "
+                             "זכויות שלא נוצלו בקטגוריה אחרת אינן עוברות אליה ללא הוראה מפורשת בתכנית.", val, lim,
+                             source_id=r["source_id"], confirmable=src != "committee_reported"))
+    return out
+
+
+def _agg(key, he, val, lim, r) -> Check:
+    if val is None:
+        return Check(f"aggregate_{key}", he, "NOT_CHECKED", "השטח המבוקש לא נמסר.", None, lim, source_id=r["source_id"],
+                     needs=["שטחי הבקשה"])
+    if val <= lim + 0.005:
+        return Check(f"aggregate_{key}", he, "WITHIN", f"{val:.2f} מ\"ר ≤ {lim:.2f} מ\"ר בתכנית {r['plan']}.", val, lim,
+                     source_id=r["source_id"], confirmable=True)
+    return Check(f"aggregate_{key}", he, "DEVIATION_UNCLASSIFIED", f"{val:.2f} מ\"ר מעל {lim:.2f} מ\"ר בתכנית {r['plan']}.",
+                 val, lim, source_id=r["source_id"], confirmable=True)
 
 
 def check_floors(p: Proposal, r: dict, law: dict) -> list[Check]:
