@@ -320,7 +320,7 @@ def _after_conversion(file_id: str) -> None:
         if f is None or f.ingest_status != "OK":
             return
         try:
-            services.classify_case_files(s2, f.case, "ai-agent", only={f.id})
+            services.classify_case_files(s2, f.case, "ai-agent", only={f.id}, commit_each=True)
             s2.flush()
             services.run_checks(s2, f.case, "ai-agent")
             s2.commit()
@@ -535,14 +535,16 @@ def run_metrics_view(run_id: str, p: Principal = Depends(require("dashboard.read
 
 
 @app.post("/api/cases/{case_id}/classify-documents")
-def classify_documents(case_id: str, p: Principal = Depends(require("case.run")), s: Session = Depends(get_session)):
-    """Re-type the request's documents with the local AI (keyword fallback), then re-run the checks."""
+def classify_documents(case_id: str, background: BackgroundTasks, p: Principal = Depends(require("case.run")),
+                       s: Session = Depends(get_session)):
+    """Re-type the request's documents with the local AI (keyword fallback), then re-run the checks — in the
+    background: one model call per document takes seconds."""
     c = get_case(s, p, case_id)
-    changes = services.classify_case_files(s, c, p.id)
-    s.flush()
-    run = services.run_checks(s, c, p.id)
+    for f in c.files:                              # the report shows "not ready" until each document is typed again
+        f.ingest_report = {k: v for k, v in (f.ingest_report or {}).items() if k != "ai_typed"}
     s.commit()
-    return {"changes": changes, "run_id": run.id}
+    background.add_task(_classify_and_run, p.tenant_id, p.id, [c.id])
+    return {"queued": True, "documents": len(c.files)}
 
 
 @app.get("/api/runs/{run_id}/defects.pdf")
@@ -747,7 +749,7 @@ def _classify_and_run(tenant: str, user: str, case_ids: list[str]) -> None:
             if c is None or c.tenant_id != tenant:
                 continue
             try:
-                services.classify_case_files(s2, c, user)
+                services.classify_case_files(s2, c, user, commit_each=True)
                 s2.flush()
                 services.run_checks(s2, c, user)
                 s2.commit()

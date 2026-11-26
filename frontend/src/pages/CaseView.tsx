@@ -242,7 +242,7 @@ function Files({ c, onChange, locked }: { c: Case; onChange: () => Promise<void>
     setBusy(true)
     try {
       const r = await api.post<any>(`/api/cases/${c.id}/classify-documents`)
-      toast(r.changes.length ? `סווגו מחדש ${r.changes.length} מסמכים (AI מקומי); הבדיקה הורצה מחדש` : 'הסיווג לא השתנה; הבדיקה הורצה מחדש')
+      toast(`סיווג ${r.documents} מסמכים ב-AI מקומי התחיל; הדוח יתעדכן בסיומו`)
       await onChange()
     } catch (e: any) { toast(e.message, true) } finally { setBusy(false) }
   }

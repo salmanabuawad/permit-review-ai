@@ -19,11 +19,16 @@ def make_engine(url: str | None = None):
         path = url.replace("sqlite:///", "", 1)
         if path and path != ":memory:":
             Path(path).parent.mkdir(parents=True, exist_ok=True)
-        eng = create_engine(url, connect_args={"check_same_thread": False})
+        # a writer waits up to 30 s for another one instead of failing at once ("database is locked"); WAL lets readers
+        # go on while a background job writes
+        eng = create_engine(url, connect_args={"check_same_thread": False, "timeout": 30})
 
         @event.listens_for(eng, "connect")
         def _fk(dbapi_conn, _):  # enforce FKs in SQLite
             dbapi_conn.execute("PRAGMA foreign_keys=ON")
+            dbapi_conn.execute("PRAGMA busy_timeout=30000")
+            if path and path != ":memory:":
+                dbapi_conn.execute("PRAGMA journal_mode=WAL")
         return eng
     return create_engine(url, pool_pre_ping=True)
 

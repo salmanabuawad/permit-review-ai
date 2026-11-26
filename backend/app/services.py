@@ -72,7 +72,7 @@ def processing_status(case: PermitCase) -> dict:
 
 
 def classify_case_files(s: Session, case: PermitCase, user: str, gateway: AIGateway | None = None,
-                        only: set[str] | None = None) -> list[dict]:
+                        only: set[str] | None = None, commit_each: bool = False) -> list[dict]:
     """Re-type every document of a request with the AI gateway (local model through the relay; keyword fallback):
     the text of a PDF, the converted sheets of a DWFX, the file name of a DWG. The result is applied and audited."""
     import pymupdf
@@ -120,6 +120,8 @@ def classify_case_files(s: Session, case: PermitCase, user: str, gateway: AIGate
             audit.record(s, case.tenant_id, user, "file.classify", "case_file", f.id,
                          {"from": f.doc_type, "to": label, "confidence": conf, "provider": ai.provider_id})
             f.doc_type = label
+        if commit_each:           # model calls take seconds each: never hold the database across them
+            s.commit()
     return changes
 
 
