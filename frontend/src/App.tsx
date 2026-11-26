@@ -83,7 +83,7 @@ export default function App() {
 
   return (
     <AppCtx.Provider value={{ me, meta, can, toast }}>
-      <div className="app" style={{ ['--auth' as any]: isDemo ? '#d99a2b' : authorityColor(me?.tenant_id), ['--auth-name' as any]: JSON.stringify(isDemo ? 'סביבת הדגמה' : org) }}>
+      <div className="app" style={{ ['--auth' as any]: isDemo ? '#d99a2b' : authorityColor(me?.tenant_id) }}>
         {mobileOpen && <button className="mobile-overlay" aria-label="סגירת תפריט" onClick={() => setMobileOpen(false)} />}
         <aside className={'sidebar' + (mobileOpen ? ' mobile-open' : '')}>
           <div className="brand-lockup">

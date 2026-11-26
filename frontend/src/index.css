@@ -551,7 +551,3 @@ th, td { padding: 7px 10px; }
 .topbar { border-bottom:3px solid var(--auth,#167ca0); }
 .sidebar nav a.active { box-shadow: inset -4px 0 0 var(--auth,#4bd7c2); }
 .auth-dot { display:inline-block; width:12px; height:12px; border-radius:50%; flex-shrink:0; }
-/* authority name above every page title */
-.page-head h1::before, .dashboard-hero h1::before { content: var(--auth-name, ''); display: block; width: fit-content; max-width: 100%; font-size: 12.5px; font-weight: 700; letter-spacing: 0; line-height: 1.2; color: #fff; background: var(--auth, #167ca0); border-radius: 6px; padding: 3px 9px; margin-bottom: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.dashboard-hero h1::before { box-shadow: 0 0 0 1px rgba(255,255,255,.35); }
-@media print { .page-head h1::before { color: #000; background: none; border: 1px solid #999; } }
