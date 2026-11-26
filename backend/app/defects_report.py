@@ -119,53 +119,93 @@ def _rows(it: dict) -> list[tuple[str, str]]:
 
 # ------------------------------------------------------------------ PDF
 
+BLUE, MAROON, GREY = "#1F4E79", "#A23B3B", "#6B7280"
+KIND_SUB = {"CONFIRMED_DEFECT": "ליקוי", "DOCUMENTED_DISCREPANCY": "פער לבירור"}
+
+
+def _p(text: str, width: float, size: float = 9.5, bold: bool = False, color: str = "#1F2937",
+       label: str | None = None, space_after: float = 3):
+    """A right-aligned Hebrew paragraph (wrapped in logical order, then reordered per line), optionally starting with a
+    bold label such as "תיקון נדרש:"."""
+    from bidi.algorithm import get_display
+    from reportlab.lib.enums import TA_RIGHT
+    from reportlab.lib.styles import ParagraphStyle
+    from reportlab.platypus import Paragraph
+
+    from .reports import _wrap_logical
+    font = "He-Bold" if bold else "He"
+    full = f"{label} {text}" if label else str(text)
+    lines = [get_display(l) for l in _wrap_logical(full, font, size, width - 3)]
+    esc = lambda s: s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    out = [esc(l) for l in lines]
+    if label and lines:
+        vis = get_display(label)
+        if lines[0].endswith(vis):                 # RTL: the label sits at the visual right end of the first line
+            out[0] = esc(lines[0][: -len(vis)]) + f'<font name="He-Bold">{esc(vis)}</font>'
+    return Paragraph("<br/>".join(out), ParagraphStyle("p", fontName=font, fontSize=size, leading=size * 1.4,
+                                                       alignment=TA_RIGHT, textColor=color, spaceAfter=space_after))
+
+
+def _ref_text(it: dict) -> str:
+    parts = []
+    for e in it["evidence"][:3]:
+        w = e.get("file") or ""
+        if e.get("page"):
+            w += f", עמ׳ {e['page']}"
+        if w and w not in parts:
+            parts.append(w)
+    if it.get("regulation"):
+        parts.append(it["regulation"])
+    return "; ".join(parts)
+
+
 def render_defects_pdf(rep: dict) -> bytes:
+    """Short professional layout: title, one-line identification, one-sentence summary, then per item a numbered
+    heading, a category line, the finding in a few lines, the required correction and one reference line."""
     from reportlab.lib import colors
     from reportlab.lib.pagesizes import A4
     from reportlab.lib.units import mm
-    from reportlab.platypus import Image, KeepTogether, SimpleDocTemplate, Spacer, Table, TableStyle
+    from reportlab.platypus import KeepTogether, SimpleDocTemplate, Spacer
 
-    from .reports import _fonts, he
+    from .reports import _fonts
     _fonts()
     buf = io.BytesIO()
-    doc = SimpleDocTemplate(buf, pagesize=A4, rightMargin=14 * mm, leftMargin=14 * mm, topMargin=12 * mm,
-                            bottomMargin=12 * mm, title=rep["title"], author="permit-review")
-    W = A4[0] - 28 * mm
     c, rv = rep["case"], rep["revision"]
-    ident = (f"{(c['title'] or '')[:70]} · גוש {c['gush'] or '—'} חלקה {c['helka'] or '—'} · תכנית {', '.join(c['plans'] or []) or '—'} · "
-             f"גרסת בדיקה {rv['run']} ({rv['at']}, {rv['files']} קבצים) · שלב: {rv['stage_he'] or '—'}")
-    head = Table([[he(rep["title"], W, 15, True, in_cell=True)], [he(ident, W, 8.5, in_cell=True)],
-                  [he(f"המלצה: {rep['decision_he']}" + (f" — {rep['decision_why']}" if rep.get("decision_why") else ""), W, 10, True, in_cell=True)]],
-                 colWidths=[W])
-    head.setStyle(TableStyle([("BACKGROUND", (0, 0), (-1, -1), colors.HexColor(NEUTRAL)),
-                              ("BOX", (0, 0), (-1, -1), 0.4, colors.HexColor(LINE))]))
-    story = [head, Spacer(1, 8)]
-    if not rep["items"]:
-        story.append(he("לא נמצאו ליקויים בבדיקות שהושלמו.", W, 10, True))
-    label_w, body_w = 26 * mm, W - 26 * mm
+    when = dt.datetime.now(ZoneInfo("Asia/Jerusalem")).strftime("%d.%m.%Y")
+
+    def footer(canvas, doc):
+        from bidi.algorithm import get_display
+        canvas.saveState()
+        canvas.setFont("He", 7.5)
+        canvas.setFillColor(colors.HexColor(GREY))
+        canvas.drawRightString(A4[0] - 16 * mm, 10 * mm, get_display(f"דוח ליקויים · {when}  |  עמוד {doc.page}"))
+        canvas.restoreState()
+
+    doc = SimpleDocTemplate(buf, pagesize=A4, rightMargin=16 * mm, leftMargin=16 * mm, topMargin=14 * mm,
+                            bottomMargin=16 * mm, title=rep["title"], author="permit-review")
+    W = A4[0] - 32 * mm
+    place = (c.get("title") or "").split("—")[0].strip()[:60]
+    story = [_p(f"בדיקת בקשות להיתר  |  {place}", W, 8, True, BLUE, space_after=2),
+             _p("דוח ליקויים", W, 20, True, BLUE, space_after=4),
+             _p(f"בקשה {c['number']}" + (f"  |  {c['address']}" if c.get("address") else ""), W, 11, True, "#374151", space_after=2),
+             _p(f"גוש {c['gush'] or '—'}, חלקה {c['helka'] or '—'} | תכנית {', '.join(c['plans'] or []) or '—'} | "
+                f"גרסת בדיקה {rv['run']} ({rv['at']})", W, 8, False, GREY, space_after=6)]
+    n_def, n_disc = rep["counts"].get("CONFIRMED_DEFECT", 0), rep["counts"].get("DOCUMENTED_DISCREPANCY", 0)
+    summary = (f"{rep['decision_he']}: {n_def} ליקויים ו־{n_disc} פערים לבירור מחייבים תיקון או הבהרה לפני המשך הטיפול."
+               if rep["items"] else "לא נמצאו ליקויים בבדיקות שהושלמו.")
+    story += [_p(summary, W, 10, False, space_after=8)]
     for it in rep["items"]:
-        bg = colors.HexColor(RED if it["kind"] == "CONFIRMED_DEFECT" else ORANGE)
-        data = [[he(f"{KIND_HE[it['kind']]} {it['no']} — {it['title']}", W, 10, True, in_cell=True), ""]]
-        for k, v in _rows(it):
-            data.append([he(v, body_w, 8.5, in_cell=True), he(k, label_w, 8.5, True, in_cell=True)])   # RTL: label on the right
-        t = Table(data, colWidths=[body_w, label_w])
-        t.setStyle(TableStyle([("SPAN", (0, 0), (1, 0)), ("BACKGROUND", (0, 0), (-1, 0), bg),
-                               ("BACKGROUND", (1, 1), (1, -1), colors.HexColor("#FAFAFB")),
-                               ("BOX", (0, 0), (-1, -1), 0.4, colors.HexColor(LINE)),
-                               ("INNERGRID", (0, 1), (-1, -1), 0.25, colors.HexColor(LINE)), ("VALIGN", (0, 0), (-1, -1), "TOP")]))
-        block = [t]
-        img = next((p for p in (_image(e) for e in it["evidence"]) if p), None)
-        if img:
-            from reportlab.lib.utils import ImageReader
-            iw, ih = ImageReader(img).getSize()
-            w = min(W, 150 * mm)
-            block += [Spacer(1, 2), Image(img, width=w, height=w * ih / iw), he("קטע מהמסמך המקורי (ללא שינוי)", W, 7)]
-        story += [KeepTogether(block), Spacer(1, 7)]
-    lim = Table([[he("גבולות הדוח: " + rep["limitations_he"], W, 8, in_cell=True)]], colWidths=[W])
-    lim.setStyle(TableStyle([("BACKGROUND", (0, 0), (-1, -1), colors.HexColor(NEUTRAL)),
-                             ("BOX", (0, 0), (-1, -1), 0.4, colors.HexColor(LINE))]))
-    story += [lim, Spacer(1, 4), he(f"הופק {dt.datetime.now(ZoneInfo('Asia/Jerusalem')).strftime('%d.%m.%Y %H:%M')}", W, 7)]
-    doc.build(story)
+        block = [_p(f"{it['no']} | {it['title']}", W, 12.5, True, BLUE, space_after=2),
+                 _p(KIND_SUB[it["kind"]] + (f" — {it['diff']}" if it.get("diff") else ""), W, 9, True, MAROON, space_after=2),
+                 _p(it["found"] + (f" ({it['where']})" if it.get("where") else ""), W, 9.5)]
+        block.append(_p(it.get("correction") or "לתקן או להבהיר בהתאם לממצא.", W, 9.5, label="תיקון נדרש:"))
+        ref = _ref_text(it)
+        if ref:
+            block.append(_p("אסמכתה: " + ref, W, 7.5, False, GREY))
+        story += [KeepTogether(block), Spacer(1, 8)]
+    story.append(_p("הדוח מפרט ליקויים ופערים מתועדים בלבד; אין לראות בהשמטת נושא אישור לתקינותו. "
+                    "ההמלצה היא של מערכת הבדיקה ואינה החלטת רשות הרישוי.", W, 7.5, False, GREY))
+    doc.build(story, onFirstPage=footer, onLaterPages=footer)
     return buf.getvalue()
 
 
