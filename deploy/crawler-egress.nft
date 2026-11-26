@@ -1,0 +1,35 @@
+#!/usr/sbin/nft -f
+# Permit Review AI — outbound traffic of the regulatory crawler (OS user permit-crawler) only.
+# Public internet on ports 80/443 and the local DNS resolver; nothing else: not this server (any of its addresses),
+# not its hosting subnet, not private / link-local / loopback / carrier-grade NAT / metadata / multicast ranges.
+# Checked on every connection, so redirects and DNS-rebinding answers are covered too. Other users are untouched.
+# Installed as /etc/permit-review-ai/crawler-egress.nft, loaded by permit-crawler-egress.service.
+table inet permit_crawler
+delete table inet permit_crawler
+
+table inet permit_crawler {
+    set blocked4 {
+        type ipv4_addr; flags interval
+        elements = { 0.0.0.0/8, 10.0.0.0/8, 100.64.0.0/10, 127.0.0.0/8, 169.254.0.0/16, 172.16.0.0/12,
+                     192.0.0.0/24, 192.0.2.0/24, 192.168.0.0/16, 198.18.0.0/15, 198.51.100.0/24, 203.0.113.0/24,
+                     224.0.0.0/4, 240.0.0.0/4, 185.229.226.0/24 }
+    }
+    set blocked6 {
+        type ipv6_addr; flags interval
+        elements = { ::/128, ::1/128, ::ffff:0:0/96, 64:ff9b::/96, 100::/64, 2001:db8::/32, fc00::/7, fe80::/10,
+                     ff00::/8 }
+    }
+    # Only traffic positively owned by permit-crawler enters the crawler chain. Packets without an owning socket
+    # (kernel-sent TCP ACK/RST, ICMP) never match, so other services on this server are never affected.
+    chain output {
+        type filter hook output priority 0; policy accept;
+        meta skuid "permit-crawler" jump crawler
+    }
+    chain crawler {
+        ip daddr 127.0.0.53 meta l4proto { udp, tcp } th dport 53 accept
+        ip daddr @blocked4 counter reject
+        ip6 daddr @blocked6 counter reject
+        tcp dport { 80, 443 } accept
+        counter reject
+    }
+}

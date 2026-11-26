@@ -1,0 +1,13 @@
+[Unit]
+Description=Permit Review AI - crawler egress rules (public internet only for permit-crawler)
+Before=permit-review-ai-crawler.service
+After=network-pre.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/sbin/nft -f /etc/permit-review-ai/crawler-egress.nft
+ExecStop=/usr/sbin/nft delete table inet permit_crawler
+
+[Install]
+WantedBy=multi-user.target

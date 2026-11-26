@@ -202,3 +202,60 @@ def test_bulk_recheck_selected_and_all():
         # another tenant's case id is simply not found in this tenant
         other = c.post("/api/cases/recheck", json={"case_ids": ["not-a-case"]}, headers=R).json()
         assert other["requested"] == 0
+
+
+def test_separate_crawler_queues_and_runs_crawls(env, monkeypatch):
+    """BBP_CRAWLER_SEPARATE: the app only queues (never fetches, even when wait is asked); the crawler process claims
+    the crawl and runs it; a crawl left running by a dead crawler is failed at the crawler's start."""
+    import dataclasses
+
+    import app.main as main
+    from app.crawler_worker import run_once
+    from app.db import SessionLocal
+    from app.models import SourceCrawl
+    c, web = env
+    sep = dataclasses.replace(S.settings, crawler_separate=True)
+    monkeypatch.setattr(S, "settings", sep)
+    monkeypatch.setattr(main, "settings", sep)
+    before = len(web.calls)
+    r = c.post("/api/source-monitor/crawl?wait=true", headers=ENG)
+    assert r.status_code == 200 and r.json()["status"] == "queued"
+    assert len(web.calls) == before                                     # the app fetched nothing
+    assert c.post("/api/source-monitor/crawl", headers=ENG).status_code == 409   # one active crawl per authority
+    assert run_once() is True                                          # the crawler process
+    assert len(web.calls) > before
+    with SessionLocal() as s:
+        assert s.get(SourceCrawl, r.json()["id"]).status == "done"
+        stuck = SourceCrawl(tenant_id="bnei-brak", triggered_by="t", summary={}, status="running")
+        s.add(stuck)
+        s.commit()
+        sid = stuck.id
+    assert S.fail_interrupted(SessionLocal) >= 1
+    with SessionLocal() as s:
+        assert s.get(SourceCrawl, sid).status == "failed"
+
+
+def test_crawl_schedule_is_on_demand_unless_the_admin_sets_one(env):
+    """Default: on demand only — the crawler never queues a crawl on its own. Only the administrator sets daily/weekly."""
+    from app.db import SessionLocal
+    from app.models import SourceCrawl
+    c, _ = env
+    assert c.get("/api/source-monitor", headers=ENG).json()["schedule"] == "on_demand"
+    assert S.queue_due(SessionLocal) == []
+    assert c.put("/api/source-monitor/schedule", json={"schedule": "daily"}, headers=ENG).status_code == 403
+    assert c.put("/api/source-monitor/schedule", json={"schedule": "hourly"},
+                 headers={"X-User": "u-admin"}).status_code == 422
+    assert c.put("/api/source-monitor/schedule", json={"schedule": "daily"}, headers={"X-User": "u-admin"}).status_code == 200
+    tenant = c.get("/api/me", headers={"X-User": "u-admin"}).json()["tenant_id"]
+    assert c.get("/api/source-monitor", headers=ENG).json()["schedule"] == "daily"
+    with SessionLocal() as s:                                          # last crawl older than a day
+        for x in s.scalars(S.select(SourceCrawl).where(SourceCrawl.tenant_id == tenant)):
+            x.started_at = x.started_at - S.dt.timedelta(days=2)
+            if x.status in ("running", "queued"):
+                x.status = "done"
+        s.commit()
+    due = S.queue_due(SessionLocal)
+    assert len(due) == 1 and S.queue_due(SessionLocal) == []           # one queued crawl, not a second
+    with SessionLocal() as s:
+        assert s.get(SourceCrawl, due[0]).triggered_by == "system:schedule"
+    assert c.put("/api/source-monitor/schedule", json={"schedule": "on_demand"}, headers={"X-User": "u-admin"}).status_code == 200

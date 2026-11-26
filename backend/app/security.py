@@ -36,6 +36,7 @@ PERMISSIONS = {
     "source.crawl":    {"sysadmin", "city_engineer", "dept_manager"},
     "rule.edit":       {"sysadmin", "city_engineer", "dept_manager"},   # authoring; approval stays rule.approve
     "ai.configure":    {"sysadmin"},
+    "source.schedule": {"sysadmin"},                                    # crawl on demand only, or daily / weekly
     "audit.read":      {"sysadmin", "city_engineer", "dept_manager"},
     "dashboard.read":  {"sysadmin", "city_engineer", "dept_manager"},
 }

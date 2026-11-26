@@ -1,0 +1,27 @@
+[Unit]
+Description=Permit Review AI - regulatory source crawler (on demand; public internet only)
+# never runs without its egress rules: stops when they are removed
+BindsTo=permit-crawler-egress.service
+After=permit-crawler-egress.service network-online.target
+Wants=network-online.target
+
+[Service]
+User=permit-crawler
+Group=permit-crawler
+SupplementaryGroups=permit
+WorkingDirectory=/opt/permit-review-ai/app/backend
+EnvironmentFile=/opt/permit-review-ai/.env
+ExecStart=/opt/permit-review-ai/app/.venv/bin/python -m app.crawler_worker
+Restart=on-failure
+RestartSec=10
+UMask=0007
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/opt/permit-review-ai/var
+CapabilityBoundingSet=
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+
+[Install]
+WantedBy=multi-user.target

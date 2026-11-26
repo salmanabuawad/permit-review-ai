@@ -23,10 +23,11 @@ export default function SourceMonitor() {
   const [regSources, setRegSources] = useState<any[]>([])
   const poll = useRef<number | null>(null)
   const canCrawl = can('source.crawl')
+  const canSchedule = can('source.schedule')
 
   const load = () => api.get<any>('/api/source-monitor').then(d => {
     setData(d)
-    if (d.last_crawl?.status === 'running') schedule()
+    if (['running', 'queued'].includes(d.last_crawl?.status)) schedule()
     return d
   }).catch(e => toast(e.message, true))
   const schedule = () => { if (poll.current) window.clearTimeout(poll.current); poll.current = window.setTimeout(load, 2500) }
@@ -37,7 +38,11 @@ export default function SourceMonitor() {
   }, [])
 
   const crawl = async () => {
-    try { await api.post('/api/source-monitor/crawl'); toast('הסריקה התחילה'); load() }
+    try { await api.post('/api/source-monitor/crawl'); toast('הסריקה נשלחה לסורק'); load() }
+    catch (e: any) { toast(e.message, true) }
+  }
+  const setSchedule = async (schedule: string) => {
+    try { await api.put('/api/source-monitor/schedule', { schedule }); toast('תזמון הסריקות עודכן'); load() }
     catch (e: any) { toast(e.message, true) }
   }
   const ack = async (id: number) => {
@@ -53,7 +58,7 @@ export default function SourceMonitor() {
 
   const lc = data?.last_crawl
   const sm = lc?.summary ?? {}
-  const running = lc?.status === 'running'
+  const running = lc?.status === 'running' || lc?.status === 'queued'
   const docs: any[] = data?.documents ?? []
   return (
     <>
@@ -62,6 +67,12 @@ export default function SourceMonitor() {
         <span className="spacer" />
         <button onClick={() => openBlob('/api/source-monitor/drafts.yaml', 'rule_drafts.yaml').catch(e => toast(e.message, true))}
           disabled={!data?.drafts?.for_authoring} title="שלדי כללים מהטיוטות שסומנו לכתיבת כלל">ייצוא טיוטות ({data?.drafts?.for_authoring ?? 0})</button>
+        {data && (canSchedule
+          ? <label className="row small">תזמון סריקות
+              <select value={data.schedule} onChange={e => setSchedule(e.target.value)} aria-label="תזמון סריקות">
+                {Object.entries(data.schedules ?? {}).map(([k, v]) => <option key={k} value={k}>{String(v)}</option>)}
+              </select></label>
+          : <span className="small muted">תזמון סריקות: {data.schedules?.[data.schedule] ?? data.schedule}</span>)}
         {canCrawl && <button className="primary" onClick={crawl} disabled={running}>{running ? 'סורק…' : 'סריקה עכשיו'}</button>}
       </div>
       <div className="notice info small" style={{ marginBottom: 14 }}>
@@ -71,7 +82,7 @@ export default function SourceMonitor() {
       </div>
 
       <div className="summary-strip">
-        <div><b className="small">{running ? 'רצה כעת…' : lc ? fmtDT(lc.finished_at ?? lc.started_at) : 'טרם בוצעה'}</b><span>סריקה אחרונה{lc?.status === 'failed' ? ' — נכשלה' : ''}</span></div>
+        <div><b className="small">{lc?.status === 'queued' ? 'ממתינה לסורק…' : running ? 'רצה כעת…' : lc ? fmtDT(lc.finished_at ?? lc.started_at) : 'טרם בוצעה'}</b><span>סריקה אחרונה{lc?.status === 'failed' ? ' — נכשלה' : ''}</span></div>
         <div><b className="num">{sm.checked ?? 0}</b><span>כתובות נבדקו</span></div>
         <div className={sm.new ? 's-ok' : ''}><b className="num">{sm.new ?? 0}</b><span>חדשים</span></div>
         <div className={sm.changed ? 's-ok' : ''}><b className="num">{sm.changed ?? 0}</b><span>השתנו</span></div>

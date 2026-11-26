@@ -95,17 +95,21 @@ def match_register(url: str, text: str, tenant_id: str | None = None) -> str | N
 
 def start_crawl(session_factory, tenant: str, user: str, wait: bool = False,
                 fetcher: Callable | None = None, sleep: Callable = time.sleep) -> str:
-    """Create a crawl record and run it in a background thread (or inline when wait=True)."""
+    """Create a crawl record and run it: inline when wait=True; queued for the crawler process when the app is set to
+    never fetch itself (BBP_CRAWLER_SEPARATE); else in a background thread."""
+    queue_only = not wait and settings.crawler_separate
     with session_factory() as s:
-        running = s.scalars(select(SourceCrawl).where(SourceCrawl.tenant_id == tenant, SourceCrawl.status == "running")).all()
+        running = s.scalars(select(SourceCrawl).where(SourceCrawl.tenant_id == tenant,
+                                                      SourceCrawl.status.in_(("running", "queued")))).all()
         now = dt.datetime.now(dt.timezone.utc)
         for c in running:
-            if now - c.started_at > STALE_AFTER:            # server restarted mid-crawl
+            if now - c.started_at > STALE_AFTER:            # server restarted mid-crawl, or the crawler is down
+                why = "הסריקה הופסקה (השרת הופעל מחדש)" if c.status == "running" else "הסורק לא אסף את הסריקה בזמן"
                 c.status, c.finished_at = "failed", now
-                c.summary = {**(c.summary or {}), "error": "הסריקה הופסקה (השרת הופעל מחדש)"}
+                c.summary = {**(c.summary or {}), "error": why}
             else:
                 raise RuntimeError("סריקה כבר רצה")
-        crawl = SourceCrawl(tenant_id=tenant, triggered_by=user, summary={})
+        crawl = SourceCrawl(tenant_id=tenant, triggered_by=user, summary={}, status="queued" if queue_only else "running")
         s.add(crawl)
         audit.record(s, tenant, user, "source.crawl.start", "source_crawl", None, {})
         s.commit()
@@ -125,9 +129,79 @@ def start_crawl(session_factory, tenant: str, user: str, wait: bool = False,
 
     if wait:
         work()
-    else:
+    elif not queue_only:
         threading.Thread(target=work, name=f"source-crawl-{cid}", daemon=True).start()
     return cid
+
+
+SCHEDULES = {"on_demand": None, "daily": dt.timedelta(days=1), "weekly": dt.timedelta(days=7)}
+SCHEDULE_HE = {"on_demand": "לפי דרישה בלבד", "daily": "יומית", "weekly": "שבועית"}
+
+
+def schedule_of(org) -> str:
+    """The authority's crawl schedule, set by its administrator. Default: on demand only."""
+    mode = ((org.settings or {}).get("source_monitor") or {}).get("schedule") if org else None
+    return mode if mode in SCHEDULES else "on_demand"
+
+
+def queue_due(session_factory) -> list[str]:
+    """Queue a crawl for each authority whose administrator chose a schedule and whose last crawl is older than it.
+    Authorities left on demand are never crawled on their own."""
+    from ..models import Municipality
+    out = []
+    now = dt.datetime.now(dt.timezone.utc)
+    with session_factory() as s:
+        for org in s.scalars(select(Municipality)):
+            every = SCHEDULES[schedule_of(org)]
+            if every is None:
+                continue
+            last = s.scalars(select(SourceCrawl).where(SourceCrawl.tenant_id == org.id)
+                             .order_by(SourceCrawl.started_at.desc())).first()
+            if last and (last.status in ("running", "queued") or now - last.started_at < every):
+                continue
+            c = SourceCrawl(tenant_id=org.id, triggered_by="system:schedule", summary={}, status="queued")
+            s.add(c)
+            audit.record(s, org.id, "system:schedule", "source.crawl.start", "source_crawl", None,
+                         {"schedule": schedule_of(org)})
+            s.commit()
+            out.append(c.id)
+    return out
+
+
+def claim_queued(session_factory) -> str | None:
+    """The oldest queued crawl, marked running (crawler process only)."""
+    with session_factory() as s:
+        c = s.scalars(select(SourceCrawl).where(SourceCrawl.status == "queued").order_by(SourceCrawl.started_at)).first()
+        if not c:
+            return None
+        c.status, c.started_at = "running", dt.datetime.now(dt.timezone.utc)
+        s.commit()
+        return c.id
+
+
+def run_claimed(session_factory, cid: str, fetcher: Callable | None = None, sleep: Callable = time.sleep) -> None:
+    with session_factory() as s:
+        c = s.get(SourceCrawl, cid)
+        try:
+            execute_crawl(s, c, fetcher=fetcher, sleep=sleep)
+        except Exception as e:                               # noqa: BLE001 — recorded, the worker goes on
+            s.rollback()
+            c = s.get(SourceCrawl, cid)
+            c.status, c.finished_at = "failed", dt.datetime.now(dt.timezone.utc)
+            c.summary = {**(c.summary or {}), "error": str(e)[:500]}
+            s.commit()
+
+
+def fail_interrupted(session_factory) -> int:
+    """At crawler start: a crawl still 'running' belonged to a crawler process that died."""
+    with session_factory() as s:
+        n = 0
+        for c in s.scalars(select(SourceCrawl).where(SourceCrawl.status == "running")):
+            c.status, c.finished_at = "failed", dt.datetime.now(dt.timezone.utc)
+            c.summary = {**(c.summary or {}), "error": "הסריקה הופסקה (הסורק הופעל מחדש)"}
+            n += 1
+        s.commit()
+        return n
 
 
 def execute_crawl(s: Session, crawl: SourceCrawl, fetcher: Callable | None = None, sleep: Callable = time.sleep) -> None:

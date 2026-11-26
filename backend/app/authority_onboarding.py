@@ -104,8 +104,9 @@ def discover(tenant,name,fetcher=None,sleep=time.sleep):
     if len(set(matches))==1: return list(matches[0]),errors,'GOV_DIRECTORY'
     return [],errors,'AMBIGUOUS_OR_NOT_FOUND'
 
-LEASE = 1800          # seconds a worker holds an authority's onboarding job; an expired lease is recovered
-MAX_ATTEMPTS = 3
+LEASE = 1800          # seconds a worker holds an authority's onboarding job
+MAX_ATTEMPTS = 1      # on demand only: a failed or interrupted job is shown as FAILED and re-run by a user, never
+                      # retried or resumed automatically
 ACTIVE = ('DISCOVERY_PENDING', 'DISCOVERING', 'CRAWLING')
 
 
@@ -123,8 +124,9 @@ def _set(factory, tenant, **onboarding):
 
 
 def start_onboarding(factory, tenant, actor, wait=False, fetcher=None, sleep=time.sleep):
-    """Queue discovery + first crawl for an authority. The job is a durable row state (DISCOVERY_PENDING), not a thread:
-    the onboarding worker claims it with a lease, so an app restart resumes it. wait=True runs it inline (tests, CLI)."""
+    """Queue discovery + first crawl for an authority (a user's request). The job is a durable row state
+    (DISCOVERY_PENDING), not a thread: the crawler claims it with a lease; one whose lease expired (the crawler died)
+    is marked FAILED, never resumed on its own. wait=True runs it inline (tests, CLI)."""
     _set(factory, tenant, state='DISCOVERY_PENDING', knowledge_verified=False, actor=actor, attempts=0,
          lease_until=None, queued_at=_now())
     if wait:
@@ -132,7 +134,7 @@ def start_onboarding(factory, tenant, actor, wait=False, fetcher=None, sleep=tim
 
 
 def claim_next(factory):
-    """The next authority whose onboarding is queued, or whose lease expired (worker died mid-job). One per call."""
+    """The next authority whose onboarding is queued; one whose lease expired (worker died mid-job) becomes FAILED."""
     with factory() as s:
         for o in s.scalars(select(Municipality)):
             ob = (o.settings or {}).get('onboarding') or {}
@@ -184,13 +186,12 @@ def run_onboarding(factory, tenant, fetcher=None, sleep=time.sleep):
                                                     'crawl_id': cid, 'local_documents': len(local_docs), 'summary': c.summary,
                                                     'lease_until': None}}
                 s.commit()
-    except Exception as e:                                    # noqa: BLE001 — recorded; retried while attempts remain
-        _set(factory, tenant, state='DISCOVERY_PENDING', knowledge_verified=False, error=type(e).__name__,
-             lease_until=_now() + 60)                         # back off a minute before the retry
+    except Exception as e:                                    # noqa: BLE001 — recorded; a user re-runs it
+        _set(factory, tenant, state='FAILED', knowledge_verified=False, error=type(e).__name__, lease_until=None)
 
 
 def worker(factory, interval_s=15.0):
-    """Durable onboarding worker (BBP_ONBOARDING_WORKER=true): claims queued or stale jobs, one at a time."""
+    """Onboarding worker inside the app (BBP_ONBOARDING_WORKER=true, only without a separate crawler process)."""
     while True:
         try:
             t = claim_next(factory)

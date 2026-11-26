@@ -85,9 +85,9 @@ def test_blocked_directory_is_not_success(monkeypatch):
     assert not roots and len(errors)==6 and origin=='AMBIGUOUS_OR_NOT_FOUND'
 
 
-def test_onboarding_job_is_durable_and_recovers_a_stale_lease():
-    """A queued job survives a restart (it is a row state, not a thread); an expired lease is reclaimed; after
-    MAX_ATTEMPTS the job fails visibly instead of staying pending."""
+def test_onboarding_job_is_durable_and_never_resumed_on_its_own():
+    """A queued job survives a restart (it is a row state, not a thread) and is claimed once; a job whose lease expired
+    (the crawler died) or that failed becomes FAILED — on demand only: a user starts it again."""
     from app import authority_onboarding as A
     from app.db import SessionLocal
     from app.models import Municipality
@@ -98,23 +98,23 @@ def test_onboarding_job_is_durable_and_recovers_a_stale_lease():
     A.start_onboarding(SessionLocal, 'durable-test', 'u-admin')           # queued only — no thread
     with SessionLocal() as s:
         assert s.get(Municipality, 'durable-test').settings['onboarding']['state'] == 'DISCOVERY_PENDING'
-    seen = set()
     while (t := A.claim_next(SessionLocal)) and t != 'durable-test':
-        seen.add(t)                                                        # other tests' queued authorities
+        pass                                                               # other tests' queued authorities
     assert t == 'durable-test'
-    assert A.claim_next(SessionLocal) != 'durable-test'                     # leased: not claimed twice
+    assert A.claim_next(SessionLocal) != 'durable-test'                    # leased: not claimed twice
     with SessionLocal() as s:
         ob = s.get(Municipality, 'durable-test').settings['onboarding']
         assert ob['state'] == 'DISCOVERING' and ob['attempts'] == 1 and ob['lease_until'] > A._now()
-    for attempt in (2, 3):                                                 # the worker "dies": lease expires
-        A._set(SessionLocal, 'durable-test', lease_until=A._now() - 1)
-        while (t := A.claim_next(SessionLocal)) and t != 'durable-test':
-            pass
-        with SessionLocal() as s:
-            ob = s.get(Municipality, 'durable-test').settings['onboarding']
-        assert ob['attempts'] == attempt and ob['recovered'] is True
-    A._set(SessionLocal, 'durable-test', lease_until=A._now() - 1)
+    A._set(SessionLocal, 'durable-test', lease_until=A._now() - 1)         # the crawler "dies"
     while (t := A.claim_next(SessionLocal)):
-        assert t != 'durable-test', 'claimed beyond MAX_ATTEMPTS'
+        assert t != 'durable-test', 'an interrupted job was resumed on its own'
     with SessionLocal() as s:
         assert s.get(Municipality, 'durable-test').settings['onboarding']['state'] == 'FAILED'
+    A.start_onboarding(SessionLocal, 'durable-test', 'u-admin')            # a user starts it again
+    while (t := A.claim_next(SessionLocal)) and t != 'durable-test':
+        pass
+    assert t == 'durable-test'
+    A.run_onboarding(SessionLocal, 'durable-test', fetcher=lambda *a, **k: 1 / 0, sleep=lambda _: None)
+    with SessionLocal() as s:
+        ob = s.get(Municipality, 'durable-test').settings['onboarding']
+    assert ob['state'] == 'FAILED' and ob['error'] == 'ZeroDivisionError'   # failure: no automatic retry

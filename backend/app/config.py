@@ -50,6 +50,9 @@ class Settings:
     vision_model: str = _env("VISION_MODEL", "ministral-3-8b-vision")
     typing_worker: bool = _env("TYPING_WORKER", "false").lower() in ("1", "true", "yes")   # on in the deployed app
     onboarding_worker: bool = _env("ONBOARDING_WORKER", "false").lower() in ("1", "true", "yes")  # authority discovery jobs
+    # the app never fetches regulatory sites itself: crawls are queued for the crawler process (app.crawler_worker),
+    # which runs as its own OS user behind a public-internet-only firewall
+    crawler_separate: bool = _env("CRAWLER_SEPARATE", "false").lower() in ("1", "true", "yes")
     login_required: bool = _env("LOGIN_REQUIRED", "false").lower() in ("1", "true", "yes")  # app login page + session cookie
     login_user_id: str = _env("LOGIN_USER_ID", "u-ha-admin")   # the single administrator the login maps to
     llm_relay_poll_interval_s: float = float(_env("LLM_RELAY_POLL_INTERVAL", "1"))

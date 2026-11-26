@@ -1159,17 +1159,37 @@ def source_monitor(p: Principal = Depends(require("case.read")), s: Session = De
     totals = {k: sum(v.get(k, 0) for v in drafts.values()) for k in ("open", "for_authoring", "dismissed", "superseded")}
     return {"last_crawl": _crawl_dict(last), "documents": [_src_doc_dict(d, drafts) for d in docs],
             "drafts": totals, "hosts": sorted(source_service.allowed_hosts(p.tenant_id, s)),
+            "schedule": source_service.schedule_of(s.get(Municipality, p.tenant_id)),
+            "schedules": source_service.SCHEDULE_HE,
             "attention": sum(1 for d in docs if d.change_state in ("new", "changed") and not d.acknowledged)}
 
 
 @app.post("/api/source-monitor/crawl")
 def source_crawl(wait: bool = False, p: Principal = Depends(require("source.crawl"))):
-    try:
-        cid = source_service.start_crawl(SessionLocal, p.tenant_id, p.id, wait=wait)
+    try:   # with a separate crawler the app never fetches: the crawl is queued even when wait is asked
+        cid = source_service.start_crawl(SessionLocal, p.tenant_id, p.id, wait=wait and not settings.crawler_separate)
     except RuntimeError as e:
         raise HTTPException(409, str(e)) from e
     with SessionLocal() as s:
         return _crawl_dict(s.get(SourceCrawl, cid))
+
+
+class ScheduleIn(BaseModel):
+    schedule: str
+
+
+@app.put("/api/source-monitor/schedule")
+def source_schedule(body: ScheduleIn, p: Principal = Depends(require("source.schedule")), s: Session = Depends(get_session)):
+    """How often this authority's sources are crawled: on demand only (default), daily or weekly. Administrator only."""
+    if body.schedule not in source_service.SCHEDULES:
+        raise HTTPException(422, "תזמון לא מוכר")
+    org = s.get(Municipality, p.tenant_id)
+    old = source_service.schedule_of(org)
+    org.settings = {**(org.settings or {}), "source_monitor": {**((org.settings or {}).get("source_monitor") or {}),
+                                                               "schedule": body.schedule}}
+    audit.record(s, p.tenant_id, p.id, "source.schedule", "municipality", p.tenant_id, {"from": old, "to": body.schedule})
+    s.commit()
+    return {"schedule": body.schedule}
 
 
 @app.post("/api/source-monitor/upload")
