@@ -33,6 +33,8 @@ class AIResult:
     latency_ms: int = 0
     cost_ils: float = 0.0
     trail: list[dict] = field(default_factory=list)   # why each provider was used/skipped
+    tokens_in: int = 0                  # as reported by the model server's `usage` (0 = not reported / no model)
+    tokens_out: int = 0
 
 
 class ProviderError(RuntimeError):
@@ -90,7 +92,17 @@ def llm_chat(model: str, prompt: str, json_mode: bool = False) -> str:
     req = urllib.request.Request(settings.llm_base_url.rstrip("/") + "/chat/completions",
                                  data=json.dumps(body).encode(), headers={"Content-Type": "application/json"})
     with urllib.request.urlopen(req, timeout=settings.llm_timeout_s) as r:
-        return json.loads(r.read())["choices"][0]["message"]["content"]
+        data = json.loads(r.read())
+    u = data.get("usage") or {}
+    acc = _USAGE.get()
+    if acc is not None:
+        acc.append((int(u.get("prompt_tokens") or 0), int(u.get("completion_tokens") or 0)))
+    return data["choices"][0]["message"]["content"]
+
+
+# token usage of the model calls made inside one route() (a list per context: threads and requests do not mix)
+import contextvars  # noqa: E402
+_USAGE: contextvars.ContextVar[list | None] = contextvars.ContextVar("llm_usage", default=None)
 
 
 STATUS_HE = {"PASS": "עומד", "FAIL": "לא עומד", "UNCERTAIN": "דורש בדיקה", "NA": "לא חל"}
@@ -324,15 +336,20 @@ class AIGateway:
                 first_ok = False
                 continue
             t0 = time.perf_counter()
+            tok = _USAGE.set([])
             try:
                 out = impl(task, payload, cfg)
             except Exception as exc:  # noqa: BLE001
                 trail.append({"provider": pid, "error": str(exc)[:200]})
                 first_ok = False
+                _USAGE.reset(tok)
                 continue
+            used = _USAGE.get() or []
+            _USAGE.reset(tok)
             ms = int((time.perf_counter() - t0) * 1000)
             res = AIResult(task, "OK" if first_ok else "FALLBACK", pid, cfg.get("model_version"), out, ms,
-                           float(cfg.get("cost_per_unit_ils", 0.0)), trail + [{"provider": pid, "used": True}])
+                           float(cfg.get("cost_per_unit_ils", 0.0)), trail + [{"provider": pid, "used": True}],
+                           sum(a for a, _ in used), sum(b for _, b in used))
             log and log(res)
             return res
         res = AIResult(task, "MANUAL_REVIEW", None, None, trail=trail)

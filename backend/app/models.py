@@ -454,3 +454,43 @@ class RuleDefinition(Base):
     created_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), default=_now)
     updated_by: Mapped[str] = mapped_column(String(40))
     updated_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), default=_now)
+
+
+class ReviewAttestation(Base):
+    """A reviewer's signed statement about one check run (V9: a real authenticated review record, not a flag in JSON).
+
+    `digest` is the SHA-256 of the run's canonical content (inputs, rule-set hash, every finding's status and reviewer
+    decision); `signature` is an HMAC of (run id, digest, user, role, decision, time) with the server's attestation
+    key, which never leaves the app server. An attestation is valid only while the run still has that digest and is
+    the case's latest run — a new run or a changed finding makes it STALE, a wrong signature makes it INVALID."""
+    __tablename__ = "review_attestations"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    tenant_id: Mapped[str] = mapped_column(String(40), index=True)
+    case_id: Mapped[str] = mapped_column(String(32), index=True)
+    run_id: Mapped[str] = mapped_column(String(32), index=True)
+    run_version: Mapped[int] = mapped_column(Integer)
+    user_id: Mapped[str] = mapped_column(String(40))
+    role: Mapped[str] = mapped_column(String(40))
+    decision: Mapped[str] = mapped_column(String(40))          # REVIEWED | APPROVED_FOR_REPORT | REJECTED_RUN
+    note: Mapped[str] = mapped_column(Text, default="")
+    digest: Mapped[str] = mapped_column(String(64))
+    signature: Mapped[str] = mapped_column(String(64))
+    at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), default=_now)
+
+
+class DerivationCache(Base):
+    """Derived data keyed by input SHA-256 + algorithm and version (+ jurisdiction and application revision for
+    case-level results). Changing a file, an algorithm version or the rule set changes the key; `invalidate` removes
+    a file's derivatives and every case-level result that depended on it."""
+    __tablename__ = "derivation_cache"
+    key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    scope: Mapped[str] = mapped_column(String(10))              # document | case
+    algorithm: Mapped[str] = mapped_column(String(80))
+    algorithm_version: Mapped[str] = mapped_column(String(40))
+    input_sha256: Mapped[str] = mapped_column(String(64), index=True)
+    jurisdiction: Mapped[str] = mapped_column(String(40), default="")
+    revision: Mapped[str] = mapped_column(String(80), default="")
+    depends_on: Mapped[list] = mapped_column(JSON, default=list)   # sha256 of every file a case-level result used
+    output: Mapped[dict] = mapped_column(JSON, default=dict)
+    hits: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), default=_now)

@@ -15,6 +15,7 @@ resolver cannot find stays as the engine left it. Every resolution is flagged RE
 """
 from __future__ import annotations
 
+import hashlib
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -68,8 +69,18 @@ def ev(doc: Doc | None, page: int | None, quote: str, source: str | None = None)
             "method": "קריאת מסמך בתיק" if doc else "קריאת מקור תכנוני"}
 
 
-def load_docs(files) -> list[Doc]:
-    """Text of every readable case file: PDFs, and DWFX drawings once converted to PDF on the AI PC."""
+TEXT_ALGORITHM = ("pdf_text", "1")         # pymupdf get_text + repair_shifted_font + norm; bump when that changes
+
+
+def _pages(path: Path) -> list[str]:
+    from ..intake.text import repair_shifted_font          # Rishui Zamin "מידע להיתר" uses a shifted font
+    with pymupdf.open(str(path)) as d:
+        return [norm(repair_shifted_font(p.get_text())) for p in d]
+
+
+def load_docs(files, cache=None) -> list[Doc]:
+    """Text of every readable case file: PDFs, and DWFX drawings once converted to PDF on the AI PC.
+    `cache(sha256, compute) -> dict` (services: the derivation cache) reuses a document's text across runs and cases."""
     out = []
     for f in files:
         path = None
@@ -81,9 +92,13 @@ def load_docs(files) -> list[Doc]:
         if not path or not path.exists():
             continue
         try:
-            from ..intake.text import repair_shifted_font      # Rishui Zamin "מידע להיתר" uses a shifted font
-            with pymupdf.open(str(path)) as d:
-                pages = [norm(repair_shifted_font(p.get_text())) for p in d]
+            sha = getattr(f, "sha256", None)
+            if cache and sha:
+                # a converted DWFX is keyed by the original's hash plus the converted file's name
+                key = sha if f.kind == "pdf" else hashlib.sha256((sha + path.name).encode()).hexdigest()
+                pages = cache(key, lambda: {"pages": _pages(path)})["pages"]
+            else:
+                pages = _pages(path)
         except Exception:  # noqa: BLE001 — an unreadable file is simply not evidence
             continue
         out.append(Doc(f.filename, f.doc_type, pages, path))
@@ -799,6 +814,16 @@ def r_floor_plans(ctx):
     diags = [d for s in ag.get("sheets", []) for d in s.get("diagrams", [])]
     if not floors or not diags:
         return None
+    distinct = sum(1 for d in diags if not d.get("same_as"))
+    if len(floors) > max(distinct, 1):
+        # more plan outlines than distinct floor diagrams: a floor's walls did not close into one outline (the plan
+        # is drawn in several viewports, or an opening is wider than any bridge) — partial areas, never a finding
+        sizes = ", ".join(f"{f['gross_m2']}" for f in floors)
+        return Resolution("UNCERTAIN", f"מקור ג׳ לא הוכרע: בתכניות הקומות נמצאו {len(floors)} מעטפות קירות ({sizes} מ\"ר) "
+                                       f"מול {distinct} תרשימי קומה שונים — מעטפת הקומה לא נסגרה לקו אחד; השטחים חלקיים.",
+                          [{"type": "measurement", "file": ctx.drawing.get("file"), "page": floors[0].get("sheet"),
+                            "method": "מעטפת הקירות בתכניות הקומות", "quote": sizes, "algorithm": fg.get("algorithm")}],
+                          review="UNRESOLVED", internal=True)
     enclosed = [sum(d["area_m2"].get(c, 0.0) for c in ENCLOSED) for d in diags]
     combo = _assign(enclosed, [f["gross_m2"] for f in floors])
     if combo is None:
@@ -977,8 +1002,8 @@ class Context:
     gush: str | None = None
 
 
-def document_facts(files) -> tuple[list[Doc], dict, list[dict]]:
-    docs = load_docs(files)
+def document_facts(files, cache=None) -> tuple[list[Doc], dict, list[dict]]:
+    docs = load_docs(files, cache)
     facts, evidence = area_table_facts(docs)
     if facts:
         facts["cell_total_pct"] = round(facts["cell_main_pct"] + facts["cell_service_pct"], 2)

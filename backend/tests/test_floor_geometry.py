@@ -90,3 +90,11 @@ def test_counted_outside_the_walls_is_a_discrepancy():
     r = E.r_floor_plans(_ctx([_floor(230.00), _floor(144.84)], [GROUND, GROUND, UPPER, UPPER]))
     assert r.status == "FAIL" and r.review == "DOCUMENTED_DISCREPANCY"
     assert any(i["review"] == "DOCUMENTED_DISCREPANCY" for i in r.items)
+
+
+def test_fragmented_outlines_are_unresolved_never_a_discrepancy():
+    # 311-312 / 339-340: the ground floor's walls broke into several outlines — partial areas must not be compared
+    up = {**UPPER, "same_as": None}
+    diags = [GROUND, {**GROUND, "same_as": 0}, up, {**UPPER, "same_as": 2}]
+    r = E.r_floor_plans(_ctx([_floor(158.66), _floor(126.48), _floor(68.29), _floor(39.61)], diags))
+    assert r.status == "UNCERTAIN" and r.review == "UNRESOLVED" and r.internal and not r.items

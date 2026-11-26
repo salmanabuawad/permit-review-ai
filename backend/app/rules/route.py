@@ -31,6 +31,8 @@ from ..config import settings
 ROUTES_HE = {"REGULAR": "רישוי רגיל (ללא הקלות)", "RELIEF": "בקשה כולל הקלות", "SHORT": "רישוי מקוצר"}
 REGISTER_ROUTE = {"81": "REGULAR", "82": "RELIEF", "83": "SHORT"}      # committee register: application type code
 STATUS_ORDER = ("WITHIN", "NOT_CHECKED", "POSSIBLE_DEVIATION", "RELIEF", "DEVIATION_UNCLASSIFIED", "PROHIBITED")
+# a contradiction between the applicant's own fields (e.g. net vs gross area): needs clarification, never a deviation
+DOCUMENT_STATUSES = ("DOCUMENT_DISCREPANCY",)
 MAIN_USES = re.compile(r"מגורים|חדר שינה|סלון|חדר עבודה|משרד|מטבח|יחידת דיור")
 
 
@@ -71,6 +73,14 @@ class Proposal:
     setbacks: list[Setback] = field(default_factory=list)
     request_text: str = ""
     zero_level_change_m: float | None = None    # proposed ±0.00 minus the building plan's, when known
+    # short track (רישוי מקוצר): the work item filed and its own size limit, as worded in the form's item list
+    short_item: str | None = None
+    short_item_limit_m2: float | None = None
+    short_item_limit_source: str = ""
+    declared_addition_m2: float | None = None   # the form's "addition area" field
+    gross_added_m2: float | None = None         # new construction (gross), from drawings or the applicant's description
+    gross_added_source: str = ""                # "drawings" | "applicant description"
+    cancelled_unbuilt_m2: float | None = None   # approved earlier but never built, removed by this request
 
 
 @dataclass
@@ -312,6 +322,46 @@ def check_declared(p: Proposal, r: dict) -> list[Check]:
     return out
 
 
+def check_short_track(p: Proposal) -> list[Check]:
+    """Short-track eligibility on the gross new construction, not the net change.
+
+    The form's addition field may hold a net figure (new construction minus approved area that is cancelled); the
+    item's size limit applies to what is built. Cancelling approved-but-unbuilt area is a change of approved rights,
+    not a physical demolition, so it does not offset the construction. A mismatch between the fields is a document
+    discrepancy for clarification — never, by itself, a reason to call the route invalid."""
+    if p.selected_route != "SHORT":
+        return []
+    out: list[Check] = []
+    g, lim = p.gross_added_m2, p.short_item_limit_m2
+    src = p.gross_added_source or "—"
+    if g is None:
+        out.append(Check("short_track_size", "היקף העבודה ברישוי מקוצר", "NOT_CHECKED",
+                         "היקף הבנייה החדשה (ברוטו) לא נמדד: דרושות תכניות הבקשה.", limit=lim,
+                         needs=["תכניות הבקשה (קומות) לחישוב הבנייה החדשה ברוטו"]))
+    elif lim is None:
+        out.append(Check("short_track_size", "היקף העבודה ברישוי מקוצר", "NOT_CHECKED",
+                         f"בנייה חדשה {g:.2f} מ\"ר ({src}); מגבלת הפריט לא ידועה.", g,
+                         needs=["נוסח פריט העבודה בתוספת לתקנות הרישוי"]))
+    elif g <= lim:
+        out.append(Check("short_track_size", "היקף העבודה ברישוי מקוצר", "WITHIN",
+                         f"בנייה חדשה ברוטו {g:.2f} מ\"ר ≤ {lim:g} מ\"ר ({p.short_item_limit_source}); מקור הנתון: {src}.",
+                         g, lim, reg=p.short_item_limit_source or None, confirmable=src == "drawings"))
+    else:
+        out.append(Check("short_track_size", "היקף העבודה ברישוי מקוצר", "DEVIATION_UNCLASSIFIED",
+                         f"בנייה חדשה ברוטו {g:.2f} מ\"ר > {lim:g} מ\"ר — חורגת מפריט העבודה ברישוי מקוצר.",
+                         g, lim, reg=p.short_item_limit_source or None, confirmable=src == "drawings",
+                         needs=[] if src == "drawings" else ["מדידת הבנייה החדשה מתכניות הבקשה"]))
+    d = p.declared_addition_m2
+    if d is not None and g is not None and abs(d - g) > 0.5:
+        net = g - (p.cancelled_unbuilt_m2 or 0)
+        why = (f" ההפרש מתאים לשינוי נטו: {g:g} − {p.cancelled_unbuilt_m2:g} (שטח מאושר שלא נבנה) = {net:g} מ\"ר."
+               if p.cancelled_unbuilt_m2 and abs(net - d) <= 0.5 else "")
+        out.append(Check("short_track_fields", "שטח התוספת בטופס מול תיאור העבודה", "DOCUMENT_DISCREPANCY",
+                         f"בטופס: שטח התוספת {d:g} מ\"ר; בתיאור הבקשה: בנייה חדשה {g:g} מ\"ר.{why} "
+                         "יש להבהיר איזה נתון מוצהר; מגבלת הפריט נבדקת על הבנייה החדשה.", d, g))
+    return out
+
+
 def required_route(checks: list[Check]) -> str:
     st = {c.status for c in checks}
     if "PROHIBITED" in st:
@@ -326,9 +376,10 @@ def required_route(checks: list[Check]) -> str:
 def validate(p: Proposal, rights_folder: Path | None = None, law_path: Path | None = None) -> RouteResult:
     rights, rnote = load_rights(p.plans, p.land_use, p.submission_date, rights_folder)
     law, law_ok, lnote = load_law(p.submission_date, law_path)
+    short = check_short_track(p)
     if rights is None:
-        return RouteResult(p.application_id, p.selected_route, "UNKNOWN", "NO_RIGHTS", False, [], [rnote, lnote])
-    checks = check_aggregate(p, rights) + check_floors(p, rights, law) + check_declared(p, rights)
+        return RouteResult(p.application_id, p.selected_route, "UNKNOWN", "NO_RIGHTS", False, short, [rnote, lnote])
+    checks = short + check_aggregate(p, rights) + check_floors(p, rights, law) + check_declared(p, rights)
     checks += [classify_setback(sb, law) for sb in p.setbacks]
     if p.lot_area_m2 is not None and rights.get("lot_min_m2"):
         lo = rights["lot_min_m2"] * (1 - rights.get("lot_min_tolerance_pct", 0) / 100)

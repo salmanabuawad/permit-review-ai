@@ -72,6 +72,11 @@ def build_defects(case: PermitCase, run: CheckRun) -> dict:
     limits = ("הדוח מפרט ליקויים ופערים מתועדים בלבד, ואינו מונה בדיקות שעברו, בדיקות שלא הושלמו או דרישות לשלבי רישוי "
               f"מאוחרים. {open_n} בדיקות לא הושלמו; אין לראות בהשמטת נושא אישור לתקינותו ואין בדוח אישור הנדסי מלא. "
               "ההמלצה היא של מערכת הבדיקה ואינה החלטת רשות הרישוי.")
+    cov = review.get("coverage") or {}
+    fams = cov.get("families") or {}
+    partial = [f.get("label_he") for f in fams.values() if f.get("state") in ("PARTIAL", "NONE", "NO_CHECKS")]
+    if partial:
+        limits += " תחומים שלא נבדקו במלואם: " + ", ".join(x for x in partial if x) + "."
     return {
         "title": f"דוח ליקויים – בקשה להיתר מס׳ {case.case_number}",
         "case": {"number": case.case_number, "title": case.title, "gush": case.gush, "helka": case.helka,

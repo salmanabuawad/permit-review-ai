@@ -447,6 +447,70 @@ def defects_report(run_id: str, p: Principal = Depends(require("case.read")), s:
     return build_defects(r.case, r)
 
 
+class AttestIn(BaseModel):
+    decision: str
+    note: str = ""
+
+
+@app.post("/api/runs/{run_id}/attestations")
+def run_attest(run_id: str, body: AttestIn, p: Principal = Depends(require("finding.decide")),
+               s: Session = Depends(get_session)):
+    """A signed review record for this exact run (who, when, the run's digest). Never taken from client flags."""
+    from . import attestation
+    r = _run(s, p, run_id)
+    try:
+        a = attestation.attest(s, r, p.id, p.role, body.decision, body.note)
+    except PermissionError as e:
+        raise HTTPException(403, str(e)) from e
+    except ValueError as e:
+        raise HTTPException(409, str(e)) from e
+    s.commit()
+    return attestation.public_view(s, a)
+
+
+@app.get("/api/runs/{run_id}/attestations")
+def run_attestations(run_id: str, p: Principal = Depends(require("case.read")), s: Session = Depends(get_session)):
+    from . import attestation
+    return attestation.run_attestations(s, _run(s, p, run_id))
+
+
+@app.get("/api/runs/{run_id}/coverage")
+def run_coverage(run_id: str, p: Principal = Depends(require("case.read")), s: Session = Depends(get_session)):
+    """Required-check inventory per rule family for this run (what was completed, open, not implemented)."""
+    r = _run(s, p, run_id)
+    rev = (r.summary or {}).get("review") or {}
+    return {"decision": rev.get("decision"), "coverage": rev.get("coverage"), "disclaimer_he": rev.get("disclaimer_he")}
+
+
+@app.get("/api/runs/{run_id}/audit")
+def run_audit(run_id: str, p: Principal = Depends(require("audit.read")), s: Session = Depends(get_session)):
+    """Internal audit record: every outcome (internal and unresolved included), citations, evidence, coverage,
+    metrics and attestations. Not the external report; requires audit.read."""
+    from . import attestation
+    r = _run(s, p, run_id)
+    summ = r.summary or {}
+    return {"run": {"id": r.id, "version": r.version, "case_id": r.case_id, "ruleset_hash": r.ruleset_hash,
+                    "input_hashes": r.input_hashes, "started_at": r.started_at.isoformat() if r.started_at else None,
+                    "digest": attestation.run_digest(r)},
+            "review": summ.get("review"), "metrics": summ.get("metrics"),
+            "findings": [{"rule_id": f.rule_id, "rule_version": f.rule_version, "status": f.status,
+                          "computed_result": f.computed_result, "severity": f.severity, "title_he": f.title_he,
+                          "explanation_he": f.explanation_he, "measured_value": f.measured_value,
+                          "measured_uncertainty": f.measured_uncertainty, "threshold": f.threshold,
+                          "units": f.units, "flags": f.flags, "citations": f.citations, "evidence": f.evidence,
+                          "reviewer_decision": f.reviewer_decision} for f in r.findings],
+            "attestations": attestation.run_attestations(s, r)}
+
+
+@app.get("/api/runs/{run_id}/metrics")
+def run_metrics_view(run_id: str, p: Principal = Depends(require("dashboard.read")), s: Session = Depends(get_session)):
+    r = _run(s, p, run_id)
+    rev = (r.summary or {}).get("review") or {}
+    cov = rev.get("coverage") or {}
+    return {"metrics": (r.summary or {}).get("metrics"), "review_counts": rev.get("counts"),
+            "open_required_checks": cov.get("open"), "full_compliance_possible": cov.get("full_compliance_possible")}
+
+
 @app.get("/api/runs/{run_id}/defects.{fmt}")
 def defects_file(run_id: str, fmt: str, p: Principal = Depends(require("case.read")), s: Session = Depends(get_session)):
     from urllib.parse import quote
@@ -503,6 +567,10 @@ def workflow(case_id: str, body: StatusIn, p: Principal = Depends(current_user),
             raise HTTPException(403)
         try:
             services.lock_case(s, c, p.id)
+            from . import attestation       # the lock is the reviewer's approval: record it as a signed attestation
+            attestation.attest(s, c.runs[-1], p.id, p.role, "APPROVED_FOR_REPORT", body.note or "")
+        except PermissionError as e:
+            raise HTTPException(403, str(e)) from e
         except ValueError as e:
             raise HTTPException(409, str(e)) from e
     elif body.status == "ASSIGN":

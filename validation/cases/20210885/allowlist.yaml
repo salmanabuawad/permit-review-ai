@@ -1,0 +1,8 @@
+# Curated blind inputs (applicant side only). Every file in this folder must be listed with its SHA-256.
+case: "20210885"
+complete_inputs: false
+missing_inputs:
+  - original 2021 architectural drawings (floor plans, basement plan, sections) — Rishui Zamin, applicant login only
+inputs:
+  - {file: register_facts.json, role: applicant_submission, source: committee register application page (status, requirements, meetings, decisions removed), sha256: 6c4a0cbd1be950b26bd1dc06c802297175edd968d543923d135ba1fe8de0023f}
+  - {file: gis.json, role: public_planning_gis, source: national GIS plans for the parcel, sha256: 7323682748e01c62a7f536f357441b21987c44cdcb2cd25b8d2fa92ea526d33c}

@@ -1,0 +1,18 @@
+{
+  "application_id": "20260265",
+  "role": "development dataset — not part of the official evaluation",
+  "locality": "כרמיה",
+  "submission_date": "13/04/2026",
+  "application_type_code": "83",
+  "plans": ["633-0629022"],
+  "short_track_item": {"code": 603, "text_he": "תוספת עד 25 מ\"ר על הקרקע בבניין למגורים", "limit_m2": 25,
+                       "limit_source": "נוסח פריט העבודה ברשימת העבודות של טופס הרישוי המקוצר (סעיף התקנה לא אומת)"},
+  "form_addition_area_m2": 1.0,
+  "applicant_description_he": "אישור בדיעבד לבית קיים בהיתר 69/84 כולל ממ\"ד בהיתר 20080720. כולל הריסת חלק צפוני 17 מ\"ר (שלא נבנה מעולם אבל מופיע בהיתר המקורי) ותוספת בניה לסלון מדרום מערב בגודל 18 מ\"ר.",
+  "gross_added_m2_from_description": 18.0,
+  "cancelled_unbuilt_m2_from_description": 17.0,
+  "drawings": {"dwfx": "survey only (1 sheet, no floor-plan viewports) — source C: none",
+               "dwf": "6 sheets, W2D 06.01 — BLOCKED_NO_DECODER",
+               "dwg": "no DWG reader (ODA converter not installed)"},
+  "excluded": ["applicant personal details", "status", "requirements", "decisions"]
+}

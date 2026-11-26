@@ -20,6 +20,11 @@ def _env(name: str, default: str) -> str:
     return os.environ.get(f"BBP_{name}", default)
 
 
+def _first_font(*paths: str) -> str:
+    """The first font file that exists (Windows dev box, Ubuntu server, this Linux PC); else the first path."""
+    return next((p for p in paths if Path(p).exists()), paths[0])
+
+
 @dataclass(frozen=True)
 class Settings:
     database_url: str = _env("DATABASE_URL", f"sqlite:///{(ROOT / 'var' / 'bbp.sqlite3').as_posix()}")
@@ -27,8 +32,12 @@ class Settings:
     knowledge_dir: Path = Path(_env("KNOWLEDGE_DIR", str(KNOWLEDGE)))
     environment: str = _env("ENV", "dev")                     # dev | test | production
     # Hebrew-capable TTF used for PDF reports. On Ubuntu: /usr/share/fonts/truetype/noto/NotoSansHebrew-Regular.ttf
-    pdf_font: str = _env("PDF_FONT", r"C:\Windows\Fonts\arial.ttf")
-    pdf_font_bold: str = _env("PDF_FONT_BOLD", r"C:\Windows\Fonts\arialbd.ttf")
+    pdf_font: str = _env("PDF_FONT", _first_font(
+        r"C:\Windows\Fonts\arial.ttf", "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"))
+    pdf_font_bold: str = _env("PDF_FONT_BOLD", _first_font(
+        r"C:\Windows\Fonts\arialbd.ttf", "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"))
     # Optional DWG -> DXF converter (ODA File Converter). Without it DWG files are
     # stored and flagged NEEDS_CONVERSION; they are never "measured" from an image.
     oda_converter: str = _env("ODA_CONVERTER", "")

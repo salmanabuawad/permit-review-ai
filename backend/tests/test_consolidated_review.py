@@ -138,12 +138,15 @@ def test_stage_from_register_or_declared():
 
 def test_decision_engine():
     by = {"A": _rule(severity="high"), "B": _rule(severity="high", reject_basis=True), "C": _rule(severity="high")}
-    assert S.final_decision([_r("A", ["STATUS_PASS"])], by)[0] == "NO_DEFECTS_IDENTIFIED"
+    full = {"full_compliance_possible": True, "open": []}
+    assert S.final_decision([_r("A", ["STATUS_PASS"])], by, full)[0] == "NO_DEFECTS_IDENTIFIED"
+    # V9: one passing check is not compliance — without the required-check inventory complete, no final "no defects"
+    assert S.final_decision([_r("A", ["STATUS_PASS"])], by)[0] == "INSUFFICIENT_EVIDENCE_FOR_FINAL_DECISION"
     assert S.final_decision([_r("C", ["STATUS_NOT_CHECKED"])], by)[0] == "INSUFFICIENT_EVIDENCE_FOR_FINAL_DECISION"
     assert S.final_decision([_r("A", ["STATUS_CONFIRMED_DEFECT", "EXTERNAL"])], by)[0] == "RETURN_FOR_CORRECTIONS"
     assert S.final_decision([_r("B", ["STATUS_CONFIRMED_DEFECT", "EXTERNAL"])], by)[0] == "REJECT_RECOMMENDATION"
     # the official register status never decides: it is internal, so it adds nothing
-    assert S.final_decision([_r("A", ["STATUS_DOCUMENTED_DISCREPANCY", "INTERNAL"])], by)[0] == "NO_DEFECTS_IDENTIFIED"
+    assert S.final_decision([_r("A", ["STATUS_DOCUMENTED_DISCREPANCY", "INTERNAL"])], by, full)[0] == "NO_DEFECTS_IDENTIFIED"
 
 
 def test_register_status_stays_internal(monkeypatch):

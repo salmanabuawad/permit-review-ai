@@ -1,0 +1,58 @@
+# Required-check inventory (V9 §Output): which checks a review must complete, per rule family, before the system may
+# say "no defects identified". A family whose required checks did not all complete leaves the decision at
+# INSUFFICIENT_EVIDENCE_FOR_FINAL_DECISION — an empty or partial check list never reads as compliance.
+#
+# Each required check names the rules that can satisfy it (fnmatch patterns over rule ids). A required check with
+# no matching rule in the case's rule set is reported NOT_IMPLEMENTED — the gap is shown, not hidden.
+# `independent: true` = a PASS counts only when the finding was resolved from measured / document evidence
+# (flag RESOLVED_FROM_DOCUMENTS or MEASURED), not from a value the applicant declared on the form.
+#
+# Scope: residential building permits at the spatial-review stage. Statutory content of each check lives in the
+# rules themselves; this file only says which checks must exist. review_state: DESIGN_ASSUMPTION (system owner).
+version: 1
+review_state: DESIGN_ASSUMPTION
+families:
+  documents:
+    label_he: מסמכים והגשה
+    checks:
+      - {id: application_form, label_he: טופס בקשה, rules: [QA-REQ-APPLICATION-FORM]}
+      - {id: architectural_plans, label_he: תכניות אדריכליות 1:100, rules: [QA-REQ-ARCH-PLANS, HA-633-DOC-PLANS-100]}
+      - {id: sections_elevations, label_he: חתכים וחזיתות, rules: [QA-REQ-SECTIONS, QA-REQ-ELEVATIONS, HA-633-DOC-PLANS-100]}
+      - {id: survey_map, label_he: מפת מדידה בתוקף, rules: [QA-REQ-SURVEY, QA-SURVEY-MAP-AGE]}
+      - {id: area_table, label_he: טבלת שטחים, rules: [QA-REQ-AREA-TABLE]}
+  land:
+    label_he: מקרקעין ובעלות
+    checks:
+      - {id: parcel_identity, label_he: זיהוי גוש/חלקה מול נסח, rules: [HA-LAND-PARCEL, QA-PLOT-AREA-VS-CADASTRE, QA-APPROVAL-PARCEL-MISMATCH]}
+      - {id: owner_consent, label_he: הסכמת בעלים / רמ״י, rules: [QA-OWNER-SIGNATURE-PCT, HA-RMI-CONSENT, BB-POL26-CONSENT, BB-COMP-OWNER-SIGNATURES]}
+  areas:
+    label_he: שטחים (מדידה בלתי תלויה)
+    checks:
+      - {id: table_arithmetic, label_he: חשבון טבלת השטחים, rules: [HA-368-TABLE-ARITHMETIC]}
+      - {id: diagrams_vs_table, label_he: תרשימי שטחים מול הטבלה (מקור ב׳), rules: [HA-AREA-DIAGRAMS, QA-AREA-CAD-VS-TABLE], independent: true}
+      - {id: floorplans_vs_diagrams, label_he: תכניות הקומות מול התרשימים (מקור ג׳), rules: [HA-AREA-FLOORPLANS], independent: true}
+  rights:
+    label_he: זכויות בנייה
+    checks:
+      - {id: main_area, label_he: שטח עיקרי מול התכנית, rules: [HA-633-MAIN-AREA-CELL, BB-B105-RIGHTS-AREA]}
+      - {id: service_area, label_he: שטחי שירות מול התכנית, rules: [HA-633-SERVICE-AREA-CELL, BB-B105-RIGHTS-AREA]}
+      - {id: units, label_he: מספר יחידות דיור, rules: [HA-633-UNITS-CELL]}
+      - {id: cumulative_rights, label_he: ניצול מצטבר מול היתרים קודמים, rules: [HA-368-TABLE-VS-PERMITS, HA-368-TABLE-VS-REGISTRY]}
+  route:
+    label_he: מסלול הרישוי
+    checks:
+      - {id: licensing_route, label_he: מסלול רישוי מול הסטיות, rules: [QA-LICENSING-ROUTE]}
+      - {id: floor_rights, label_he: זכויות לכל קומה ומרתף, rules: [QA-FLOOR-RIGHTS]}
+  spatial:
+    label_he: בינוי והעמדה
+    checks:
+      - {id: floors, label_he: מספר קומות, rules: [HA-633-FLOORS, BB-POL26-FLOORS]}
+      - {id: height, label_he: גובה, rules: [HA-633-HEIGHT, BB-B105-MAX-HEIGHT], independent: true}
+      - {id: coverage, label_he: תכסית, rules: [HA-633-COVERAGE-CELL], independent: true}
+      - {id: building_lines, label_he: קווי בניין, rules: [BB-B105-BUILDING-LINES, BB-POL26-RR-SETBACK, "*-BUILDING-LINE*"], independent: true}
+  infrastructure_environment:
+    label_he: תשתיות וסביבה
+    checks:
+      - {id: trees, label_he: עצים, rules: [HA-633-TREES-4M]}
+      - {id: wells_water_lines, label_he: קידוחים וקווי מים, rules: [HA-633-COND-WELLS, HA-633-MEKOROT-5M]}
+      - {id: sewage, label_he: ביוב, rules: [HA-633-SEWAGE]}

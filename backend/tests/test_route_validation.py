@@ -165,15 +165,93 @@ def test_20210885_blind_engine_result():
     assert res.verdict == "INSUFFICIENT_EVIDENCE" and not res.confirmed
 
 
-def test_20210885_evaluation_scores_after_the_engine():
+def _ev():
     spec = importlib.util.spec_from_file_location("ev", ROOT / "scripts/evaluate_blind.py")
     ev = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(ev)
+    return ev
+
+
+@pytest.mark.skipif(not (_ev().eval_store() / "ground_truth/20210885.yaml").exists(),
+                    reason="evaluation store not on this machine (ground truth is kept outside the repository)")
+def test_20210885_evaluation_scores_after_the_engine():
+    ev = _ev()
     engine = ev.run_engine(CASE)
-    truth = yaml.safe_load((ROOT / "validation/ground_truth/20210885.yaml").read_text(encoding="utf-8"))
+    truth = ev.load_truth("20210885")
     sc = ev.score(engine, truth)
     assert sc["counts"] == {"DETECTED": 0, "FLAGGED": 2, "MISSED": 0} and sc["false_positives"] == []
     assert all(v["match"] for v in ev.rights_check(truth).values())    # the engine read the plan's rights as the committee did
+
+
+def test_blind_inputs_are_allowlisted_and_scanned(tmp_path):
+    ev = _ev()
+    import shutil
+    case = tmp_path / "20210885"
+    shutil.copytree(CASE, case)
+    ev.check_inputs(case)                                                   # the curated case passes
+    (case / "notes.txt").write_text("x")
+    with pytest.raises(SystemExit, match="allowlist"):
+        ev.check_inputs(case)                                               # an unlisted file stops the run
+    (case / "notes.txt").unlink()
+    f = case / "register_facts.json"
+    d = json.loads(f.read_text(encoding="utf-8"))
+    d["request_text"] += " החלטת הוועדה: סירוב"
+    f.write_text(json.dumps(d, ensure_ascii=False), encoding="utf-8")
+    with pytest.raises(SystemExit, match="changed"):
+        ev.check_inputs(case)                                               # hash no longer matches the curation
+    import hashlib
+    allow = yaml.safe_load((case / "allowlist.yaml").read_text(encoding="utf-8"))
+    allow["inputs"][0]["sha256"] = hashlib.sha256(f.read_bytes()).hexdigest()
+    (case / "allowlist.yaml").write_text(yaml.safe_dump(allow, allow_unicode=True), encoding="utf-8")
+    with pytest.raises(SystemExit, match="decision vocabulary"):
+        ev.check_inputs(case)                                               # a relabelled decision is still caught
+
+
+def test_score_refuses_without_a_frozen_result(tmp_path, monkeypatch):
+    ev = _ev()
+    monkeypatch.setattr(ev, "RESULTS", tmp_path)
+    with pytest.raises(SystemExit, match="frozen"):
+        ev.load_frozen("X")
+    ev.freeze("X", {"verdict": "ROUTE_OK", "checks": []})
+    assert ev.load_frozen("X")["verdict"] == "ROUTE_OK"
+    (tmp_path / "X.engine.json").write_text('{"verdict": "WRONG_ROUTE", "checks": []}')
+    with pytest.raises(SystemExit, match="changed after"):
+        ev.load_frozen("X")                                                 # no editing results after the reveal
+
+
+def test_ground_truth_is_not_in_the_repository():
+    assert not (ROOT / "validation/ground_truth").exists() or not list((ROOT / "validation/ground_truth").glob("*.yaml"))
+    assert ROOT not in _ev().eval_store().resolve().parents
+
+
+# ---------------------------------------------------------------- short track: gross vs net (Karmiya, dev dataset)
+
+def _karmiya(**kw):
+    f = json.loads((ROOT / "validation/dev_cases/20260265/facts.json").read_text(encoding="utf-8"))
+    base = dict(application_id="20260265", submission_date=dt.date(2026, 4, 13), plans=f["plans"], selected_route="SHORT",
+                short_item=f["short_track_item"]["text_he"], short_item_limit_m2=f["short_track_item"]["limit_m2"],
+                short_item_limit_source=f["short_track_item"]["limit_source"],
+                declared_addition_m2=f["form_addition_area_m2"], gross_added_m2=f["gross_added_m2_from_description"],
+                gross_added_source="applicant description", cancelled_unbuilt_m2=f["cancelled_unbuilt_m2_from_description"])
+    return R.Proposal(**{**base, **kw})
+
+
+def test_short_track_judged_on_gross_not_net():
+    by = {c.topic: c for c in R.check_short_track(_karmiya())}
+    assert by["short_track_size"].status == "WITHIN" and by["short_track_size"].measured == 18.0
+    assert not by["short_track_size"].confirmable                       # from the description, not measured
+    # 1 vs 18: a field discrepancy explained by the net change, never a route deviation
+    assert by["short_track_fields"].status == "DOCUMENT_DISCREPANCY" and "18 − 17" in by["short_track_fields"].explanation_he
+    assert R.required_route(list(by.values())) == "REGULAR"
+
+
+def test_short_track_over_the_item_limit_needs_drawings_to_confirm():
+    c = R.check_short_track(_karmiya(gross_added_m2=30.0))[0]
+    assert c.status == "DEVIATION_UNCLASSIFIED" and not c.confirmable and c.needs
+    c = R.check_short_track(_karmiya(gross_added_m2=30.0, gross_added_source="drawings"))[0]
+    assert c.confirmable
+    assert R.check_short_track(_karmiya(gross_added_m2=None))[0].status == "NOT_CHECKED"
+    assert R.check_short_track(_karmiya(selected_route="REGULAR")) == []
 
 
 def test_ground_truth_is_never_an_engine_input():

@@ -69,7 +69,8 @@ def gateway_logger(s: Session, tenant: str, case_id: str | None, user: str | Non
     def _log(r: AIResult):
         s.add(InferenceCost(tenant_id=tenant, case_id=case_id, user_id=user, task=r.task,
                             provider_id=r.provider_id or "-", model_version=r.model_version or "-",
-                            outcome=r.outcome, latency_ms=r.latency_ms, units=1, cost_ils=r.cost_ils))
+                            outcome=r.outcome, latency_ms=r.latency_ms,
+                            units=(r.tokens_in + r.tokens_out) or 1, cost_ils=r.cost_ils))
     return _log
 
 
@@ -449,7 +450,7 @@ def review_status(rule: Rule | None, r, issue: str, stage: str) -> str:
     return "DOCUMENTED_DISCREPANCY" if issue == "CONFLICT" else "CONFIRMED_DEFECT"
 
 
-def final_decision(results, by_id: dict) -> tuple[str, str]:
+def final_decision(results, by_id: dict, coverage: dict | None = None) -> tuple[str, str]:
     """NO_DEFECTS_IDENTIFIED | RETURN_FOR_CORRECTIONS | REJECT_RECOMMENDATION | INSUFFICIENT_EVIDENCE_FOR_FINAL_DECISION.
     Rejection needs a substantive basis — a confirmed defect of a rule marked reject_basis; never missing documents,
     an incomplete check or the official register status alone."""
@@ -465,6 +466,12 @@ def final_decision(results, by_id: dict) -> tuple[str, str]:
              and (by_id.get(r.rule_id) and by_id[r.rule_id].severity in ("high", "critical"))]
     if open_:
         return "INSUFFICIENT_EVIDENCE_FOR_FINAL_DECISION", f"{len(open_)} בדיקות מהותיות לא הושלמו"
+    # an empty or partial check list is never compliance: every required family must be complete
+    from .coverage import family_coverage
+    cov = coverage if coverage is not None else family_coverage(results)
+    if not results or not cov.get("full_compliance_possible"):
+        return ("INSUFFICIENT_EVIDENCE_FOR_FINAL_DECISION",
+                f"{len(cov.get('open') or [])} בדיקות נדרשות לא הושלמו או לא מומשו")
     return "NO_DEFECTS_IDENTIFIED", "לא נמצאו ליקויים בבדיקות שהושלמו"
 
 
@@ -472,13 +479,23 @@ def run_checks(s: Session, case: PermitCase, user: str, gateway: AIGateway | Non
     if case.locked_version is not None:
         raise PermissionError("התיק נעול לאחר אישור; לא ניתן להריץ בדיקה חדשה על הגרסה הנעולה")
     t0 = time.perf_counter()
+    cpu0 = time.process_time()
     tenant = s.get(Municipality, case.tenant_id)
     rules = rules_for_tenant(s, case.tenant_id)
     facts, measurements = build_facts(s, case)
     # values read from the case's documents (e.g. cell totals from the area table) — never over a declared value
     from .rules.evidence import document_facts, resolve
     usable = [f for f in latest_files(s, case) if f.ingest_status not in ("ERROR", "QUARANTINED")]
-    docs, doc_facts, area_evidence = document_facts(usable)
+    from . import derivation_cache as dcache
+    from .rules.evidence import TEXT_ALGORITHM
+    cache_before = dcache.stats()
+    t_docs = time.perf_counter()
+
+    def _text_cache(sha, compute):
+        return dcache.get_or_compute(s, algorithm=TEXT_ALGORITHM[0], version=TEXT_ALGORITHM[1], sha256=sha,
+                                     compute=compute)[0]
+    docs, doc_facts, area_evidence = document_facts(usable, cache=_text_cache)
+    t_docs = time.perf_counter() - t_docs
     from .rules.evidence import drawing_facts
     drawing, drawing_fact_values = drawing_facts(usable)
     for k, v in drawing_fact_values.items():
@@ -528,7 +545,9 @@ def run_checks(s: Session, case: PermitCase, user: str, gateway: AIGateway | Non
         r.flags = ([f for f in r.flags if not f.startswith(("ISSUE_", "STATUS_")) and f != "EXTERNAL"]
                    + ["ISSUE_" + issue, "STATUS_" + status]
                    + (["EXTERNAL"] if status in EXTERNAL_STATUSES and not internal else []))
-    decision, decision_why = final_decision(results, by_id)
+    from .coverage import disclaimer_he, family_coverage
+    coverage = family_coverage(results)
+    decision, decision_why = final_decision(results, by_id, coverage)
     ver = (s.scalar(select(func.max(CheckRun.version)).where(CheckRun.case_id == case.id)) or 0) + 1
     run = CheckRun(tenant_id=case.tenant_id, case_id=case.id, version=ver, ruleset_hash=ruleset_hash(rules),
                    input_hashes=[{"file": f.filename, "sha256": f.sha256, "version": f.version}
@@ -550,6 +569,8 @@ def run_checks(s: Session, case: PermitCase, user: str, gateway: AIGateway | Non
     ok = draft.outcome in ("OK", "FALLBACK")
     cited = set((draft.output or {}).get("citations") or []) if ok else set()
     run.duration_ms = int((time.perf_counter() - t0) * 1000)
+    cache_after = dcache.stats()
+    metrics = run_metrics(usable, run.duration_ms, t_docs, cpu0, draft, cache_before, cache_after)
     review_counts: dict = {}
     for r in results:
         st = next(f[7:] for f in r.flags if f.startswith("STATUS_"))
@@ -559,7 +580,11 @@ def run_checks(s: Session, case: PermitCase, user: str, gateway: AIGateway | Non
     run.summary = {"counts": counts, "facts": {k: v for k, v in facts.items() if k != "measure"},
                    "review": {"stage": stage, "stage_he": STAGE_HE[stage], "stage_source": stage_how,
                               "decision": decision, "decision_why": decision_why, "counts": review_counts,
-                              "coverage": {"completed": done, "applicable": applicable},
+                              "coverage": {"completed": done, "applicable": applicable,
+                                           "families": coverage["families"], "open": coverage["open"],
+                                           "full_compliance_possible": coverage["full_compliance_possible"],
+                                           "inventory_version": coverage["inventory_version"]},
+                              "disclaimer_he": disclaimer_he(coverage),
                               "external_findings": sum(1 for r in results if "EXTERNAL" in r.flags),
                               "limitations_he": [
                                   ("מקור ג׳ של בדיקת השטחים נמדד לשטחים שבתוך הקירות; סככות ושטחים מקורים מחוץ לקירות לא נמדדו מהתכניות."
@@ -568,6 +593,7 @@ def run_checks(s: Session, case: PermitCase, user: str, gateway: AIGateway | Non
                                           for r in results)
                                    else "מקור ג׳ של בדיקת השטחים (שחזור מתכניות הקומות) לא בוצע."),
                                   "בדיקות שלא הושלמו: " + str(review_counts.get("UNRESOLVED", 0) + review_counts.get("NOT_CHECKED", 0)) + "."]},
+                   "metrics": metrics,
                    "ai_summary": (draft.output or {}).get("text") if draft.outcome in ("OK", "FALLBACK") else None,
                    "ai_summary_outcome": draft.outcome, "ai_provider": draft.provider_id,
                    # passages given to the summary; `cited` = the summary refers to it by its id
@@ -579,6 +605,31 @@ def run_checks(s: Session, case: PermitCase, user: str, gateway: AIGateway | Non
                  {"case_id": case.id, "version": ver, "ruleset_hash": run.ruleset_hash, "counts": counts,
                   "duration_ms": run.duration_ms})
     return run
+
+
+def run_metrics(files, duration_ms: int, docs_s: float, cpu0: float, draft, cache_before: dict, cache_after: dict) -> dict:
+    """V9 §Output: wall time, CPU, model tokens / cost, cache hits and the AI-PC work behind the run's inputs.
+    GPU work happens on the AI PC (drawing reader, image model); its time is taken from each file's own record."""
+    drawing = []
+    for f in files:
+        rep = f.ingest_report or {}
+        dr = rep.get("drawing_read") or {}
+        conv = rep.get("conversion") or {}
+        if dr or conv:
+            drawing.append({"file": f.filename, "sha256": f.sha256,
+                            "drawing_read_s": dr.get("seconds"), "drawing_model": dr.get("model"),
+                            "image_calls": dr.get("calls"), "conversion_s": conv.get("seconds"),
+                            "geometry": {k: (dr.get(k) or {}).get("algorithm") for k in ("area_geometry", "floor_geometry")
+                                         if dr.get(k)}})
+    return {"wall_ms": duration_ms, "documents_text_s": round(docs_s, 2),
+            "cpu_s": round(time.process_time() - cpu0, 2),
+            "llm": {"provider": getattr(draft, "provider_id", None), "outcome": getattr(draft, "outcome", None),
+                    "tokens_in": getattr(draft, "tokens_in", 0), "tokens_out": getattr(draft, "tokens_out", 0),
+                    "latency_ms": getattr(draft, "latency_ms", 0), "cost_ils": getattr(draft, "cost_ils", 0.0)},
+            "cache": {"hits": cache_after["hits"] - cache_before["hits"],
+                      "misses": cache_after["misses"] - cache_before["misses"]},
+            "ai_pc": drawing,
+            "gpu_on_this_host": False}
 
 
 def lock_case(s: Session, case: PermitCase, user: str) -> None:
