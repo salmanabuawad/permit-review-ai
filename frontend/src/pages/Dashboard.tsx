@@ -1,3 +1,4 @@
+import ManagementPanel from '../components/ManagementPanel'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { api } from '../api'
@@ -96,6 +97,7 @@ export default function Dashboard() {
         </div>
       </div>
       <div className="notice" style={{ marginTop: 14 }}>{d.kpi_note_he}</div>
+      <ManagementPanel />
     </>
   )
 }

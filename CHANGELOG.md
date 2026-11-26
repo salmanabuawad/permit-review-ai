@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-11-26 — Management dashboard
+
+- `GET /api/dashboard/management`, dashboard section: workflow bottlenecks per step (open, overdue, average waiting
+  and working days), workload per assignee / role with overdue tasks and escalations, recurring violations across the
+  latest run of each case, cases returned for completion more than once, and processing (all checks deterministic;
+  AI summary calls vs reuse; tokens per run). Completion projections are not shown until there is enough process data.
+
 ## 2026-11-26 — Building360: property passport
 
 - `properties` / `property_facts` (migration 0019): a property per block / parcel (or plan cell, when the source is

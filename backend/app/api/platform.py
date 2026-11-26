@@ -182,3 +182,62 @@ def ai_registry(p: Principal = Depends(require("ai.configure"))):
     return {"hardware": R.models().get("hardware", {}), "models": R.models().get("models", []),
             "prompts": list(R.prompts().values()),
             "routes": [{"task": t, **R.decide(t)} for t in R.ROUTES], "triggers": list(R.TRIGGERS)}
+
+
+@router.get("/api/dashboard/management")
+def dashboard_management(p: Principal = Depends(require("dashboard.read")), s: Session = Depends(get_session)):
+    """Root causes rather than counts: where cases wait (workflow bottlenecks), who carries the load, which violations
+    recur, which cases bounce back, and how much of the review is deterministic vs AI. Every figure is computed from
+    records; nothing is projected without data."""
+    from .. import workflow as W
+    from ..models import WorkflowTask
+    t = p.tenant_id
+    cases = {c.id: c for c in s.scalars(select(PermitCase).where(PermitCase.tenant_id == t, PermitCase.kind != "design"))}
+    latest = {}
+    for r in s.scalars(select(CheckRun).where(CheckRun.tenant_id == t)):
+        if r.case_id in cases and (r.case_id not in latest or r.version > latest[r.case_id].version):
+            latest[r.case_id] = r
+    common: dict = {}
+    for r in latest.values():
+        for f in r.findings:
+            if f.status == "FAIL":
+                c = common.setdefault(f.rule_id, {"rule_id": f.rule_id, "title_he": f.title_he, "cases": 0})
+                c["cases"] += 1
+    returns: dict = {}
+    for ev in s.scalars(select(AuditEvent).where(AuditEvent.tenant_id == t, AuditEvent.action == "case.status")):
+        if (ev.detail or {}).get("status") == "RETURNED_FOR_COMPLETION" and ev.entity_id in cases:
+            returns[ev.entity_id] = returns.get(ev.entity_id, 0) + 1
+    at = W.now()
+    load: dict = {}
+    overdue = []
+    for task in s.scalars(select(WorkflowTask).where(WorkflowTask.tenant_id == t, WorkflowTask.status.in_(("ready", "in_progress")))):
+        d = W.task_dict(task, at)
+        who = task.assignee or f"role:{task.role}"
+        w = load.setdefault(who, {"who": who, "open": 0, "overdue": 0})
+        w["open"] += 1
+        w["overdue"] += d["overdue"]
+        if d["overdue"]:
+            c = cases.get(task.case_id)
+            overdue.append({**d, "case_number": c.case_number if c else None})
+    ai = dict(((a, b), (n, lat)) for a, b, n, lat in s.execute(select(InferenceCost.task, InferenceCost.outcome, func.count(),
+                                                                       func.avg(InferenceCost.latency_ms))
+                                                                .where(InferenceCost.tenant_id == t).group_by(InferenceCost.task, InferenceCost.outcome)))
+    summary_calls = sum(n for (task, out), (n, _) in ai.items() if task == "ReportDraft" and out in ("OK", "FALLBACK"))
+    summary_hits = sum(n for (task, out), (n, _) in ai.items() if task == "ReportDraft" and out == "CACHE_HIT")
+    runs = list(latest.values())
+    tokens = [((r.summary or {}).get("metrics") or {}).get("llm", {}).get("tokens_in", 0) for r in runs]
+    checks = sum(len(r.findings) for r in runs)
+    return {
+        "bottlenecks": W.bottlenecks(s, t), "overdue_tasks": sorted(overdue, key=lambda x: x["due_at"] or "")[:50],
+        "workload": sorted(load.values(), key=lambda x: (-x["overdue"], -x["open"])),
+        "common_violations": sorted(common.values(), key=lambda x: -x["cases"])[:15],
+        "repeated_returns": sorted(({"case_number": cases[k].case_number, "case_id": k, "returns": n} for k, n in returns.items() if n > 1),
+                                   key=lambda x: -x["returns"]),
+        "processing": {"cases_with_runs": len(runs), "checks_latest_runs": checks,
+                       "deterministic_checks": checks, "ai_calls_per_run": 1 if runs else 0,
+                       "summary_model_calls": summary_calls, "summary_cache_hits": summary_hits,
+                       "summary_reuse_pct": round(100 * summary_hits / (summary_hits + summary_calls)) if (summary_hits + summary_calls) else None,
+                       "avg_tokens_in_per_run": round(sum(tokens) / len(tokens)) if tokens else None,
+                       "note_he": "כל הבדיקות דטרמיניסטיות; המודל כותב רק את הסיכום (ומסווג מסמכים בקליטה)."},
+        "projection_note_he": "צפי סיום יוצג כשיהיו די נתוני תהליך (זמני המתנה וטיפול בפועל) — עד אז אינו מחושב.",
+    }

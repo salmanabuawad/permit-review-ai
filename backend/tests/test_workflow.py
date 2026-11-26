@@ -72,3 +72,12 @@ def test_template_validation(client):
     ok = [{"key": "a", "name_he": "א", "role": "reviewer", "sla_days": 2, "depends_on": []}]
     assert client.put("/api/workflow/template", headers=H("u-admin"), json={"name_he": "קצר", "steps": ok}).status_code == 200
     assert client.get("/api/workflow/template", headers=H("u-reviewer")).json()["name_he"] == "קצר"
+
+
+def test_management_dashboard(client):
+    r = client.get("/api/dashboard/management", headers=H("u-manager"))
+    assert r.status_code == 200
+    d = r.json()
+    assert d["bottlenecks"] and any(w["overdue"] for w in d["workload"]) and d["overdue_tasks"]
+    assert "summary_reuse_pct" in d["processing"] and d["projection_note_he"]
+    assert client.get("/api/dashboard/management", headers=H("u-reviewer")).status_code == 403
