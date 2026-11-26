@@ -10,7 +10,7 @@ from __future__ import annotations
 import datetime as dt
 import uuid
 
-from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint, event
+from sqlalchemy import JSON, Boolean, Date as sa_Date, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint, event
 from sqlalchemy.orm import Mapped, Session, mapped_column, relationship
 from sqlalchemy.types import TypeDecorator, UserDefinedType
 
@@ -828,3 +828,39 @@ class WorkflowTask(Base):
     done_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime())
     done_by: Mapped[str | None] = mapped_column(String(40))
     note: Mapped[str | None] = mapped_column(Text)
+
+
+class Property(Base):
+    """Building360: a property of an authority, keyed by block / parcel and, where the source is a plan cell, the cell."""
+    __tablename__ = 'properties'
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    tenant_id: Mapped[str] = mapped_column(ForeignKey('municipalities.id'), index=True)
+    gush: Mapped[str] = mapped_column(String(20), index=True)
+    helka: Mapped[str | None] = mapped_column(String(20))
+    cell: Mapped[str | None] = mapped_column(String(20))              # plan cell (תא שטח) when the source is cell-based
+    locality: Mapped[str | None] = mapped_column(String(120))
+    plan: Mapped[str | None] = mapped_column(String(60))
+    note_he: Mapped[str | None] = mapped_column(String(300))
+    created_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), default=_now)
+    __table_args__ = (UniqueConstraint('tenant_id', 'gush', 'helka', 'cell'),)
+
+
+class PropertyFact(Base):
+    """A fact about a property, bitemporal (valid_from / valid_to in the world; recorded_at / superseded_at in the
+    system) with its standing: APPROVED · DECLARED · OBSERVED · UNVERIFIED, and its source."""
+    __tablename__ = 'property_facts'
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    tenant_id: Mapped[str] = mapped_column(ForeignKey('municipalities.id'), index=True)
+    property_id: Mapped[int] = mapped_column(ForeignKey('properties.id', ondelete='CASCADE'), index=True)
+    kind: Mapped[str] = mapped_column(String(30))       # permit | application | area_table | declared | decision | inspection
+    key: Mapped[str] = mapped_column(String(120))       # identity within kind (permit number, case number + field, …)
+    value: Mapped[dict] = mapped_column(JSON, default=dict)
+    status: Mapped[str] = mapped_column(String(20))
+    source_type: Mapped[str] = mapped_column(String(40))
+    source_ref: Mapped[str | None] = mapped_column(String(300))
+    source_url: Mapped[str | None] = mapped_column(String(500))
+    valid_from: Mapped[dt.date | None] = mapped_column(sa_Date)
+    valid_to: Mapped[dt.date | None] = mapped_column(sa_Date)
+    recorded_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), default=_now)
+    superseded_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime())
+    recorded_by: Mapped[str] = mapped_column(String(40), default='system')

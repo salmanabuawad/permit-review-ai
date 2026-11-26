@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-11-26 — Building360: property passport
+
+- `properties` / `property_facts` (migration 0019): a property per block / parcel (or plan cell, when the source is
+  cell-based); facts are bitemporal — valid from / to in the world, recorded / superseded in the system — so a re-sync
+  never overwrites and "what did we know on date X about date Y" can be answered.
+- Standing per fact: APPROVED (issued permit / certificate in the committee register; signed permit area table whose
+  arithmetic closes), DECLARED (applications, declared values, pending submissions), OBSERVED (site inspections),
+  UNVERIFIED (with the reason: flagged by spatial control, table that does not close). Sources: the Hof Ashkelon
+  register snapshot and permit tables (knowledge/lots), cases and committee decisions.
+- API: `/api/properties`, `/api/properties/{id}?as_of=&known_at=`, `/api/cases/{id}/properties`,
+  `POST /api/properties/sync`. Case tab "נכס".
+
 ## 2026-11-26 — Process360: permit workflow, tasks, SLAs and escalation
 
 - `workflow_templates` / `workflow_tasks` (migration 0018). Default template: intake → completeness → engineering,
