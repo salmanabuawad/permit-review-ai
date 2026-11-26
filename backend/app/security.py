@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from fastapi import Depends, Header, HTTPException
+from fastapi import Cookie, Depends, Header, HTTPException
 from sqlalchemy.orm import Session
 
 from .config import settings
@@ -52,7 +52,15 @@ class Principal:
         return self.role in PERMISSIONS.get(perm, set())
 
 
-def current_user(x_user: str | None = Header(default=None), s: Session = Depends(get_session)) -> Principal:
+def current_user(x_user: str | None = Header(default=None), bbp_session: str | None = Cookie(default=None),
+                 s: Session = Depends(get_session)) -> Principal:
+    if settings.login_required:                       # app login: the signed session cookie names the user
+        from .login import read_session
+        uid = read_session(bbp_session)
+        u = s.get(User, uid) if uid else None
+        if not u:
+            raise HTTPException(401, "נדרשת כניסה למערכת")
+        return Principal(u.id, u.tenant_id, u.role, u.display_name)
     if settings.environment == "production":
         raise HTTPException(501, "Demo header auth is disabled in production — configure SSO/OIDC.")
     uid = x_user or "u-reviewer"

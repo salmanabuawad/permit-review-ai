@@ -49,7 +49,9 @@ class Settings:
     # LLM relay (app/ai/relay.py, its own process): the AI PC's agent pulls model calls from it over HTTPS.
     llm_relay_token: str = _env("LLM_RELAY_TOKEN", "")
     vision_model: str = _env("VISION_MODEL", "ministral-3-8b-vision")
-    typing_worker: bool = _env("TYPING_WORKER", "false").lower() in ("1", "true", "yes")   # on in the deployed app   # local image model (AI PC, via the relay)
+    typing_worker: bool = _env("TYPING_WORKER", "false").lower() in ("1", "true", "yes")   # on in the deployed app
+    login_required: bool = _env("LOGIN_REQUIRED", "false").lower() in ("1", "true", "yes")  # app login page + session cookie
+    login_user_id: str = _env("LOGIN_USER_ID", "u-ha-admin")   # the single administrator the login maps to
     llm_relay_poll_interval_s: float = float(_env("LLM_RELAY_POLL_INTERVAL", "1"))
     llm_relay_pickup_timeout_s: float = float(_env("LLM_RELAY_PICKUP_TIMEOUT", "15"))
     llm_relay_response_timeout_s: float = float(_env("LLM_RELAY_RESPONSE_TIMEOUT", "300"))

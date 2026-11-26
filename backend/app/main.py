@@ -37,6 +37,58 @@ app.add_middleware(CORSMiddleware, allow_origins=list(settings.cors_origins), al
                    allow_headers=["*"])
 
 
+_OPEN_API = ("/api/health", "/api/auth/", "/api/agent/")   # agent endpoints check their own token
+
+
+@app.middleware("http")
+async def _login_gate(request: Request, call_next):
+    """With the app login on, every /api call except health, login and the AI agent's needs a valid session."""
+    path = request.url.path
+    if settings.login_required and path.startswith("/api") and not path.startswith(_OPEN_API):
+        from .login import COOKIE, read_session
+        if not read_session(request.cookies.get(COOKIE)):
+            return JSONResponse({"detail": "נדרשת כניסה למערכת"}, status_code=401)
+    return await call_next(request)
+
+
+class LoginIn(BaseModel):
+    username: str
+    password: str
+
+
+@app.post("/api/auth/login")
+def auth_login(body: LoginIn, request: Request, s: Session = Depends(get_session)):
+    from . import login
+    addr = request.headers.get("x-real-ip") or (request.client.host if request.client else "?")
+    if login.throttled(addr):
+        raise HTTPException(429, "יותר מדי ניסיונות כניסה — נסו שוב בעוד כמה דקות")
+    admin = s.get(User, settings.login_user_id)
+    if not admin:
+        raise HTTPException(500, "משתמש המנהל אינו מוגדר")
+    if not login.check_password(body.username.strip(), body.password):
+        login.record_failure(addr)
+        audit.record(s, admin.tenant_id, "anonymous", "auth.login_failed", "user", body.username.strip()[:64], {"addr": addr})
+        s.commit()
+        raise HTTPException(401, "שם משתמש או סיסמה שגויים")
+    login.clear_failures(addr)
+    audit.record(s, admin.tenant_id, admin.id, "auth.login", "user", admin.id, {"addr": addr})
+    s.commit()
+    hours = float(__import__("os").environ.get("BBP_SESSION_HOURS", "12"))
+    r = JSONResponse({"ok": True})
+    r.set_cookie(login.COOKIE, login.make_session(settings.login_user_id, hours), max_age=int(hours * 3600),
+                 httponly=True, secure=request.headers.get("x-forwarded-proto", request.url.scheme) == "https",
+                 samesite="lax", path="/")
+    return r
+
+
+@app.post("/api/auth/logout")
+def auth_logout():
+    from .login import COOKIE
+    r = JSONResponse({"ok": True})
+    r.delete_cookie(COOKIE, path="/")
+    return r
+
+
 @app.on_event("startup")
 def _startup():
     run_migrations()

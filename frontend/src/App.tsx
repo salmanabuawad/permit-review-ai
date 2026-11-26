@@ -11,6 +11,7 @@ import AISettings from './pages/AISettings'
 import Integrations from './pages/Integrations'
 import Audit from './pages/Audit'
 import ImportCases from './pages/ImportCases'
+import Login from './pages/Login'
 
 export interface Me { id: string; tenant_id: string; role: string; role_he: string; display_name: string; permissions: string[] }
 interface Ctx { me: Me | null; meta: any; can: (p: string) => boolean; toast: (m: string, err?: boolean) => void }
@@ -54,6 +55,7 @@ export default function App() {
   const [meta, setMeta] = useState<any>(null)
   const [userId] = useState(getUser())
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [needLogin, setNeedLogin] = useState(false)
   const [msg, setMsg] = useState<{ text: string; err: boolean } | null>(null)
 
   const toast = useCallback((text: string, err = false) => {
@@ -66,13 +68,21 @@ export default function App() {
   }, [])
   useEffect(() => {
     setUser(userId)
-    api.get<Me>('/api/me').then(setMe).catch(() => setMe(null))
+    api.get<Me>('/api/me').then(setMe).catch(e => { setMe(null); if (e?.status === 401) setNeedLogin(true) })
   }, [userId])
+  useEffect(() => {
+    const on = () => setNeedLogin(true)
+    window.addEventListener('bbp-unauth', on)
+    return () => window.removeEventListener('bbp-unauth', on)
+  }, [])
+  const logout = () => { api.post('/api/auth/logout').finally(() => window.location.reload()) }
 
   const can = (p: string) => !!me?.permissions.includes(p)
   const isDemo = me?.tenant_id === 'demo'
   const org = ORG[me?.tenant_id || DEFAULT_ORG] || ORG[DEFAULT_ORG]
   useEffect(() => { document.title = `בדיקת היתרי בנייה — ${isDemo ? 'סביבת הדגמה' : org.short}` }, [org, isDemo])
+
+  if (needLogin) return <Login />
 
   return (
     <AppCtx.Provider value={{ me, meta, can, toast }}>
@@ -105,6 +115,7 @@ export default function App() {
             <span className="spacer" />
             <span className="topbar-policy"><span className="live-dot" /> כל תוצר הוא המלצה בלבד — ההחלטה בסמכות בעל תפקיד מוסמך</span>
             <span className="small muted">משתמש: {me?.display_name ?? 'מנהל מערכת'}</span>
+            <button className="sm" onClick={logout}>יציאה</button>
           </header>
           <main className="content" key={userId}>
             {me && meta ? (

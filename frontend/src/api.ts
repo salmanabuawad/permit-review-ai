@@ -61,6 +61,7 @@ async function req<T>(method: string, path: string, body?: any, isForm = false):
   const headers: Record<string, string> = { 'X-User': currentUser }
   if (body && !isForm) headers['Content-Type'] = 'application/json'
   const r = await fetch(path, { method, headers, body: isForm ? body : body ? JSON.stringify(body) : undefined })
+  if (r.status === 401 && !path.startsWith('/api/auth/')) window.dispatchEvent(new Event('bbp-unauth'))
   if (!r.ok) {
     let msg = r.statusText
     try { const j = await r.json(); msg = typeof j.detail === 'string' ? j.detail : JSON.stringify(j.detail) } catch { /* */ }
@@ -79,6 +80,7 @@ export const api = {
   // binary downloads need the auth header too
   async blob(p: string): Promise<Blob> {
     const r = await fetch(p, { headers: { 'X-User': currentUser } })
+    if (r.status === 401) window.dispatchEvent(new Event('bbp-unauth'))
     if (!r.ok) throw new ApiError(r.status, r.statusText)
     return r.blob()
   },
