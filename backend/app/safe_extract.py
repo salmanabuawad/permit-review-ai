@@ -23,7 +23,9 @@ _CHILD = (
     "sys.path.insert(0, sys.argv[1])\n"
     "from app.source_monitor.service import extract_text\n"
     "body = open(sys.argv[2], 'rb').read()\n"
-    "json.dump(extract_text(body, sys.argv[3]), sys.stdout, ensure_ascii=False)\n"
+    "pages = extract_text(body, sys.argv[3])\n"
+    "with open(sys.argv[4], 'w', encoding='utf-8') as out:\n"
+    "    json.dump(pages, out, ensure_ascii=False)\n"
 )
 
 
@@ -39,17 +41,21 @@ def extract(body: bytes, ext: str) -> list[str]:
     """Page texts, or raises ValueError with a short reason."""
     if ext not in (".pdf", ".docx", ".xlsx", ".txt"):
         return []
-    with tempfile.NamedTemporaryFile(suffix=ext) as f:
+    # the result goes to a file: parsers may print warnings on stdout, which must not corrupt it
+    with tempfile.NamedTemporaryFile(suffix=ext) as f, tempfile.NamedTemporaryFile(suffix=".json") as res:
         f.write(body)
         f.flush()
         try:
-            out = subprocess.run([sys.executable, "-c", _CHILD, BACKEND, f.name, ext], capture_output=True,
+            out = subprocess.run([sys.executable, "-c", _CHILD, BACKEND, f.name, ext, res.name], capture_output=True,
                                  timeout=WALL_SECONDS, preexec_fn=_limits, close_fds=True,
                                  env={k: v for k, v in os.environ.items() if k in ("PATH", "LANG", "LC_ALL", "HOME") or k.startswith("BBP_")})
         except subprocess.TimeoutExpired as e:
             raise ValueError("חילוץ הטקסט חרג מזמן מוקצב") from e
-    if out.returncode != 0:
-        last = (out.stderr.decode("utf-8", "ignore").strip().splitlines() or ["?"])[-1]
-        raise ValueError(f"חילוץ הטקסט נכשל: {last[:160]}")
-    pages = json.loads(out.stdout.decode("utf-8") or "[]")
+        if out.returncode != 0:
+            last = (out.stderr.decode("utf-8", "ignore").strip().splitlines() or ["?"])[-1]
+            raise ValueError(f"חילוץ הטקסט נכשל: {last[:160]}")
+        try:
+            pages = json.loads(Path(res.name).read_text(encoding="utf-8") or "[]")
+        except ValueError as e:
+            raise ValueError("חילוץ הטקסט החזיר תוצאה לא תקינה") from e
     return [p if isinstance(p, str) else "" for p in pages]

@@ -215,3 +215,29 @@ def committee_counts(s: Session, committee_id: str) -> dict:
     pages = s.scalar(select(func.count()).select_from(CommitteePassage).join(CommitteeSnapshot)
                      .join(CommitteeDocument).where(CommitteeDocument.committee_id == committee_id)) or 0
     return {"documents": sum(by.values()), "by_status": by, "passages": pages}
+
+
+def retry_failed_extractions(s: Session, extract=None, limit: int = 500) -> dict:
+    """Re-extract text for stored snapshots whose extraction failed (from the stored file; nothing is fetched)."""
+    from .safe_extract import extract as sandboxed
+    extract = extract or sandboxed
+    out = {"retried": 0, "ok": 0, "still_failed": 0}
+    for snap in s.scalars(select(CommitteeSnapshot).where(CommitteeSnapshot.text_status == "failed").limit(limit)):
+        out["retried"] += 1
+        ext = Path(snap.path).suffix
+        try:
+            pages = extract((store_root() / snap.path).read_bytes(), ext)
+        except (ValueError, OSError):
+            out["still_failed"] += 1
+            continue
+        for i, t in enumerate(pages, 1):
+            if t.strip():
+                s.add(CommitteePassage(snapshot_id=snap.id, page=i, text_he=t[:200000]))
+        snap.pages = len(pages)
+        snap.text_status = "ok" if any(p.strip() for p in pages) else "empty"
+        doc = s.get(CommitteeDocument, snap.document_id)
+        if doc and doc.message and doc.sha256 == snap.sha256:
+            doc.message = None
+        out["ok"] += 1
+    s.commit()
+    return out
