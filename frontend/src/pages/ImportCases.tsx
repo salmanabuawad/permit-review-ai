@@ -84,6 +84,17 @@ export default function ImportCases() {
       setPv(r); setEdits({}); setOpen({})
       setInclude(Object.fromEntries(r.applications.map(a => [a.key, a.status === 'new'])))
       setDocSel(Object.fromEntries(r.applications.flatMap(a => a.documents.map(d => [d.ref, { include: !d.duplicate_of, doc_type: d.doc_type || 'other' }]))))
+      // the analysis found only new requests: create them and start processing at once (no second click)
+      if (r.applications.length && r.applications.every(a => a.status === 'new')) {
+        setStage('analyze')
+        const applications = r.applications.map(a => ({
+          key: a.key, include: true, fields: {},
+          documents: a.documents.map(d => ({ ref: d.ref, include: !d.duplicate_of, doc_type: d.doc_type || 'other' })),
+        }))
+        const res = await api.post<any>('/api/import/commit', { token: r.token, applications, run_checks: runChecks })
+        setResult(res); setStage('done')
+        return
+      }
       setStage('review')
     } catch (e: any) { toast(e.message, true); setStage('select') }
   }
