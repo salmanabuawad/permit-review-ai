@@ -96,7 +96,8 @@ def make_chunks(s: Session, limit: int = 2000) -> int:
     done = select(CommitteeChunk.passage_id)
     q = (select(CommitteePassage).join(CommitteeSnapshot, CommitteePassage.snapshot_id == CommitteeSnapshot.id)
          .join(CommitteeDocument, CommitteeSnapshot.document_id == CommitteeDocument.id)
-         .where(CommitteeDocument.sha256 == CommitteeSnapshot.sha256, CommitteePassage.id.not_in(done)).limit(limit))
+         .where(CommitteeDocument.sha256 == CommitteeSnapshot.sha256, CommitteePassage.id.not_in(done))
+         .order_by(CommitteeDocument.committee_id.not_in(_served()), CommitteePassage.id).limit(limit))
     n = 0
     for p in s.scalars(q):
         for k, (a, b) in enumerate(chunks(p.text_he)):
@@ -109,6 +110,12 @@ def make_chunks(s: Session, limit: int = 2000) -> int:
 KIND_ORDER = {"guideline": 0, "plan": 1, "bylaw": 2, "procedure": 3}
 
 
+def _served():
+    """Committees an authority on the system belongs to: their text is embedded first (cases are reviewed there)."""
+    from .models import Municipality
+    return select(Municipality.committee_id).where(Municipality.committee_id.is_not(None))
+
+
 def index(s: Session, batch: int = 32, max_chunks: int = 256, model=None) -> dict:
     """Embed up to max_chunks chunks that have no vector for MODEL_ID. Returns counts."""
     model = model or embedder()
@@ -119,7 +126,8 @@ def index(s: Session, batch: int = 32, max_chunks: int = 256, model=None) -> dic
                      .join(CommitteePassage, CommitteeChunk.passage_id == CommitteePassage.id)
                      .join(CommitteeSnapshot, CommitteePassage.snapshot_id == CommitteeSnapshot.id)
                      .join(CommitteeDocument, CommitteeSnapshot.document_id == CommitteeDocument.id)
-                     .where(CommitteeChunk.model.is_(None)).limit(max_chunks * 4)).all()
+                     .where(CommitteeChunk.model.is_(None))
+                     .order_by(CommitteeDocument.committee_id.not_in(_served()), CommitteeChunk.id).limit(max_chunks * 4)).all()
     rows.sort(key=lambda r: KIND_ORDER.get(r[2], 9))
     rows = rows[:max_chunks]
     done = 0

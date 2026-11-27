@@ -148,6 +148,7 @@ export default function CaseView() {
               <b>קטעי ידע שנמסרו לסיכום</b> (מהתכניות והנחיות הוועדה של התיק; לעיון — אינם ממצאים):
               {[...(report.run.kb_passages ?? [])].sort((a, b) => Number(b.cited) - Number(a.cited)).map(k => (
                 <div key={k.id}><span className="mono">[{k.id}]</span> {k.section} — {k.source_title_he}{k.page ? `, עמ׳ ${k.page}` : ''}
+                  {k.verification === 'UNVERIFIED_COMMITTEE' && <span className="chip warn" style={{ marginInlineStart: 4 }}>מאתר הוועדה — לא מאומת</span>}
                   {k.cited && <span className="chip ok" style={{ marginInlineStart: 4 }}>צוטט בסיכום</span>}
                   {k.url && <> · <a href={k.url} target="_blank" rel="noreferrer">מקור</a></>}</div>))}
             </div>}</div></details>}

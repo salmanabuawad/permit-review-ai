@@ -126,6 +126,7 @@ export interface KbPassage { id: string; source_id: string; source_title_he: str
 export const VERIFICATION_HE: Record<string, string> = {
   VERIFIED_READ: 'נקרא ואומת', FOUND_NOT_READ: 'אותר — לא נקרא', LISTING_ONLY: 'ברשימה רשמית בלבד',
   NOT_FOUND: 'לא נמצא', DESIGN_ASSUMPTION: 'הנחת תכנון', DEMO: 'הדגמה', UNKNOWN: 'לא ידוע',
+  UNVERIFIED_COMMITTEE: 'מאתר הוועדה — לא מאומת',
 }
 export const OP_HE: Record<string, string> = { '>=': '≥', '<=': '≤', '>': '>', '<': '<', '==': '=' }
 export const fmt = (v: number | null | undefined, d = 2) => (v === null || v === undefined ? '—' : v.toFixed(d))

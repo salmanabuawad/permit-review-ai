@@ -192,6 +192,34 @@ PAGE_WORDS = ("הנדסה", "רישוי", "תכנון", "ועדה", "מידע", 
 FINGERPRINTS = (("BarTech", re.compile(r"bartech", re.I)), ("Complot", re.compile(r"complot", re.I)))
 
 
+def run_deep(session_factory, cid: str, fetcher=None, sleep=None, extract=None) -> None:
+    """Deep search of one committee: its site breadth-first, then its online plans from XPLAN."""
+    from . import plan_discovery as PD
+    from .committee_docs import committee_counts, deep_crawl
+    with session_factory() as s:
+        c = s.get(PlanningCommittee, cid)
+        try:
+            out = {"site": deep_crawl(s, c, fetcher, sleep, extract)}
+            try:
+                out["xplan"] = PD.committee_catalogue(s, s.get(PlanningCommittee, cid), fetcher, extract)
+            except Exception as e:                      # noqa: BLE001 — the site part still counts
+                s.rollback()
+                out["xplan"] = {"error": f"{type(e).__name__}: {e}"[:300]}
+            c = s.get(PlanningCommittee, cid)
+            counts = committee_counts(s, c.id)
+            if (counts["by_status"].get("ok") or 0) + (counts["by_status"].get("unchanged") or 0):
+                c.kb_status = "DOCUMENTS_FETCHED"
+            c.kb_detail = {**(c.kb_detail or {}), "deep": {"state": "done", "at": dt.datetime.now(dt.timezone.utc).isoformat(),
+                                                            "last_run": out, **counts}}
+            c.updated_at = dt.datetime.now(dt.timezone.utc)
+            s.commit()
+        except Exception as e:                          # noqa: BLE001 — recorded; the worker goes on
+            s.rollback()
+            c = s.get(PlanningCommittee, cid)
+            c.kb_detail = {**(c.kb_detail or {}), "deep": {"state": "failed", "error": f"{type(e).__name__}: {e}"[:300]}}
+            s.commit()
+
+
 def _links(html_text: str, base: str) -> list[tuple[str, str]]:
     from html.parser import HTMLParser
     from urllib.parse import urljoin
@@ -411,7 +439,7 @@ def fail_interrupted(session_factory) -> int:
     with session_factory() as s:
         n = 0
         for c in s.scalars(select(PlanningCommittee)):
-            for job in ("probe", "fetch"):
+            for job in ("probe", "fetch", "deep", "meetings"):
                 st = (c.kb_detail or {}).get(job) or {}
                 if st.get("state") == "running":
                     c.kb_detail = {**c.kb_detail, job: {**st, "state": "failed", "error": "הסורק הופעל מחדש באמצע העבודה"}}

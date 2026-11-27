@@ -1,5 +1,20 @@
 # Changelog
 
+## 2026-11-27 — Deep search of a committee; committee text in the summary; meeting record (study only)
+
+- Deep search (`POST /api/committees/deep`, crawler job `deep`): the committee's own site breadth-first (depth 3, up to
+  300 pages and 400 documents, own hosts only, no search / account pages, one request per delay), every content page
+  stored as text and every linked document fetched; then the committee's online plans from XPLAN (name an exact entry
+  of the plan's committee list) as one versioned document with a passage per plan, objectives included.
+- Clause cutting and embedding now take the committees of authorities on the system first.
+- A run's summary passages add up to 3 passages from the case committee's own fetched text (semantic, cosine ≥ 0.84),
+  labelled "מאתר הוועדה — לא מאומת"; never a finding or a rule. Hybrid committee search moved to
+  `committee_docs.hybrid_search`.
+- Committee meeting record (migration 0022, `app/meetings.py`, crawler job `meetings`, alternating with indexing):
+  meetings → items → item pages (request, reliefs, decision, outcome class). Applicant names are not stored. Study and
+  validation material only — committee decisions are ground truth and never an engine input. Hof Ashkelon: 607
+  meetings 2016–2026 imported from the public meeting search (run by the owner; the site's reCAPTCHA is not bypassed).
+
 ## 2026-11-27 — XPLAN plan discovery live, in the crawler
 
 - Plan discovery is now a job of the restricted crawler process: "איתור תכניות ב־XPLAN" queues it

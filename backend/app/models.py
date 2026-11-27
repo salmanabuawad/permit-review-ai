@@ -887,3 +887,46 @@ class Inspection(Base):
     done_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime())
     created_by: Mapped[str] = mapped_column(String(40))
     created_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), default=_now)
+
+
+class CommitteeMeeting(Base):
+    """A meeting of a local committee as its public site lists it. Study / validation material only."""
+    __tablename__ = 'committee_meetings'
+    __table_args__ = (UniqueConstraint('committee_id', 'type_code', 'meeting_number', name='uq_committee_meeting'),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    committee_id: Mapped[str] = mapped_column(ForeignKey('planning_committees.id', ondelete='CASCADE'))
+    type_code: Mapped[str] = mapped_column(String(8))
+    type_he: Mapped[str | None] = mapped_column(String(60))
+    meeting_number: Mapped[str] = mapped_column(String(20))         # the site's internal number (its links)
+    real_number: Mapped[str | None] = mapped_column(String(20))     # the number the committee publishes
+    meeting_date: Mapped[dt.date | None] = mapped_column(sa_Date)
+    protocol_ref: Mapped[str | None] = mapped_column(String(40))
+    state: Mapped[str] = mapped_column(String(16), default='pending', index=True)   # pending | items | done | failed
+    items: Mapped[int | None] = mapped_column(Integer)
+    error: Mapped[str | None] = mapped_column(Text)
+    fetched_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime())
+
+
+class CommitteeMeetingItem(Base):
+    """One item of a meeting: what was requested and what the committee decided. Ground truth: never an engine input.
+    Applicant names are not stored (the public page keeps them)."""
+    __tablename__ = 'committee_meeting_items'
+    __table_args__ = (UniqueConstraint('meeting_id', 'item_number', name='uq_meeting_item'),)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    meeting_id: Mapped[int] = mapped_column(ForeignKey('committee_meetings.id', ondelete='CASCADE'))
+    item_number: Mapped[str] = mapped_column(String(10))
+    item_type: Mapped[str | None] = mapped_column(String(80))
+    subject: Mapped[str | None] = mapped_column(String(300))
+    request_ref: Mapped[str | None] = mapped_column(String(60))
+    plan: Mapped[str | None] = mapped_column(String(60))
+    locality: Mapped[str | None] = mapped_column(String(120))
+    gush: Mapped[str | None] = mapped_column(String(20))
+    helka: Mapped[str | None] = mapped_column(String(20))
+    migrash: Mapped[str | None] = mapped_column(String(20))
+    parcels: Mapped[str | None] = mapped_column(Text)
+    essence: Mapped[str | None] = mapped_column(Text)
+    reliefs: Mapped[str | None] = mapped_column(Text)
+    decision: Mapped[str | None] = mapped_column(Text)
+    outcome: Mapped[str | None] = mapped_column(String(30), index=True)
+    state: Mapped[str] = mapped_column(String(16), default='pending', index=True)   # pending | done | failed
+    fetched_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime())

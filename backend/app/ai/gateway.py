@@ -174,6 +174,7 @@ CITATION = re.compile(r"\s*[\[(](P-[A-Za-z0-9.-]+)[\])]")    # [P-HA-633-5]; loc
 
 def _report_passages(payload: dict) -> list[dict]:
     return [{"מזהה": p["id"], "מקור": p.get("source_title_he"), "עמוד": p.get("page"), "סעיף": p.get("section"),
+             **({"מעמד": "טקסט מאתר הוועדה — לא מאומת; רקע בלבד"} if p.get("verification") == "UNVERIFIED_COMMITTEE" else {}),
              "תוכן": p.get("text_he")} for p in payload.get("passages") or []]
 
 

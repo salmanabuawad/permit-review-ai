@@ -475,7 +475,40 @@ KB_PASSAGES_MAX = 6
 KB_MIN_SCORE = 4.0       # BM25: below this a "hit" shares only common words with the finding
 
 
-def case_passages(case: PermitCase, results: list) -> list[dict]:
+COMMITTEE_PASSAGES_MAX = 3
+COMMITTEE_MIN_SIMILARITY = 0.84   # e5-small cosine: below this a hit is only "about planning", not about the finding
+
+
+def committee_passages(s: Session, case: PermitCase, results: list, taken: set) -> list[dict]:
+    """Text fetched from the case's own committee (site pages, documents, XPLAN plan list) closest to each open finding:
+    unverified context for the summary and the reviewer, never a finding or a rule."""
+    from . import committee_docs as CD
+    from .models import Municipality
+    m = s.get(Municipality, case.tenant_id)
+    if not m or not m.committee_id:
+        return []
+    order = {"FAIL": 0, "UNCERTAIN": 1}
+    out = []
+    for f in sorted((r.as_dict() for r in results if r.status in order), key=lambda f: order[f["status"]]):
+        q = " ".join(x for x in (f.get("title_he"), f.get("explanation_he")) if x)[:400]
+        try:
+            hits = CD.hybrid_search(s, q, m.committee_id, mode="semantic", k=5)
+        except Exception:                                    # noqa: BLE001 — no model / no vectors: no candidates
+            return out
+        for h in hits:
+            pid = f"cmt:{h['passage_id']}"
+            if (h.get("similarity") or 0) >= COMMITTEE_MIN_SIMILARITY and pid not in taken:
+                taken.add(pid)
+                out.append({"id": pid, "source_id": f"committee:{m.committee_id}", "source_title_he": f"{h['committee']} — {h['document']}",
+                            "page": h["page"], "section": None, "text_he": h["excerpt"], "url": h["url"],
+                            "verification": "UNVERIFIED_COMMITTEE", "score": h["similarity"], "for_rule": f.get("rule_id")})
+                break
+        if len(out) >= COMMITTEE_PASSAGES_MAX:
+            break
+    return out
+
+
+def case_passages(case: PermitCase, results: list, s: Session | None = None) -> list[dict]:
     """Knowledge passages for the summary: for each open finding (FAIL first, then UNCERTAIN), the best passage of the
     case's own municipality or national sources. A passage is never a finding: it is context the reviewer can open."""
     from .knowledge import search
@@ -491,7 +524,10 @@ def case_passages(case: PermitCase, results: list) -> list[dict]:
                 break
         if len(picked) >= KB_PASSAGES_MAX:
             break
-    return list(picked.values())
+    out = list(picked.values())
+    if s is not None:                       # then the committee's own fetched text (unverified), when it is close
+        out += committee_passages(s, case, results, set(picked))
+    return out
 
 
 # What a finding means for the request, in the reviewer's three words: something is missing, something contradicts
@@ -715,7 +751,7 @@ def run_checks(s: Session, case: PermitCase, user: str, gateway: AIGateway | Non
         counts.setdefault(r.report, {}).setdefault(r.status, 0)
         counts[r.report][r.status] += 1
     gw = gateway or gateway_for(s, case.tenant_id)
-    passages = case_passages(case, results)
+    passages = case_passages(case, results, s)
     draft, summary_cached = cached_report_draft(s, gw, case, {"findings": [r.as_dict() for r in results], "passages": passages},
                                                 gateway_logger(s, case.tenant_id, case.id, user))
     ok = draft.outcome in ("OK", "FALLBACK")

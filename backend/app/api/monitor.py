@@ -215,6 +215,19 @@ def committees_fetch(body: ProbeIn, account: User = Depends(_platform_admin), s:
     return {"queued": n}
 
 
+@router.post("/api/committees/deep")
+def committees_deep(body: ProbeIn, account: User = Depends(_platform_admin), s: Session = Depends(get_session)):
+    """Queue a deep search of the committees (crawler process): the whole own site breadth-first, every linked
+    document, and the committee's online plans from XPLAN. On request only; ids are required."""
+    from .. import committees
+    if not body.ids:
+        raise HTTPException(422, "חיפוש עמוק מופעל לוועדות שנבחרו בלבד")
+    n = committees.queue_jobs(s, "deep", body.ids)
+    audit.record(s, account.tenant_id, account.id, "committee.deep.queue", "planning_committee", None, {"count": n, "ids": body.ids[:50]})
+    s.commit()
+    return {"queued": n}
+
+
 @router.get("/api/committees/{committee_id}/documents")
 def committee_documents(committee_id: str, p: Principal = Depends(require("source.crawl")), s: Session = Depends(get_session)):
     from ..models import CommitteeDocument, CommitteeSnapshot
@@ -235,51 +248,12 @@ def committee_passages(q: str, committee_id: str | None = None, mode: str = "hyb
                        p: Principal = Depends(require("source.crawl")), s: Session = Depends(get_session)):
     """Search the text fetched from committee sites (unverified candidates): keyword and local-embedding retrieval
     fused by reciprocal rank (mode=hybrid), or one of them (keyword / semantic). Each hit says what found it."""
+    from .. import committee_docs as CD
     from .. import embeddings as E
-    from ..models import CommitteeChunk, CommitteeDocument, CommitteePassage, CommitteeSnapshot, PlanningCommittee
     q = E.normalize_query(q)
     if len(q) < 2:
         raise HTTPException(422, "יש להזין לפחות 2 תווים")
-    base = (select(CommitteePassage, CommitteeSnapshot, CommitteeDocument, PlanningCommittee)
-            .join(CommitteeSnapshot, CommitteePassage.snapshot_id == CommitteeSnapshot.id)
-            .join(CommitteeDocument, CommitteeSnapshot.document_id == CommitteeDocument.id)
-            .join(PlanningCommittee, CommitteeDocument.committee_id == PlanningCommittee.id)
-            .where(CommitteeDocument.sha256 == CommitteeSnapshot.sha256))
-    if committee_id:
-        base = base.where(PlanningCommittee.id == committee_id)
-    rows, kw, sem, best_chunk = {}, [], [], {}
-    if mode in ("hybrid", "keyword"):
-        for x, snap, d, c in s.execute(base.where(CommitteePassage.text_he.contains(q, autoescape=True)).limit(50)):
-            rows[x.id] = (x, snap, d, c)
-            kw.append(x.id)
-    if mode in ("hybrid", "semantic"):
-        hits = E.semantic(s, q, k=50, committee_id=committee_id)
-        if hits:
-            chunk_rows = {ch.id: ch for ch in s.scalars(select(CommitteeChunk).where(CommitteeChunk.id.in_([h[0] for h in hits])))}
-            for cid, sim in hits:
-                ch = chunk_rows.get(cid)
-                if ch and ch.passage_id not in best_chunk:
-                    best_chunk[ch.passage_id] = (ch, sim)
-                    sem.append(ch.passage_id)
-            missing = [pid for pid in sem if pid not in rows]
-            for x, snap, d, c in s.execute(base.where(CommitteePassage.id.in_(missing))) if missing else []:
-                rows[x.id] = (x, snap, d, c)
-    out = []
-    for pid in E.rrf(kw, sem)[:50]:
-        if pid not in rows:
-            continue
-        x, snap, d, c = rows[pid]
-        if pid in kw:
-            i = x.text_he.find(q)
-            excerpt = x.text_he[max(0, i - 200): i + 300]
-        else:
-            ch, _ = best_chunk[pid]
-            excerpt = x.text_he[ch.start:ch.end]
-        out.append({"committee": c.name_he, "committee_id": c.id, "document": d.title or d.url, "url": d.url, "kind": d.kind,
-                    "page": x.page, "snapshot_id": snap.id, "excerpt": excerpt, "verification": "UNVERIFIED",
-                    "found_by": [n for n, lst in (("keyword", kw), ("semantic", sem)) if pid in lst],
-                    "similarity": round(best_chunk[pid][1], 3) if pid in best_chunk else None})
-    return out
+    return CD.hybrid_search(s, q, committee_id, mode)
 
 
 @router.get("/api/committees/snapshots/{snapshot_id}/file")

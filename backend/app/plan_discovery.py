@@ -421,3 +421,73 @@ class _Same:
 
 __all__ = ["discover", "run_case", "queue", "claim", "run_claimed", "fail_interrupted", "view", "refresh", "STATUS_HE",
            "esri_to_geojson"]
+
+
+# ---------------------------------------------------------------- the committee's plan catalogue (knowledge base)
+
+CATALOGUE_FIELDS = PLAN_FIELDS + ",pl_objectives,pl_landuse_string,plan_area_name,depositing_date,pl_area_dunam,district_name"
+
+
+def catalogue_text(p: dict) -> str:
+    """One plan as a searchable passage (Hebrew), from XPLAN's own attributes."""
+    lines = [f"תכנית {p['plan']} — {p.get('name') or ''}".strip(),
+             f"סטטוס ב־XPLAN: {p.get('status') or '—'}" + (f" ({p['stage']})" if p.get("stage") else ""),
+             f"סוג: {p.get('subtype') or '—'}; יישוב: {p.get('locality') or '—'}; מרחב תכנון: {p.get('area') or '—'}",
+             f"פרסום ברשומות: {p.get('published') or '—'}; דיון בהפקדה: {p.get('deposited') or '—'}; שטח: {p.get('dunam') or '—'} דונם"]
+    if p.get("landuse"):
+        lines.append(f"ייעודי קרקע: {p['landuse']}")
+    if p.get("objectives"):
+        lines.append(f"מטרות התכנית: {p['objectives']}")
+    lines.append(f"ועדות: {p.get('committee') or '—'}")
+    if p.get("url"):
+        lines.append(f"מבא\"ת: {p['url']}")
+    return "\n".join(lines)
+
+
+def committee_catalogue(s, c, fetcher=None, extract=None) -> dict:
+    """Every online plan XPLAN lists for the committee (its name an exact entry of the plan's committee list), stored
+    as one versioned committee document with a passage per plan — searchable, clause-cut and embedded like the rest
+    of the committee's text. Plans only; no geometry. Unverified candidates, like all fetched committee text."""
+    import hashlib
+
+    from . import committee_docs as CD
+    from .models import CommitteeDocument
+    fetcher = fetcher or F.fetch
+    lyr = layers(fetcher)
+    name = c.name_he.strip()
+    if "'" in name:
+        raise XplanError("committee name not queryable")
+    feats, complete = paged(f"/{lyr['blue']}/query", {"where": f"ja_concat LIKE '%{name}%'", "outFields": CATALOGUE_FIELDS,
+                                                      "returnGeometry": "false", "orderByFields": "pl_number"}, fetcher)
+    plans: dict[str, dict] = {}
+    for f in feats:
+        a = f.get("attributes") or {}
+        if name not in [x.strip() for x in str(a.get("ja_concat") or "").split(",")]:
+            continue
+        p = _plan(a)
+        if not p["plan"]:
+            continue
+        p.update(objectives=(a.get("pl_objectives") or "").strip()[:4000] or None, landuse=a.get("pl_landuse_string"),
+                 area=a.get("plan_area_name"), deposited=_ms_date(a.get("depositing_date")), dunam=a.get("pl_area_dunam"),
+                 shared=len([x for x in str(a.get("ja_concat") or "").split(",") if x.strip()]))
+        plans.setdefault(p["plan"], p)
+    ordered = sorted(plans.values(), key=lambda p: p["plan"])
+    url = f"{BASE}/{lyr['blue']}/query?where=ja_concat LIKE '%{name}%'"
+    body = json.dumps(ordered, ensure_ascii=False, sort_keys=True).encode()
+    doc = s.scalars(select(CommitteeDocument).where(CommitteeDocument.committee_id == c.id, CommitteeDocument.url == url)).first()
+    if doc is None:
+        doc = CommitteeDocument(committee_id=c.id, url=url, title="XPLAN — תכניות מקוונות של הוועדה", kind="plan",
+                                found_on="xplan", status="pending")
+        s.add(doc)
+        s.flush()
+    doc.checked_at, doc.http_status = dt.datetime.now(dt.timezone.utc), 200
+    changed = hashlib.sha256(body).hexdigest() != doc.sha256
+    if changed:
+        CD._save(s, doc, body, "application/json", ".json", [catalogue_text(p) for p in ordered], extract)
+    doc.status, doc.message = ("ok" if changed else "unchanged"), (None if complete else "XPLAN: page limit — partial list")
+    s.commit()
+    by_status: dict[str, int] = {}
+    for p in ordered:
+        by_status[p.get("status") or "—"] = by_status.get(p.get("status") or "—", 0) + 1
+    return {"plans": len(ordered), "own_only": sum(1 for p in ordered if p["shared"] == 1), "by_status": by_status,
+            "complete": complete, "changed": changed}

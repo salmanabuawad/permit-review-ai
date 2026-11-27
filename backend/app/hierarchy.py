@@ -184,6 +184,11 @@ def split_clauses(text: str) -> list[dict]:
     return out
 
 
+def _served():
+    from .models import Municipality
+    return select(Municipality.committee_id).where(Municipality.committee_id.is_not(None))
+
+
 def extract_clauses(s: Session, limit: int = 300) -> int:
     """Cut clauses for current committee passages that have none yet. Returns clauses added."""
     index = term_index(s)
@@ -191,7 +196,8 @@ def extract_clauses(s: Session, limit: int = 300) -> int:
     q = (select(CommitteePassage, CommitteeDocument.committee_id)
          .join(CommitteeSnapshot, CommitteePassage.snapshot_id == CommitteeSnapshot.id)
          .join(CommitteeDocument, CommitteeSnapshot.document_id == CommitteeDocument.id)
-         .where(CommitteeDocument.sha256 == CommitteeSnapshot.sha256, CommitteePassage.id.not_in(done)).limit(limit))
+         .where(CommitteeDocument.sha256 == CommitteeSnapshot.sha256, CommitteePassage.id.not_in(done))
+         .order_by(CommitteeDocument.committee_id.not_in(_served()), CommitteePassage.id).limit(limit))
     n = 0
     for p, committee_id in s.execute(q).all():
         jid = f"committee:{committee_id}"

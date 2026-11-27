@@ -24,6 +24,7 @@ from .db import SessionLocal
 from .source_monitor import service
 
 log = logging.getLogger("bbp.crawler")
+_tick = 0
 
 
 def run_once() -> bool:
@@ -49,12 +50,26 @@ def run_once() -> bool:
         log.info("committee fetch %s", cid)
         committees.run_fetch(SessionLocal, cid)
         return True
+    cid = committees.claim(SessionLocal, "deep")      # deep search of a committee an administrator asked for
+    if cid:
+        log.info("committee deep search %s", cid)
+        committees.run_deep(SessionLocal, cid)
+        return True
     from . import plan_discovery
     cid = plan_discovery.claim(SessionLocal)         # XPLAN plan discovery a user requested for a case
     if cid:
         log.info("xplan discovery %s", cid)
         plan_discovery.run_claimed(SessionLocal, cid)
         return True
+    global _tick
+    _tick += 1
+    if _tick % 2:                                     # every other pass: a committee's meeting record (study material),
+        cid = committees.claim(SessionLocal, "meetings")   # so indexing below keeps moving while it runs for hours
+        if cid:
+            from . import meetings
+            log.info("committee meetings %s", cid)
+            meetings.run_job(SessionLocal, cid)
+            return True
     due = service.queue_due(SessionLocal)                 # only authorities whose administrator set a schedule
     if due:
         log.info("scheduled crawl(s) queued: %s", due)

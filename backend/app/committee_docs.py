@@ -132,7 +132,8 @@ def _save(s: Session, doc: CommitteeDocument, body: bytes, content_type: str, ex
     return snap
 
 
-def fetch_committee(s: Session, c: PlanningCommittee, fetcher=None, sleep=None, extract=None) -> dict:
+def fetch_committee(s: Session, c: PlanningCommittee, fetcher=None, sleep=None, extract=None, limit: int = MAX_FETCH,
+                    pending_only: bool = False) -> dict:
     import time
 
     from .committees import PAGE_WORDS, SOURCE_WORDS, _links
@@ -148,10 +149,11 @@ def fetch_committee(s: Session, c: PlanningCommittee, fetcher=None, sleep=None, 
     queue = list(s.scalars(select(CommitteeDocument).where(CommitteeDocument.committee_id == c.id,
                                                            CommitteeDocument.status.in_(("pending", "failed")))
                            .order_by(CommitteeDocument.found_on.is_not(None), CommitteeDocument.id)))
-    queue += [d for d in s.scalars(select(CommitteeDocument).where(CommitteeDocument.committee_id == c.id,
-                                                                   CommitteeDocument.status.in_(("ok", "unchanged"))))]
+    if not pending_only:
+        queue += [d for d in s.scalars(select(CommitteeDocument).where(CommitteeDocument.committee_id == c.id,
+                                                                       CommitteeDocument.status.in_(("ok", "unchanged"))))]
     now = dt.datetime.now(dt.timezone.utc)
-    while queue and out["fetched"] < MAX_FETCH:
+    while queue and out["fetched"] < limit:
         doc = queue.pop(0)
         host = urlsplit(doc.url).hostname or ""
         if host not in allowed:
@@ -247,4 +249,145 @@ def retry_failed_extractions(s: Session, extract=None, limit: int = 500) -> dict
             doc.message = None
         out["ok"] += 1
     s.commit()
+    return out
+
+
+# ---------------------------------------------------------------- deep crawl (one committee, on request)
+
+DEEP_MAX_PAGES = 300        # HTML pages read per deep crawl
+DEEP_MAX_DOCS = 400         # documents fetched per deep crawl
+DEEP_DEPTH = 3              # link depth from the home page and the probe's sources
+SKIP_PATH = re.compile(r"\.(jpe?g|png|gif|svg|webp|ico|css|js|mp4|mp3|zip|rar|7z|exe|dwg|dwfx?)$|/(login|signin|account|"
+                       r"umbraco|wp-admin|wp-login|feed|print|share|search)(/|\?|$)|mailto:|tel:|javascript:", re.I)
+
+
+def _canon(u: str) -> str:
+    p = urlsplit(u)
+    return p._replace(fragment="", query="" if not p.query or len(p.query) > 80 else p.query).geturl()
+
+
+def deep_crawl(s: Session, c: PlanningCommittee, fetcher=None, sleep=None, extract=None,
+               max_pages: int = DEEP_MAX_PAGES, max_docs: int = DEEP_MAX_DOCS, depth: int = DEEP_DEPTH) -> dict:
+    """Read the committee's own site breadth-first (own hosts only, one request per delay, no search or account pages):
+    every content page is stored as text, every document it links (PDF / DOCX / XLSX) is queued and fetched. Same
+    storage and versioning as the regular fetch; everything stays an unverified candidate of the committee."""
+    import time
+
+    from .committees import NOT_SOURCE, SEARCH_URL, SOURCE_WORDS, _links
+    from .safe_extract import extract as sandboxed
+    from .source_monitor import fetch as F
+    from .source_monitor.service import load_config
+    fetcher, sleep, extract = fetcher or F.fetch, sleep or time.sleep, extract or sandboxed
+    cfg = load_config()
+    allowed = _allowed(c)
+    sync_documents(s, c)
+    docs = {d.url: d for d in s.scalars(select(CommitteeDocument).where(CommitteeDocument.committee_id == c.id))}
+    starts = [u for u in [c.website_url, c.engineering_url, *[x.get("url") for x in c.sources or []]] if u]
+    frontier = [(_canon(u), 0) for u in starts if (urlsplit(u).hostname or "") in allowed and _ext(u, None) not in DOC_EXT]
+    seen = {u for u, _ in frontier}
+    out = {"pages_read": 0, "pages_stored": 0, "pages_unchanged": 0, "documents_found": 0, "failed": 0, "skipped_links": 0}
+    first = True
+    while frontier and out["pages_read"] < max_pages:
+        url, d = frontier.pop(0)
+        if not first:
+            sleep(cfg["delay_between_requests_s"])
+        first = False
+        r = fetcher(url, cfg, allowed)
+        out["pages_read"] += 1
+        if r.status != "ok":
+            out["failed"] += 1
+            continue
+        ct = (r.content_type or "").split(";")[0].strip()
+        if ct not in ("text/html", "application/xhtml+xml"):
+            continue
+        html = F.decode_html(r.body)
+        text = html_text(r.body)
+        title = clean(re.search(r"<title[^>]*>(.*?)</title>", html, re.S | re.I).group(1)).strip()[:300] \
+            if re.search(r"<title[^>]*>(.*?)</title>", html, re.S | re.I) else None
+        if len(text) >= 300:                                   # a content page: keep its text (versioned)
+            doc = docs.get(url)
+            if doc is None:
+                kind = next((k for k, ws in SOURCE_WORDS.items() if any(w in (title or "") for w in ws)), "procedure")
+                doc = CommitteeDocument(committee_id=c.id, url=url[:1000], title=title, kind=kind, found_on="deep:" + url[:990],
+                                        status="pending")
+                s.add(doc)
+                s.flush()
+                docs[url] = doc
+            sha = hashlib.sha256(r.body).hexdigest()
+            doc.checked_at, doc.http_status = dt.datetime.now(dt.timezone.utc), r.http_status
+            if sha == doc.sha256:
+                doc.status = "unchanged"
+                out["pages_unchanged"] += 1
+            else:
+                _save(s, doc, r.body, ct, ".html", [text], extract)
+                doc.status, doc.message = "ok", None
+                out["pages_stored"] += 1
+        for u, label in _links(html, r.final_url or url):
+            u = _canon(u)
+            host = urlsplit(u).hostname or ""
+            if host not in allowed or SKIP_PATH.search(u) or SEARCH_URL.search(u) or any(w in label.lower() for w in NOT_SOURCE):
+                out["skipped_links"] += 1
+                continue
+            e = _ext(u, None)
+            if e in DOC_EXT:
+                if u not in docs and out["documents_found"] < max_docs:
+                    kind = next((k for k, ws in SOURCE_WORDS.items() if any(w in label for w in ws)), "procedure")
+                    docs[u] = CommitteeDocument(committee_id=c.id, url=u[:1000], title=clean(label)[:300] or None, kind=kind,
+                                                found_on=url[:1000], status="pending")
+                    s.add(docs[u])
+                    out["documents_found"] += 1
+            elif e is None and u not in seen and d + 1 <= depth:
+                seen.add(u)
+                frontier.append((u, d + 1))
+        s.commit()
+    out["pages_not_read"] = len(frontier)
+    fetched = fetch_committee(s, c, fetcher, sleep, extract, limit=max_docs, pending_only=True)
+    return {**out, "documents": fetched}
+
+
+def hybrid_search(s: Session, q: str, committee_id: str | None = None, mode: str = "hybrid", k: int = 50) -> list[dict]:
+    """Fetched committee text (unverified candidates): keyword (exact phrase) and local-embedding retrieval fused by
+    reciprocal rank (mode=hybrid), or one of them. Each hit says what found it and, when semantic, its similarity."""
+    from . import embeddings as E
+    from .models import CommitteeChunk
+    q = E.normalize_query(q)
+    base = (select(CommitteePassage, CommitteeSnapshot, CommitteeDocument, PlanningCommittee)
+            .join(CommitteeSnapshot, CommitteePassage.snapshot_id == CommitteeSnapshot.id)
+            .join(CommitteeDocument, CommitteeSnapshot.document_id == CommitteeDocument.id)
+            .join(PlanningCommittee, CommitteeDocument.committee_id == PlanningCommittee.id)
+            .where(CommitteeDocument.sha256 == CommitteeSnapshot.sha256))
+    if committee_id:
+        base = base.where(PlanningCommittee.id == committee_id)
+    rows, kw, sem, best_chunk = {}, [], [], {}
+    if mode in ("hybrid", "keyword"):
+        for x, snap, d, c in s.execute(base.where(CommitteePassage.text_he.contains(q, autoescape=True)).limit(k)):
+            rows[x.id] = (x, snap, d, c)
+            kw.append(x.id)
+    if mode in ("hybrid", "semantic"):
+        hits = E.semantic(s, q, k=k, committee_id=committee_id)
+        if hits:
+            chunk_rows = {ch.id: ch for ch in s.scalars(select(CommitteeChunk).where(CommitteeChunk.id.in_([h[0] for h in hits])))}
+            for cid, sim in hits:
+                ch = chunk_rows.get(cid)
+                if ch and ch.passage_id not in best_chunk:
+                    best_chunk[ch.passage_id] = (ch, sim)
+                    sem.append(ch.passage_id)
+            missing = [pid for pid in sem if pid not in rows]
+            for x, snap, d, c in s.execute(base.where(CommitteePassage.id.in_(missing))) if missing else []:
+                rows[x.id] = (x, snap, d, c)
+    out = []
+    for pid in E.rrf(kw, sem)[:k]:
+        if pid not in rows:
+            continue
+        x, snap, d, c = rows[pid]
+        if pid in kw:
+            i = x.text_he.find(q)
+            excerpt = x.text_he[max(0, i - 200): i + 300]
+        else:
+            ch, _ = best_chunk[pid]
+            excerpt = x.text_he[ch.start:ch.end]
+        out.append({"committee": c.name_he, "committee_id": c.id, "document": d.title or d.url, "url": d.url, "kind": d.kind,
+                    "page": x.page, "snapshot_id": snap.id, "excerpt": excerpt, "verification": "UNVERIFIED",
+                    "found_by": [n for n, lst in (("keyword", kw), ("semantic", sem)) if pid in lst],
+                    "similarity": round(best_chunk[pid][1], 3) if pid in best_chunk else None, "passage_id": pid})
     return out
