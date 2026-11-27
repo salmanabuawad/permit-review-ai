@@ -31,7 +31,11 @@ def test_parse_and_classify():
     assert "ישראלי" not in str(d)
     for text, want in [("לאשר את הבקשה", "APPROVED"), ("לא לאשר את הבקשה", "REJECTED"), ("לדחות את הבקשה", "REJECTED"),
                        ("לדחות את הדיון לישיבה הבאה", "DEFERRED"), ("לדחות את ההתנגדויות ולאשר את הבקשה", "APPROVED"),
-                       ("להפקיד את התכנית בתנאים", "DEPOSIT"), ("", "OPEN"), ("לשוב ולדון לאחר סיור", "DEFERRED")]:
+                       ("להפקיד את התכנית בתנאים", "DEPOSIT"), ("", "OPEN"), ("לשוב ולדון לאחר סיור", "DEFERRED"),
+                       ("ס.85(ב)(1) - החלטת ועדה מקומית על הפקדת תכנית בכפוף לכתב שיפוי", "DEPOSIT"),
+                       ("ס.108 - החלטת ועדה מקומית על מתן תוקף לתכנית", "PLAN_APPROVED"),
+                       ("אישור תכנית בינוי בכפוף לתיקון תוואי כביש", "APPROVED_CONDITIONS"),
+                       ("לחזור ולדון בנושא", "DEFERRED"), ("החלטת הועדה- ס.137 - אישור תשריט חלוקת בית משותף", "APPROVED")]:
         assert MT.classify(text) == want, text
 
 
@@ -55,3 +59,30 @@ def test_job_reads_meetings_then_items():
         it = s.scalars(select(CommitteeMeetingItem)).one()
         assert m.state == "done" and str(m.meeting_date) == "2026-11-04" and it.outcome == "APPROVED_CONDITIONS"
         assert all(u.startswith("https://v.example/Meeting") for u in calls)
+
+
+def test_study_aggregates_without_personal_data():
+    import datetime as dt
+    import sys
+    from pathlib import Path
+    seed(reset=True, samples=False)
+    sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts"))
+    import study_meetings as SM
+    with SessionLocal() as s:
+        committees.import_register(s)
+        c = s.scalars(select(PlanningCommittee).where(PlanningCommittee.name_he == "חוף אשקלון")).one()
+        m = CommitteeMeeting(committee_id=c.id, type_code="1", type_he="רשות רישוי מקומית", meeting_number="1", state="done",
+                             meeting_date=dt.date(2020, 5, 1))
+        s.add(m)
+        s.flush()
+        for n, (rel, dec) in enumerate([("הקלה בקו בניין צידי", "לאשר בתנאים: אישור פיקוד העורף"), (None, "לאשר את הבקשה"),
+                                         ("תוספת קומה", "לדחות את הבקשה — בניגוד לתכנית")], 1):
+            s.add(CommitteeMeetingItem(meeting_id=m.id, item_number=str(n), item_type="אישור בקשה", locality="זיקים", gush="2832",
+                                       reliefs=rel, decision=dec, outcome=MT.classify(dec), state="done", request_ref="2020000" + str(n)))
+        s.commit()
+        r = SM.study(c.id, dt.date(2016, 1, 1))
+    assert r["requests_decided"] == 3 and r["approval_rate_with_reliefs"] == {"n": 2, "approved": 1}
+    assert r["reliefs"]["קו בניין"] == {"n": 1, "approved": 1} and r["rejection_reasons"]["בניגוד לתכנית / אינו תואם"] == 1
+    assert r["approval_conditions"]["פיקוד העורף / ממ\"ד"] == 1 and r["zikim_block_2832_plan_0723718"]["items"] == 3
+    md = SM.markdown(r)
+    assert "20200001" not in md and "אושרו 50%" in md

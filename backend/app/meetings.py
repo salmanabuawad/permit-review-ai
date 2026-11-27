@@ -25,19 +25,20 @@ TYPES_HE = {"1": "רשות רישוי מקומית", "2": "מליאת הועדה
 BATCH = 120                 # requests per crawler pass; other jobs run between passes
 
 OUTCOMES_HE = {"APPROVED": "אושר", "APPROVED_CONDITIONS": "אושר בתנאים", "REJECTED": "נדחה", "DEFERRED": "נדחה הדיון / הוחזר",
-               "RECOMMENDED": "הומלץ (תכנית)", "DEPOSIT": "הופקד / הוחלט להפקיד", "NOTED": "לידיעה", "OPEN": "טרם הוחלט",
+               "RECOMMENDED": "הומלץ (תכנית)", "DEPOSIT": "הופקד / הוחלט להפקיד", "PLAN_APPROVED": "מתן תוקף לתכנית", "NOTED": "לידיעה", "OPEN": "טרם הוחלט",
                "OTHER": "אחר"}
 
 # order matters: postponements and negations before plain approval / rejection words
 _RULES = [
-    ("DEFERRED", r"לדחות\s+את\s+(?:ה)?דיון|הדיון\s+נדחה|לשוב\s+ולדון|ירד\s+מסדר\s+היום|להוריד\s+מסדר\s+היום|לא\s+נדון|"
+    ("DEFERRED", r"לדחות\s+את\s+(?:ה)?דיון|הדיון\s+נדחה|לשוב\s+ולדון|לחזור\s+ולדון|ירד\s+מסדר\s+היום|להוריד\s+מסדר\s+היום|לא\s+נדון|"
                  r"להחזיר\s+(?:את\s+הבקשה\s+)?ל|להשלמת|לשוב\s+לדיון|לדיון\s+נוסף|יידון\s+בישיבה|יובא\s+לדיון|מבוטל|בוטל"),
     ("REJECTED", r"לא\s+לאשר|לדחות\s+את\s+(?:ה)?בקש|לדחות\s+את\s+(?:ה)?תכנית|לדחות\s+את\s+(?:ה)?תוכנית|לדחות\s+את\s+(?:ה)?הקל|"
                  r"הבקשה\s+נדחית|נדחית|נדחתה|לסרב|^\s*לדחות\b"),
-    ("DEPOSIT", r"להפקיד|להמליץ\s+על\s+הפקדת|הפקדה\s+בתנאים|תופקד"),
+    ("PLAN_APPROVED", r"מתן\s+תוקף"),
+    ("DEPOSIT", r"להפקיד|הפקדת\s+(?:ה)?(?:תכנית|תוכנית)|על\s+הפקדת|הפקדה\s+בתנאים|תופקד"),
     ("RECOMMENDED", r"להמליץ|ממליצ"),
-    ("APPROVED_CONDITIONS", r"(?:לאשר|מאשר|אושר)[^.]{0,80}(?:בתנאים|בכפוף|בתנאי|ובלבד)"),
-    ("APPROVED", r"לאשר|מאשרים|מאשרת|אושר|אושרה|ניתן\s+היתר|לתת\s+היתר"),
+    ("APPROVED_CONDITIONS", r"(?:לאשר|מאשר|אושר|אישור)[^.]{0,120}(?:בתנאים|בכפוף|בתנאי|ובלבד)"),
+    ("APPROVED", r"לאשר|מאשרים|מאשרת|אושר|אושרה|ניתן\s+היתר|לתת\s+היתר|^\s*אישור\s+(?:תכנית|תוכנית|תשריט)|ס\.137|אישור\s+תשריט"),
     ("NOTED", r"לידיעה|הוועדה\s+רושמת|רשמה\s+לפניה"),
 ]
 
@@ -251,6 +252,8 @@ def run_job(session_factory, cid: str, fetcher=None, sleep=None) -> None:
         c = s.get(PlanningCommittee, cid)
         try:
             out = run_batch(s, c, fetcher, sleep)
+            if not out["left"]:
+                out["reclassified"] = reclassify(s, cid)
             c = s.get(PlanningCommittee, cid)
             prev = (c.kb_detail or {}).get("meetings") or {}
             c.kb_detail = {**(c.kb_detail or {}), "meetings": {**prev, "state": "queued" if out["left"] else "done",
@@ -262,6 +265,18 @@ def run_job(session_factory, cid: str, fetcher=None, sleep=None) -> None:
             c = s.get(PlanningCommittee, cid)
             c.kb_detail = {**(c.kb_detail or {}), "meetings": {"state": "failed", "error": f"{type(e).__name__}: {e}"[:300]}}
             s.commit()
+
+
+def reclassify(s: Session, cid: str) -> int:
+    """Re-apply the classifier to stored decision text (after the rules improve). Returns rows changed."""
+    n = 0
+    for it in s.scalars(select(CommitteeMeetingItem).join(CommitteeMeeting)
+                        .where(CommitteeMeeting.committee_id == cid, CommitteeMeetingItem.state == "done")):
+        o = classify(it.decision)
+        if o != it.outcome:
+            it.outcome, n = o, n + 1
+    s.commit()
+    return n
 
 
 def counts(s: Session, cid: str) -> dict:
