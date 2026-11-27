@@ -11,6 +11,7 @@ from __future__ import annotations
 import datetime as dt
 import hashlib
 import json
+import logging
 import os
 import threading
 import time
@@ -21,6 +22,8 @@ from pathlib import Path, PurePosixPath
 from sqlalchemy import select
 
 from .config import settings
+
+log = logging.getLogger(__name__)
 
 MAX_ZIP = 8 * 1024 ** 3            # the archive as uploaded
 MAX_MEMBERS = 50_000
@@ -80,6 +83,33 @@ def member_name(info: zipfile.ZipInfo) -> str:
     return info.filename
 
 
+def mb(n: int) -> str:
+    return f"{n / 1024 ** 3:.2f} GB" if n >= 1024 ** 3 else f"{max(1, round(n / 1024 ** 2))} MB"
+
+
+def sniff(path: Path, size: int) -> str:
+    """Why a file named .zip is not one: another archive format renamed, one part of a split archive, or cut off."""
+    with open(path, "rb") as f:
+        head = f.read(8)
+        f.seek(max(0, size - 1024 * 1024))
+        tail = f.read()
+    if size == 0:
+        return "הקובץ ריק"
+    if head.startswith(b"Rar!"):
+        return "זהו ארכיון RAR — יש לשמור כ־ZIP"
+    if head.startswith(b"7z\xbc\xaf\x27\x1c"):
+        return "זהו ארכיון 7-Zip — יש לשמור כ־ZIP"
+    if head.startswith(b"PK\x07\x08"):
+        return "חלק ראשון של ארכיון מפוצל — יש ליצור ZIP אחד שלם"
+    if head.startswith(b"PK\x03\x04"):
+        if b"PK\x05\x06" not in tail:
+            return "סוף הארכיון חסר — ייתכן שהקובץ נקטע או שזהו חלק מארכיון מפוצל"
+        return "מבנה הארכיון פגום"
+    if head.startswith((b"\x1f\x8b", b"BZh", b"\xfd7zXZ")):
+        return "זהו קובץ דחוס מסוג אחר (gz/bz2/xz) — יש לשמור כ־ZIP"
+    return "סוג הקובץ אינו ZIP"
+
+
 def save_upload(src, filename: str, committee_id: str | None, scope: str, kind: str, user: str, tenant: str) -> dict:
     """Copy the uploaded archive (a file object already on disk) into the import folder and queue it."""
     from . import committee_docs as CD
@@ -98,8 +128,10 @@ def save_upload(src, filename: str, committee_id: str | None, scope: str, kind: 
                 raise ValueError("הארכיון גדול מ־8 GB")
             out.write(chunk)
     if not zipfile.is_zipfile(part):
+        why = sniff(part, size)
         part.unlink(missing_ok=True)
-        raise ValueError("הקובץ אינו ארכיון ZIP תקין")
+        log.warning("knowledge import rejected: %s bytes, %s", size, why)
+        raise ValueError(f"הקובץ אינו ארכיון ZIP תקין: {why} ({mb(size)})")
     try:
         with zipfile.ZipFile(part) as z:
             total = sum(1 for i in z.infolist() if not i.is_dir())
