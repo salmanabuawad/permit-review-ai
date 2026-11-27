@@ -8,8 +8,8 @@
   decision on its page takes the file's decision (`decision_source = protocol`). Runs inside the meetings job.
 - Hof Ashkelon: accessible decision files exist from mid-2023 (155 meetings); 538 decisions filled, 922 items annotated.
   Earlier meetings have only PDF protocols whose Hebrew text extracts in reversed visual order — not read yet.
-- docs/permit360/HOF_ASHKELON_DECISIONS_STUDY.md (aggregates only): 1,955 decided requests, ~94 % approved; staff
-  recommendation followed in 426 of 427 cases with both; recurring reasons and conditions; coverage gaps.
+- docs/permit360/HOF_ASHKELON_DECISIONS_STUDY.md (aggregates only): 1,955 decided requests, ~94 % approved; a staff
+  recommendation to approve was followed in 413 of 414 cases; recurring reasons and conditions; coverage gaps.
 
 ## 2026-11-27 — National cadastre (registered parcels)
 
