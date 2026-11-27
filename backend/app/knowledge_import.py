@@ -35,7 +35,7 @@ from .config import settings
 log = logging.getLogger(__name__)
 
 MAX_ZIP = 8 * 1024 ** 3            # the archive as uploaded
-MAX_MEMBERS = 50_000
+MAX_MEMBERS = 1_000_000        # Regulation360 exports carry ~45k page texts per few committees
 MAX_RATIO = 200                    # zip-bomb guard per member (uncompressed / compressed)
 MAX_ERRORS_KEPT = 300
 _wake = threading.Event()
