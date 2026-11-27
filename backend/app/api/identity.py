@@ -1,6 +1,8 @@
 """API: login, current user, authorities and user management."""
 from fastapi import APIRouter
 
+from ..security import TIERS, WORKSPACE_TENANT, roles_for, superadmin_ids
+
 from .common import *  # noqa: F401,F403 — shared imports, schemas and helpers
 
 router = APIRouter()
@@ -48,6 +50,10 @@ def me(p: Principal = Depends(current_user), account: User = Depends(login_accou
     acct = s.scalars(select(LoginAccount).where(LoginAccount.user_id == account.id)).first()
     return {**p.__dict__, "username": usermgmt.username_of(s, account.id), "must_change_password": bool(acct and acct.must_change),
             "municipality_name": org.name_he if org else p.tenant_id, "is_demo": bool(org and org.is_demo), "role_he": ROLES[p.role]["label_he"],
+            "tier": "superadmin" if account.id in superadmin_ids() else ROLES[p.role].get("tier"),
+            "tier_he": TIERS["superadmin" if account.id in superadmin_ids() else ROLES[p.role].get("tier", "committee_user")],
+            "superadmin": account.id in superadmin_ids(), "workspace": p.tenant_id == WORKSPACE_TENANT,
+            "assignable_roles": {k: v["label_he"] for k, v in roles_for(p.tenant_id).items()},
             "permissions": sorted(k for k, v in PERMISSIONS.items() if p.role in v)}
 
 
@@ -93,7 +99,7 @@ def users(p: Principal = Depends(current_user), s: Session = Depends(get_session
 @router.get("/api/users/manage")
 def users_list(p: Principal = Depends(require("user.manage")), s: Session = Depends(get_session)):
     return {"users": usermgmt.list_users(s, p.tenant_id),
-            "roles": [{"id": k, "label_he": v["label_he"]} for k, v in ROLES.items()]}
+            "roles": [{"id": k, "label_he": v["label_he"], "tier": v["tier"], "tier_he": TIERS[v["tier"]]} for k, v in roles_for(p.tenant_id).items()]}
 
 
 @router.post("/api/users", status_code=201)

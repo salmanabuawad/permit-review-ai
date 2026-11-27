@@ -178,6 +178,20 @@ def _report_passages(payload: dict) -> list[dict]:
              "תוכן": p.get("text_he")} for p in payload.get("passages") or []]
 
 
+ASSISTANT_PROMPT = ("אתה עוזר הנדסי למהנדס/אדריכל המכין בקשה להיתר בנייה בישראל. ענה בעברית, בקצרה ובמדויק, רק מתוך "
+                    "נתוני הפרויקט והקטעים ממסמכי הוועדה שלהלן. אם התשובה אינה בחומר — אמור זאת והצע מה לבדוק. "
+                    "אל תמציא מספרים, סעיפים או החלטות. ציין את מזהה הקטע בסוגריים מרובעים כשאתה נשען עליו.\n")
+
+
+def assistant_prompt(payload: dict) -> tuple[str, str]:
+    facts = json.dumps(payload.get("facts") or {}, ensure_ascii=False)
+    kb = json.dumps([{"מזהה": p["id"], "מקור": p.get("source_title_he"), "עמוד": p.get("page"), "תוכן": p.get("text_he")}
+                     for p in payload.get("passages") or []], ensure_ascii=False)
+    q = payload.get("question") or ""
+    return (ASSISTANT_PROMPT + "נתוני הפרויקט:\n" + facts + "\nקטעים ממסמכי הוועדה (לא מאומתים):\n" + kb + "\nשאלה: " + q,
+            facts + kb + q)
+
+
 def report_prompt(payload: dict) -> tuple[str, str]:
     """(prompt, grounding text): the findings, plus the case's knowledge passages when there are any. Every number
     in the draft must appear in the grounding text."""
@@ -227,11 +241,19 @@ def _ollama(task: str, model: str, payload: dict) -> dict:
                           "\nהחזר JSON בלבד: {\"label\": <קוד>, \"confidence\": 0..1}.\nשם הקובץ: " +
                           payload.get("filename", "") + "\nטקסט:\n" + payload.get("text", "")[:4000],
         "ReportDraft": report_prompt(payload)[0],
+        "Assistant": assistant_prompt(payload)[0],
     }[task]
     try:
         out = llm_chat(model, prompt, json_mode=task == "Classification")
     except Exception as exc:  # noqa: BLE001
         raise ProviderError(f"llm: {exc}") from exc
+    if task == "Assistant":
+        grounding = assistant_prompt(payload)[1]
+        text = re.sub(r"\*\*|__|^#+\s*", "", out, flags=re.M).strip()
+        stray = _ungrounded_numbers(CITATION.sub("", text), grounding)
+        if stray:   # a number not in the project package or the passages = invented
+            raise ProviderError("התשובה כללה נתונים שאינם בחבילת הפרויקט או במסמכים: " + ", ".join(stray[:5]))
+        return {"text": text}
     if task == "ReportDraft":
         grounding = report_prompt(payload)[1]
         text, cited = _keep_known_citations(re.sub(r"\*\*|__|^#+\s*", "", out, flags=re.M).strip(), payload)

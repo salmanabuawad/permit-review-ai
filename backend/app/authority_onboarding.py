@@ -10,10 +10,9 @@ from .models import Municipality, User, AuthorityMembership
 DIRECTORY='https://www.gov.il/he/pages/local_committees_1'
 
 def can_create(user):
-    try:
-        ids=json.loads(os.environ.get('BBP_AUTHORITY_CREATORS','[]'))
-        return user.role=='sysadmin' and isinstance(ids,list) and user.id in ids
-    except (ValueError,TypeError): return False
+    """Superadmin: a login listed in BBP_SUPERADMINS (or the older BBP_AUTHORITY_CREATORS)."""
+    from .security import superadmin_ids
+    return user.role=='sysadmin' and user.id in superadmin_ids()
 
 def member(s,user,tenant):
     if not tenant or tenant==user.tenant_id: return user

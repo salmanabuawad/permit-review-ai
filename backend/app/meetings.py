@@ -30,9 +30,10 @@ OUTCOMES_HE = {"APPROVED": "אושר", "APPROVED_CONDITIONS": "אושר בתנא
 
 # order matters: postponements and negations before plain approval / rejection words
 _RULES = [
-    ("APPROVED_PARTIAL", r"לאשר\s+(?:באופן\s+)?חלקי|אישור\s+חלקי|מאושרת\s+חלקית"),
+    ("APPROVED_PARTIAL", r"לאשר[^.\n]{0,40}?(?:באופן\s+)?חלקי|אישור\s+חלקי|מאושרת\s+חלקית"),
     ("DEFERRED", r"לדחות\s+את\s+(?:ה)?דיון|הורד[הו]?\s+מסדר\s+היום|הדיון\s+נדחה|לשוב\s+ולדון|לחזור\s+ולדון|ירד\s+מסדר\s+היום|להוריד\s+מסדר\s+היום|לא\s+נדון|"
-                 r"להחזיר\s+(?:את\s+הבקשה\s+)?ל|להשלמת|לשוב\s+לדיון|לדיון\s+נוסף|יידון\s+בישיבה|יובא\s+לדיון|מבוטל|בוטל"),
+                 r"להחזיר\s+את\s+(?:ה)?(?:בקשה|תכנית|תוכנית)|הבקשה\s+תוחזר|לשוב\s+לדיון|לדיון\s+נוסף|יידון\s+בישיבה|יובא\s+לדיון\s+חוזר|"
+                 r"^\s*(?:החלטה\s+)?לשוב|מבוטל|בוטל"),
     ("REJECTED", r"לא\s+לאשר|לדחות\s+את\s+(?:ה)?בקש|לדחות\s+את\s+(?:ה)?תכנית|לדחות\s+את\s+(?:ה)?תוכנית|לדחות\s+את\s+(?:ה)?הקל|"
                  r"הבקשה\s+נדחית|נדחית|נדחתה|לסרב|^\s*לדחות\b"),
     ("PLAN_APPROVED", r"מתן\s+תוקף"),
@@ -49,9 +50,11 @@ def classify(decision: str | None) -> str:
     t = re.sub(r"(?:לדחות|נדחו|נדחית|דוחה)\s+(?:את\s+)?ה?התנגדו\S*", " ", t)      # rejecting objections is not rejecting the request
     if not t:
         return "OPEN"
-    for outcome, rx in _RULES:
-        if re.search(rx, t):
-            return outcome
+    head = re.sub(r"^(?:החלטת\s+הו?ועדה|החלטה)\s*[-:–]?\s*", "", t)[:400]   # the operative words come first
+    for text in (head, t):
+        for outcome, rx in _RULES:
+            if re.search(rx, text):
+                return outcome
     return "OTHER"
 
 
@@ -312,25 +315,62 @@ def archive_docs(page: str) -> list[dict]:
 
 
 def pick_protocol(docs: list[dict]) -> dict | None:
+    """The preferred decisions document; among several of one kind, the latest (highest file id — a corrected version)."""
     for want in ARCHIVE_PREF:
-        hit = next((d for d in docs if d["kind"].strip() == want), None)
-        if hit:
-            return hit
+        hits = [d for d in docs if d["kind"].strip() == want]
+        if hits:
+            return max(hits, key=lambda d: int(d["file"]))
     return None
 
 
 def _lines(page: str) -> list[str]:
     t = re.sub(r"<script.*?</script>|<style.*?</style>", "", page, flags=re.S | re.I)
     t = re.sub(r"<br\s*/?>|</p>|</tr>|</h\d>|</div>|</li>", "\n", t, flags=re.I)
-    t = htmllib.unescape(re.sub(r"<[^>]+>", " ", t)).replace("﻿", "").replace("‏", "").replace("‎", "")
+    t = htmllib.unescape(re.sub(r"<[^>]+>", " ", t)).replace("\ufeff", "").replace("\u200f", "").replace("\u200e", "")
     return [re.sub(r"[ \t\xa0]+", " ", x).strip() for x in t.splitlines() if x.strip()]
 
 
-def parse_protocol(page: str) -> dict[str, dict]:
-    """{item_number: {plans, designation, uses, parcel_area, net_plot_area, description, essence, opinion, recommendation,
-    decision}} from an accessible decisions file (HTML). The interested-parties block (names) is skipped."""
-    lines = _lines(page)
-    starts = [(i, m.group(1)) for i, x in enumerate(lines) if (m := re.fullmatch(r"סעיף\s*:\s*(\d+)", x))]
+BIDI = re.compile("[\u202a-\u202e\u200e\u200f\u2066-\u2069]")
+PAGE_LINE = re.compile(r"^עמוד\s*\d+|^(?:קובץ החלטות|פרוטוקול)\s.*(?:מספר|מס['׳])\s*\d+.*(?:תאריך|מיום|מתאריך)|^המשך\s")
+
+
+def pdf_lines(text: str) -> list[str]:
+    """Lines of a `pdftotext -layout` decisions file. Fixes the 2021–2023 files' font, whose letter נ is mapped to U+F8FF,
+    removes direction marks, and drops page headers / footers."""
+    t = BIDI.sub("", text).replace("\uf8ff", "נ")
+    out = []
+    for x in t.splitlines():
+        x = re.sub(r"\s+", " ", x).strip()
+        if x and not PAGE_LINE.search(x):
+            out.append(x)
+    return out
+
+
+def pdf_text(body: bytes, timeout: int = 60) -> str:
+    """pdftotext -layout in a child process with memory / CPU limits (the PDF is untrusted)."""
+    import resource
+    import subprocess
+
+    def limits():
+        resource.setrlimit(resource.RLIMIT_AS, (1 << 30, 1 << 30))
+        resource.setrlimit(resource.RLIMIT_CPU, (timeout, timeout))
+    r = subprocess.run(["pdftotext", "-layout", "-enc", "UTF-8", "-", "-"], input=body, capture_output=True, timeout=timeout,
+                       preexec_fn=limits, check=False)
+    if r.returncode != 0:
+        raise ValueError(f"pdftotext failed ({r.returncode})")
+    return r.stdout.decode("utf-8", "replace")
+
+
+ITEM_HTML = re.compile(r"סעיף\s*:\s*(\d+)")
+ITEM_PDF = re.compile(r"(?:^|\s)סעיף\s*(\d+)$")
+SECTION_ALIASES = {"מטרת התכנית": "essence", "מהות בקשה": "essence", "חוות דעת": "opinion", "המלצות": "recommendation",
+                   "החלטות": "decision"}
+NAMES_START = ("בעלי עניין", "בעלי ענין")
+NAMES_END = ("גושים חלקות", "כתובת", "כתובות", "מהות בקשה", "מטרת התכנית", "חוות דעת", "תכניות מתייחסות")
+
+
+def _sections(lines: list[str], item_rx) -> dict[str, dict]:
+    starts = [(i, m.group(1)) for i, x in enumerate(lines) if (m := item_rx.fullmatch(x) if item_rx is ITEM_HTML else item_rx.search(x))]
     out: dict[str, dict] = {}
     for k, (i, num) in enumerate(starts):
         block = lines[i + 1: starts[k + 1][0] if k + 1 < len(starts) else len(lines)]
@@ -340,24 +380,44 @@ def parse_protocol(page: str) -> dict[str, dict]:
             if x.startswith("_____"):
                 break
             head = x.rstrip(":").strip()
-            if head in FIELDS and j + 1 < len(block):
-                rec[FIELDS[head]] = block[j + 1].strip()
-                cur, skip = None, False
-                continue
-            if head in SECTIONS:
-                cur, skip = SECTIONS[head], False
-                rec.setdefault(cur, [])
-                continue
-            if head.startswith(NAMES_BLOCK) or head in ("בעלי עניין",):
+            if skip:
+                if not any(head.startswith(e) or head.endswith(e) for e in NAMES_END):
+                    continue
+                skip = False
+            if head.startswith(NAMES_START):
                 cur, skip = None, True
                 continue
-            if cur and not skip:
+            hit = next(((lab, key) for lab, key in FIELDS.items() if head == lab or x.endswith(lab + ":")), None)
+            if hit:
+                lab, key = hit
+                val = block[j + 1].strip() if head == lab and j + 1 < len(block) else x[: x.rfind(lab)].strip()
+                rec.setdefault(key, val)
+                cur = None
+                continue
+            if head in SECTION_ALIASES:
+                cur = SECTION_ALIASES[head]
+                rec.setdefault(cur, [])
+                continue
+            if cur:
                 rec[cur].append(x)
-        for key in SECTIONS.values():
+        for key in set(SECTION_ALIASES.values()):
             if key in rec:
                 rec[key] = "\n".join(rec[key]).strip() or None
+        if rec.get("decision"):
+            rec["decision"] = re.sub(r"^החלטת\s+הו?ועדה\s*\n?", "", rec["decision"]).strip() or rec["decision"]
         out[num] = rec
     return out
+
+
+def parse_protocol(page: str) -> dict[str, dict]:
+    """{item_number: {plans, designation, uses, ..., essence, opinion, recommendation, decision}} from an accessible
+    decisions file (HTML). The interested-parties block (names) is skipped."""
+    return _sections(_lines(page), ITEM_HTML)
+
+
+def parse_protocol_pdf(text: str) -> dict[str, dict]:
+    """The same from a PDF decisions file's `pdftotext -layout` text."""
+    return _sections(pdf_lines(text), ITEM_PDF)
 
 
 def run_protocols(s: Session, c: PlanningCommittee, fetcher=None, sleep=None, limit: int = 400, only_missing: bool = False) -> dict:
@@ -400,17 +460,29 @@ def run_protocols(s: Session, c: PlanningCommittee, fetcher=None, sleep=None, li
         ct = (r.content_type or "").split(";")[0]
         head = (r.body or b"")[:400].lstrip(b"\xef\xbb\xbf \r\n\t").lower()
         is_html = ct in ("text/html", "application/xhtml+xml") or head.startswith((b"<!doctype html", b"<html"))   # served as octet-stream
-        if r.status != "ok" or not is_html:
+        is_pdf = (r.body or b"").startswith(b"%PDF-")
+        if r.status != "ok" or not (is_html or is_pdf):
             m.protocol_state, m.protocol_ref = ("none" if r.status == "ok" else "failed"), doc["file"]
             out["no_file" if r.status == "ok" else "failed"] += 1
             s.commit()
             continue
-        sections = parse_protocol(F.decode_html(r.body))
+        try:
+            sections = parse_protocol(F.decode_html(r.body)) if is_html else parse_protocol_pdf(pdf_text(r.body))
+        except Exception as e:  # noqa: BLE001 — pdftotext failure / timeout, bad file
+            m.protocol_state, m.protocol_ref, m.error = "failed", doc["file"], f"{type(e).__name__}: {e}"[:300]
+            out["failed"] += 1
+            s.commit()
+            continue
+        if not sections:
+            m.protocol_state, m.protocol_ref = "empty", doc["file"]
+            out["no_file"] += 1
+            s.commit()
+            continue
         for it in s.scalars(select(CommitteeMeetingItem).where(CommitteeMeetingItem.meeting_id == m.id)):
             sec = sections.get(it.item_number)
             if not sec:
                 continue
-            it.protocol = {**sec, "file": doc["file"], "kind": doc["kind"]}
+            it.protocol = {**sec, "file": doc["file"], "kind": doc["kind"], "format": "html" if is_html else "pdf"}
             out["items_annotated"] += 1
             if not (it.decision or "").strip() and sec.get("decision"):
                 it.decision, it.outcome, it.decision_source = sec["decision"], classify(sec["decision"]), "protocol"

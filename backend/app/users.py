@@ -191,10 +191,15 @@ def _keep_an_admin(s: Session, tenant: str, user_id: str) -> None:
 
 # ------------------------------------------------------------------ operations
 
+def _role_ok(tenant: str, role: str) -> None:
+    from .security import roles_for
+    if role not in roles_for(tenant):
+        raise ValueError("תפקיד לא מוכר" if role not in ROLES else "תפקיד זה אינו ניתן בסביבה זו (משתמשי קצה — רק בסביבת Pro)")
+
+
 def create_user(s: Session, tenant: str, actor: str, username: str, display_name: str, role: str, password: str) -> dict:
     name = norm_username(username)
-    if role not in ROLES:
-        raise ValueError("תפקיד לא מוכר")
+    _role_ok(tenant, role)
     if not (display_name or "").strip() or len(display_name.strip()) > 200:
         raise ValueError("שם תצוגה חסר או ארוך מדי")
     if s.get(LoginAccount, name) or name in _legacy_map():
@@ -213,8 +218,7 @@ def create_user(s: Session, tenant: str, actor: str, username: str, display_name
 def add_member(s: Session, tenant: str, actor: str, username: str, role: str) -> dict:
     """Give an existing login from another authority access to this one, with a role here."""
     name = (username or "").strip().lower()
-    if role not in ROLES:
-        raise ValueError("תפקיד לא מוכר")
+    _role_ok(tenant, role)
     acct = s.get(LoginAccount, name)
     account_id = acct.user_id if acct else _legacy_map().get(name)
     account = s.get(User, account_id) if account_id else None
@@ -245,8 +249,7 @@ def update_user(s: Session, tenant: str, actor: str, user_id: str, role: str | N
     u = _target(s, tenant, user_id)
     change = {}
     if role is not None and role != u.role:
-        if role not in ROLES:
-            raise ValueError("תפקיד לא מוכר")
+        _role_ok(tenant, role)
         if user_id == actor:
             raise ValueError("לא ניתן לשנות את התפקיד של עצמך")
         if u.role == "sysadmin":
@@ -344,3 +347,23 @@ def change_own_password(s: Session, account: User, current: str, new: str) -> Lo
     audit.record(s, account.tenant_id, account.id, "user.password_change", "user", account.id, {"username": acct.username})
     s.flush()
     return acct
+
+
+def ensure_workspace(s: Session) -> None:
+    """The Permit360 Pro workspace for end users (no committee, no applications), and an administrator seat in it for
+    every superadmin login, so end users are managed there. Idempotent."""
+    from .models import Municipality
+    from .security import WORKSPACE_TENANT, superadmin_ids
+    if s.get(Municipality, WORKSPACE_TENANT) is None:
+        s.add(Municipality(id=WORKSPACE_TENANT, name_he="Permit360 Pro — מהנדסים ואדריכלים", is_demo=False,
+                           settings={"kind": "workspace"}))
+        s.flush()
+    for uid in superadmin_ids():
+        acct = s.get(User, uid)
+        if acct is None or acct.tenant_id == WORKSPACE_TENANT or s.get(AuthorityMembership, (acct.id, WORKSPACE_TENANT)):
+            continue
+        a = User(id=uuid.uuid4().hex, tenant_id=WORKSPACE_TENANT, display_name=acct.display_name, role="sysadmin")
+        s.add(a)
+        s.flush()
+        s.add(AuthorityMembership(account_id=acct.id, tenant_id=WORKSPACE_TENANT, actor_id=a.id))
+    s.commit()

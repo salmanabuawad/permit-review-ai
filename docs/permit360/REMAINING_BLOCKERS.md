@@ -7,7 +7,7 @@ or were deliberately left for a later increment.
 |---|---|---|---|
 | 1 | Accuracy figures (defect precision / recall, Recall@K, MRR) | No professionally verified ground truth beyond 1 blind + 1 known-outcome case | Authority experts answer a question set and review ≥ 30 decided cases |
 | 2 | Model selection (V11 §34–45) | Benchmark of ≥ 100 Hebrew planning questions must be professionally answered; several candidates not downloaded (DictaLM 24B, Gemma 4 31B, NeoDictaBERT, e5-base/large) | Expert answers; approval to download each model |
-| 3 | Official committee codes | Not in the Planning Administration list | An official register (e.g. iplan / data.gov.il) or the Administration |
+| 3 | ~~Official committee codes~~ — DONE 2026-11-27: planning-area codes (CodeMT) from the Planning Administration boundaries; all 131 committees linked | — |
 | 4 | ~~XPLAN plan discovery live~~ — DONE 2026-11-27 (crawler job; verified in all six districts). Registered parcels: DONE 2026-11-27 (Survey of Israel open data, 1.1 M parcels loaded) | Refresh: a person downloads the new snapshot (data.gov.il needs a Google sign-in) and runs scripts/load_cadastre.py |
 | 5 | Integrations (רישוי זמין, BarTech, Complot, OneCity, GIS) | No agreed interfaces; public pages only | Agreements with the Planning Administration / vendors |
 | 6 | OCR | ≈ 220 fetched documents have no text layer (scanned) | Approve a local OCR engine (Tesseract heb) in the crawler |

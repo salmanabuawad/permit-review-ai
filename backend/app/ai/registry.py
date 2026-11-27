@@ -27,7 +27,7 @@ def models() -> dict:
 
 def prompts() -> dict[str, dict]:
     from . import gateway as G
-    texts = {"report_draft": G.REPORT_PROMPT, "report_kb": G.KB_PROMPT, "extraction": G.EXTRACTION_PROMPT}
+    texts = {"report_draft": G.REPORT_PROMPT, "report_kb": G.KB_PROMPT, "extraction": G.EXTRACTION_PROMPT, "assistant": G.ASSISTANT_PROMPT}
     return {pid: {"id": pid, "version": hashlib.sha256(t.encode("utf-8")).hexdigest()[:12], "chars": len(t)}
             for pid, t in texts.items()}
 
@@ -36,7 +36,7 @@ def prompt_version(pid: str) -> str | None:
     return (prompts().get(pid) or {}).get("version")
 
 
-TASK_PROMPT = {"ReportDraft": "report_draft", "Extraction": "extraction"}
+TASK_PROMPT = {"ReportDraft": "report_draft", "Extraction": "extraction", "Assistant": "assistant"}
 
 # task → executor, model role, reason. V11 §37 task list; deterministic first.
 ROUTES = {

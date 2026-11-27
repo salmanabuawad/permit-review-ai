@@ -13,6 +13,7 @@ import AccuracyPanel from '../components/AccuracyPanel'
 import RevisionPanel from '../components/RevisionPanel'
 import ProcessPanel from '../components/ProcessPanel'
 import PropertyPanel from '../components/PropertyPanel'
+import ProjectPanel from '../components/ProjectPanel'
 import InspectionPanel from '../components/InspectionPanel'
 
 const LIFECYCLE_HE: Record<string, string> = { ACTIVE: 'פעיל', ARCHIVED: 'בארכיון', DELETED: 'נמחק' }
@@ -31,7 +32,7 @@ export default function CaseView() {
   const [geoLoading, setGeoLoading] = useState(true)
   const [sel, setSel] = useState<string | null>(null)
   const [cite, setCite] = useState<Citation | null>(null)
-  const [tab, setTab] = useState<'findings' | 'files' | 'data' | 'extracted' | 'history' | 'decision' | 'scope' | 'accuracy' | 'revision' | 'process' | 'property' | 'inspection'>('findings')
+  const [tab, setTab] = useState<'findings' | 'files' | 'data' | 'extracted' | 'history' | 'decision' | 'scope' | 'accuracy' | 'revision' | 'process' | 'property' | 'inspection' | 'project'>('findings')
   const [busy, setBusy] = useState(false)
   const [runs, setRuns] = useState<any[]>([])
 
@@ -166,6 +167,7 @@ export default function CaseView() {
 
         <section className="card" aria-label="ממצאים ונתונים">
           <div className="tabs" role="tablist">
+            {c.kind === 'design' && c.committee_id && <button className={tab === 'project' ? 'active' : ''} onClick={() => setTab('project')}>פרויקט</button>}
             <button className={tab === 'findings' ? 'active' : ''} onClick={() => setTab('findings')}>ממצאים <span className="count num">{findings.length}</span></button>
             <button className={tab === 'files' ? 'active' : ''} onClick={() => setTab('files')}>קבצים <span className="count num">{c.files?.length ?? 0}</span></button>
             <button className={tab === 'data' ? 'active' : ''} onClick={() => setTab('data')}>נתוני התיק</button>
@@ -193,6 +195,7 @@ export default function CaseView() {
           {tab === 'revision' && <RevisionPanel c={c} />}
           {tab === 'process' && <ProcessPanel c={c} />}
           {tab === 'property' && <PropertyPanel c={c} />}
+          {tab === 'project' && <ProjectPanel c={c} />}
           {tab === 'inspection' && <InspectionPanel c={c} />}
           {tab === 'history' && (
             <table>

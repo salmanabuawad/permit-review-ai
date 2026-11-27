@@ -25,6 +25,8 @@ def _startup():
     from . import committees
     with SessionLocal() as s0:                      # national committee register, loaded once
         committees.ensure_imported(s0)
+        from . import users as _users
+        _users.ensure_workspace(s0)
         from . import hierarchy                     # national → district → committee → authority, and terminology
         hierarchy.build(s0)
         s0.commit()
@@ -36,7 +38,7 @@ def _startup():
         threading.Thread(target=authorities.worker, args=(SessionLocal,), daemon=True, name="onboarding-worker").start()
 
 # ------------------------------------------------------------------ routers (URLs unchanged)
-from .api import architect, building, cases, construction, identity, monitor, platform, process, rules  # noqa: E402
+from .api import architect, building, cases, construction, identity, monitor, platform, process, projects, rules  # noqa: E402
 
-for _r in (identity, cases, rules, monitor, platform, architect, process, building, construction):
+for _r in (identity, cases, rules, projects, monitor, platform, architect, process, building, construction):
     app.include_router(_r.router)

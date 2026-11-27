@@ -34,7 +34,7 @@ export interface Case {
   stage: string; gush: string | null; helka: string | null; address: string | null; zone: string | null
   applicable_plans: string[]; declared: Record<string, any>; status: string; assigned_to: string | null
   sla_due: string | null; locked_version: number | null; created_at: string
-  kind?: string; owner_id?: string | null
+  kind?: string; owner_id?: string | null; committee_id?: string | null
   last_run: null | { id: string; version: number; summary: any; at: string; duration_ms: number; locked: boolean }
   processing?: { ready: boolean; pending: string[] }
   files?: CaseFile[]
@@ -50,7 +50,7 @@ export function setAuthority(id: string) { if (id) sessionStorage.setItem('bbp-a
 function authHeaders(): Record<string,string> { const a=selectedAuthority(); return { 'X-User': USER, ...(a ? {'X-Authority':a}: {}) } }
 
 export class ApiError extends Error {
-  constructor(public status: number, message: string) { super(message) }
+  constructor(public status: number, message: string, public detail?: any) { super(message) }
 }
 
 async function req<T>(method: string, path: string, body?: any, isForm = false): Promise<T> {
@@ -59,9 +59,9 @@ async function req<T>(method: string, path: string, body?: any, isForm = false):
   const r = await fetch(path, { method, headers, body: isForm ? body : body ? JSON.stringify(body) : undefined })
   if (r.status === 401 && !path.startsWith('/api/auth/')) window.dispatchEvent(new Event('bbp-unauth'))
   if (!r.ok) {
-    let msg = r.statusText
-    try { const j = await r.json(); msg = typeof j.detail === 'string' ? j.detail : JSON.stringify(j.detail) } catch { /* */ }
-    throw new ApiError(r.status, msg)
+    let msg = r.statusText, detail: any
+    try { const j = await r.json(); detail = j.detail; msg = typeof j.detail === 'string' ? j.detail : (j.detail?.message ?? JSON.stringify(j.detail)) } catch { /* */ }
+    throw new ApiError(r.status, msg, detail)
   }
   return r.json()
 }

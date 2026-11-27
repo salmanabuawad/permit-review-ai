@@ -5,10 +5,18 @@ import { useApp } from '../App'
 interface Row { id: string; display_name: string; role: string; role_he: string; kind: 'home' | 'member'; home_authority: string | null
   username: string | null; login: 'db' | 'legacy' | 'none'; active: boolean; must_change: boolean; last_login_at: string | null }
 
+/** Role choices grouped by user level (committee admin / committee user / end user). */
+function roleOptions(roles: { id: string; label_he: string; tier?: string; tier_he?: string }[]) {
+  const groups: Record<string, typeof roles> = {}
+  roles.forEach(r => { (groups[r.tier_he ?? ''] ??= []).push(r) })
+  return Object.entries(groups).map(([g, rs]) => g ? <optgroup key={g} label={g}>{rs.map(r => <option key={r.id} value={r.id}>{r.label_he}</option>)}</optgroup>
+    : rs.map(r => <option key={r.id} value={r.id}>{r.label_he}</option>))
+}
+
 /** The authority's users: logins, roles, membership of people from other authorities, password resets. */
 export default function Users() {
   const { me, toast } = useApp()
-  const [rows, setRows] = useState<Row[]>([]), [roles, setRoles] = useState<{ id: string; label_he: string }[]>([])
+  const [rows, setRows] = useState<Row[]>([]), [roles, setRoles] = useState<{ id: string; label_he: string; tier?: string; tier_he?: string }[]>([])
   const [mode, setMode] = useState<'' | 'new' | 'member'>(''), [busy, setBusy] = useState(false)
   const [f, setF] = useState({ username: '', display_name: '', role: 'reviewer', password: '' })
   const [reset, setReset] = useState<Row | null>(null), [pw, setPw] = useState(''), [uname, setUname] = useState('')
@@ -39,7 +47,7 @@ export default function Users() {
     {mode && <form className="card user-form" onSubmit={add}>
       <label>שם משתמש<input dir="ltr" required value={f.username} onChange={e => setF({ ...f, username: e.target.value })} placeholder="first.last" autoComplete="off" /></label>
       {mode === 'new' && <label>שם מלא<input required maxLength={200} value={f.display_name} onChange={e => setF({ ...f, display_name: e.target.value })} /></label>}
-      <label>תפקיד<select value={f.role} onChange={e => setF({ ...f, role: e.target.value })}>{roles.map(r => <option key={r.id} value={r.id}>{r.label_he}</option>)}</select></label>
+      <label>תפקיד<select value={f.role} onChange={e => setF({ ...f, role: e.target.value })}>{roleOptions(roles)}</select></label>
       {mode === 'new' && <label>סיסמה ראשונית<input type="password" dir="ltr" required minLength={10} value={f.password} onChange={e => setF({ ...f, password: e.target.value })} autoComplete="new-password" /></label>}
       <button className="primary" disabled={busy}>{mode === 'new' ? 'יצירה' : 'צירוף'}</button>
       <span className="small muted">{mode === 'new' ? 'לפחות 10 תווים. המשתמש יחליף אותה בכניסה הראשונה.' : 'שם המשתמש שלו ברשות הבית.'}</span>
@@ -49,7 +57,7 @@ export default function Users() {
         {rows.map(u => { const self = u.id === me?.id; return <tr key={u.id} className={u.active ? '' : 'muted'}>
           <td><b>{u.display_name}</b>{self && <span className="chip outline" style={{ marginInlineStart: 6 }}>את/ה</span>}{u.kind === 'member' && <div className="small muted">מרשות אחרת</div>}</td>
           <td className="ltr">{u.username ?? '—'}</td>
-          <td><select aria-label={`תפקיד — ${u.display_name}`} value={u.role} disabled={self || busy} onChange={e => act(() => api.patch(`/api/users/${u.id}`, { role: e.target.value }), 'התפקיד עודכן')}>{roles.map(r => <option key={r.id} value={r.id}>{r.label_he}</option>)}</select></td>
+          <td><select aria-label={`תפקיד — ${u.display_name}`} value={u.role} disabled={self || busy} onChange={e => act(() => api.patch(`/api/users/${u.id}`, { role: e.target.value }), 'התפקיד עודכן')}>{roleOptions(roles)}</select></td>
           <td>{u.kind === 'member' ? <span className="chip outline">ברשות הבית</span>
             : u.login === 'none' ? <span className="chip outline">ללא כניסה</span>
             : u.login === 'legacy' ? <span className="chip outline">מוגדר בשרת</span>

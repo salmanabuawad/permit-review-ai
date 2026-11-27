@@ -42,7 +42,7 @@ providers:
     label_he: "מודל שפה מקומי (מחשב ה-AI, דרך ה-relay)"
     kind: LOCAL
     location: ON_PREM
-    tasks: [Classification, ReportDraft, Extraction]
+    tasks: [Classification, ReportDraft, Extraction, Assistant]
     # pinned model name; must be served by the AI PC's llama.cpp router (same model as muniflow, so the
     # router never swaps models between the two apps). Change only via canary.
     model_version: "ministral-3-8b-iq4xs"
@@ -77,6 +77,8 @@ data_classes:
 policies:   # (task, data_class) -> mode + provider order
   - {task: Classification, data_class: CASE_DOCUMENT, mode: LOCAL,  providers: [local_ollama, local_keyword]}
   - {task: ReportDraft,    data_class: CASE_DOCUMENT, mode: LOCAL,  providers: [local_ollama, local_template]}
+  # Pro projects: the engineering assistant answers from the project package and committee texts; no fallback model
+  - {task: Assistant,      data_class: PROJECT, mode: LOCAL, providers: [local_ollama]}
   - {task: Retrieval,      data_class: PUBLIC_REGULATION, mode: LOCAL, providers: [local_bm25]}
   - {task: OCR,            data_class: CASE_DOCUMENT, mode: HYBRID, providers: [local_tesseract, cloud_llm_il]}
   - {task: Vision,         data_class: CASE_DOCUMENT, mode: HYBRID, providers: [cloud_llm_il]}

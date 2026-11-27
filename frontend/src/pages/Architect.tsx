@@ -24,7 +24,7 @@ export default function Architect() {
   if (!rows) return <div className="empty">טוען…</div>
   return <>
     <div className="page-head"><div><h1>בדיקה לפני הגשה</h1><p>התכנונים שלך — פרטיים, אינם גלויים לוועדה. אותן בדיקות שהוועדה מריצה, לפני ההגשה. הציון הוא הערכה, לא קביעת עמידה בדין.</p></div>
-      <span className="spacer" /><button className="primary" onClick={() => setForm(!form)}>תכנון חדש</button></div>
+      <span className="spacer" /><Link className="button primary" to="/projects/new">פרויקט חדש (זיהוי ועדה)</Link><button onClick={() => setForm(!form)}>תכנון ידני</button></div>
     {form && <form className="card user-form" onSubmit={create}>
       <label>שם התכנון<input required value={f.title} onChange={e => setF({ ...f, title: e.target.value })} /></label>
       <label>סוג<select value={f.permit_type} onChange={e => setF({ ...f, permit_type: e.target.value })}>{Object.entries(meta?.permit_types ?? {}).map(([k, v]) => <option key={k} value={k}>{v as string}</option>)}</select></label>

@@ -1,5 +1,29 @@
 # Changelog
 
+## 2026-11-27 — Permit360 Pro: dual-entry projects, jurisdiction from official boundaries, user levels
+
+- Planning jurisdictions (migration 0025, `app/jurisdiction.py`): the Planning Administration's planning areas (310, with
+  the official code CodeMT, e.g. 633 Hof Ashkelon), municipal boundaries (411) and village committees (1,785), loaded as
+  versioned datasets (a refresh supersedes, never deletes) into PostGIS, EPSG:2039. Planning areas are linked to the
+  committee register by exact name (222), a curated alias list (8), or a unique member municipality (13); 35 are
+  district-administered; 32 have no committee in the register. All 131 committees now carry their official code(s).
+- Committee discovery: the registered cadastral parcel ∩ planning areas → RESOLVED (one area covers ≥ 99.5 %),
+  AMBIGUOUS (all candidates returned, never guessed), UNLINKED, UNRESOLVED; cached per parcel and dataset versions.
+  Path A verifies a chosen committee (VERIFIED / MISMATCH / AMBIGUOUS). Manual selection only when official data cannot
+  answer, marked MANUAL_UNRESOLVED everywhere.
+- Projects (`app/projects.py`, `/api/projects…`): creation by either path (confirmation required), knowledge
+  initialization (XPLAN discovery; committee probe / fetch when its knowledge base is empty or stale), the Applicable
+  Regulatory Package (property, jurisdiction re-check, committee KB, plans, land use, rights from verified rights files,
+  restrictions incl. §§ 77–78 notices, deposited and partial plans, requirements, missing / outdated), a nine-stage
+  preparation workflow with next actions, and an engineering assistant (local model, answers only from the package and
+  the committee's texts; invented numbers rejected). Authorised users upload documents to a committee's knowledge base.
+  UI: "פרויקט חדש" wizard (both paths) and a "פרויקט" tab on the project.
+- User levels: superadmin (platform flag, BBP_SUPERADMINS), committee admin, committee user (professional sub-roles
+  keep their permissions), end user (engineers / architects in the Permit360 Pro workspace, outside every committee;
+  only their own projects). Roles are validated per environment; the level shows in the top bar.
+- Committee decisions: PDF protocols of 2016–2023 read (pdftotext; the 2021–2023 font maps נ to U+F8FF); decisions
+  classified from the operative opening first. Hof Ashkelon: 3,697 of 3,956 items with a decision; study updated.
+
 ## 2026-11-27 — Committee decision files (protocols) and the Hof Ashkelon decisions study
 
 - Meeting protocols (migration 0024): each meeting's archive page → its accessible decisions file (HTML, served as an

@@ -88,6 +88,9 @@ class PermitCase(Base):
     locked_version: Mapped[int | None] = mapped_column(Integer)
     kind: Mapped[str] = mapped_column(String(20), default="application", server_default="application")  # application | design
     owner_id: Mapped[str | None] = mapped_column(String(40))          # a design's architect (designs are private)
+    committee_id: Mapped[str | None] = mapped_column(ForeignKey("planning_committees.id", name="fk_case_committee"))
+    jurisdiction: Mapped[dict | None] = mapped_column(JSON)            # how the committee was established (Pro projects)
+    workflow: Mapped[dict | None] = mapped_column(JSON)                # project preparation state (Pro projects)
     created_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), default=_now)
     updated_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), default=_now, onupdate=_now)
 
@@ -597,6 +600,7 @@ class PlanningCommittee(Base):
     sources: Mapped[list] = mapped_column(JSON, default=list)                      # [{url, title, kind, status, found_at}]
     kb_status: Mapped[str] = mapped_column(String(30), default='NOT_STARTED')
     kb_detail: Mapped[dict] = mapped_column(JSON, default=dict)
+    planning_area_codes: Mapped[list | None] = mapped_column(JSON)     # official planning-area codes (iplan CodeMT)
     registry_source: Mapped[dict] = mapped_column(JSON, default=dict)              # {url, page_updated, retrieved}
     last_probed_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime())
     updated_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), default=_now)
@@ -962,3 +966,45 @@ class CadastreBlock(Base):
     attrs: Mapped[dict | None] = mapped_column(JSON)
     source: Mapped[str] = mapped_column(String(120))
     geojson: Mapped[str | None] = mapped_column(Text)
+
+
+class GeoDataset(Base):
+    """One download of an official geographic layer. A refresh adds a new version; the previous one is superseded, not
+    deleted, so a past answer can be traced to the data it used."""
+    __tablename__ = 'geo_datasets'
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    name: Mapped[str] = mapped_column(String(60))
+    source_url: Mapped[str] = mapped_column(String(400))
+    version: Mapped[str] = mapped_column(String(32))
+    features: Mapped[int] = mapped_column(Integer)
+    fetched_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), default=_now)
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+    superseded_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime())
+    meta: Mapped[dict | None] = mapped_column(JSON)
+
+
+class JurisdictionArea(Base):
+    """A planning area (Planning Administration), a municipal jurisdiction or a village committee area (Interior Ministry).
+    On PostgreSQL the boundary is the PostGIS column `geom` (EPSG:2039); `geojson` serves SQLite / tests."""
+    __tablename__ = 'jurisdiction_areas'
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    dataset_id: Mapped[int] = mapped_column(ForeignKey('geo_datasets.id', ondelete='CASCADE'))
+    kind: Mapped[str] = mapped_column(String(20))           # planning_area | municipality | village
+    code: Mapped[str | None] = mapped_column(String(20))
+    name_he: Mapped[str | None] = mapped_column(String(200))
+    area_type: Mapped[str | None] = mapped_column(String(40))
+    district: Mapped[str | None] = mapped_column(String(40))
+    parent_name: Mapped[str | None] = mapped_column(String(200))
+    sign_date: Mapped[dt.date | None] = mapped_column(sa_Date)
+    committee_id: Mapped[str | None] = mapped_column(ForeignKey('planning_committees.id'))
+    link_method: Mapped[str | None] = mapped_column(String(40))
+    attrs: Mapped[dict | None] = mapped_column(JSON)
+    geojson: Mapped[str | None] = mapped_column(Text)
+
+
+class GeoQueryCache(Base):
+    __tablename__ = 'geo_query_cache'
+    key: Mapped[str] = mapped_column(String(200), primary_key=True)
+    versions: Mapped[str] = mapped_column(String(200))
+    result: Mapped[dict] = mapped_column(JSON)
+    created_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), default=_now)

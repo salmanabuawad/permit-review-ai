@@ -35,7 +35,9 @@ def test_parse_and_classify():
                        ("ס.85(ב)(1) - החלטת ועדה מקומית על הפקדת תכנית בכפוף לכתב שיפוי", "DEPOSIT"),
                        ("ס.108 - החלטת ועדה מקומית על מתן תוקף לתכנית", "PLAN_APPROVED"),
                        ("אישור תכנית בינוי בכפוף לתיקון תוואי כביש", "APPROVED_CONDITIONS"),
-                       ("לחזור ולדון בנושא", "DEFERRED"), ("החלטה לאשר חלקית את הבקשה: 1. הקלה לבריכה -לאשר 2. חדר מכונות - לסרב", "APPROVED_PARTIAL"),
+                       ("לחזור ולדון בנושא", "DEFERRED"),
+                       ("החלטה לאשר הבקשה תואמת תכנית. בקרה מרחבית תקינה. בכפוף להשלמת יתר דרישות התכן", "APPROVED"),
+                       ("החלטה לאשר\nהבקשה תואמת תכנית 278/03/35", "APPROVED"), ("להחזיר את הבקשה לעורך לתיקונים", "DEFERRED"), ("לאשר את הבקשה להקלות באופן חלקי", "APPROVED_PARTIAL"), ("החלטה לאשר חלקית את הבקשה: 1. הקלה לבריכה -לאשר 2. חדר מכונות - לסרב", "APPROVED_PARTIAL"),
                        ("אישור תצ\"ר התצ\"ר תואם תכנית", "APPROVED"), ("הבקשה הורדה מסדר היום לבקשת המבקש", "DEFERRED"), ("החלטת הועדה- ס.137 - אישור תשריט חלוקת בית משותף", "APPROVED")]:
         assert MT.classify(text) == want, text
 
@@ -96,6 +98,28 @@ PROTOCOL = """<div>סעיף:11</div><div>תוכניות:</div><div>156/03/6</div
 <div>בעלי עניין:</div><div>מבקש:</div><div>ישראל ישראלי</div><div>עורך:</div><div>פלוני אלמוני</div>
 <div>מהות בקשה</div><div>הקמת בית מגורים</div><div>חוות דעת</div><div>הבקשה עומדת בזכויות הבניה</div>
 <div>המלצות</div><div>לאשר.</div><div>החלטות</div><div>החלטה לסרב לבקשה - סטייה ניכרת</div><div>_____</div>"""
+
+
+PDF_TEXT = """\u202bעמוד 6\u202c            \u202bקובץ החלטות רשות רישוי מקומית מס' 2022101 מתאריך01/12/2022:\u202c
+        \u202bתיק ב\u202a\uf8ff\u202cיין:21000060\u202c        \u202bבקשה מקוו\u202a\uf8ff\u202cת ללא הקלות\u202c        \u202bסעיף 1\u202c
+                                       \u202bבעלי ע\u202a\uf8ff\u202cיין\u202c
+                                       \u202bמבקש\u202c
+                     \u202bישראל ישראלי, רחוב 1, טלפון 050-0000000\u202c
+                                       \u202bגושים חלקות\u202c
+              \u202b633-0928358, 278/03/35\u202c           \u202bתוכ\u202a\uf8ff\u202cיות:\u202c
+                                       \u202bמהות בקשה\u202c
+                                \u202bמתקן כושר בחוף.\u202c
+                                       \u202bהמלצות\u202c
+                                       \u202bלאשר.\u202c
+                                       \u202bהחלטות\u202c
+                                \u202bהחלטה לסרב - סטייה ניכרת\u202c
+"""
+
+
+def test_pdf_protocol_letters_layout_and_no_names():
+    sec = MT.parse_protocol_pdf(PDF_TEXT)["1"]
+    assert sec["plans"] == "633-0928358, 278/03/35" and sec["essence"] == "מתקן כושר בחוף." and sec["recommendation"] == "לאשר."
+    assert MT.classify(sec["decision"]) == "REJECTED" and "ישראלי" not in str(sec) and "050" not in str(sec)
 
 
 def test_protocol_fills_missing_decision_without_names():

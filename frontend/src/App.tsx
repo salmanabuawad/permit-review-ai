@@ -17,10 +17,11 @@ import Learning from './pages/Learning'
 import Users from './pages/Users'
 import Committees from './pages/Committees'
 import Architect from './pages/Architect'
+import ProjectNew from './pages/ProjectNew'
 import Tasks from './pages/Tasks'
 import ChangePassword from './components/ChangePassword'
 
-export interface Me { id: string; tenant_id: string; role: string; role_he: string; display_name: string; permissions: string[]; municipality_name?: string; is_demo?: boolean; username?: string | null; must_change_password?: boolean }
+export interface Me { id: string; tenant_id: string; role: string; role_he: string; display_name: string; permissions: string[]; municipality_name?: string; is_demo?: boolean; username?: string | null; must_change_password?: boolean; tier?: string; tier_he?: string; superadmin?: boolean; workspace?: boolean }
 interface Ctx { me: Me | null; meta: any; can: (p: string) => boolean; toast: (m: string, err?: boolean) => void }
 const AppCtx = createContext<Ctx>({ me: null, meta: null, can: () => false, toast: () => {} })
 export const useApp = () => useContext(AppCtx)
@@ -129,7 +130,7 @@ export default function App() {
             </div>
             <span className="spacer" />
             <span className="topbar-policy"><span className="live-dot" /> כל תוצר הוא המלצה בלבד — ההחלטה בסמכות בעל תפקיד מוסמך</span>
-            <button className="link-btn small" title="החלפת סיסמה" onClick={() => setPwOpen(true)}>{me?.display_name ?? '—'}</button>
+            <button className="link-btn small" title="החלפת סיסמה" onClick={() => setPwOpen(true)}>{me?.display_name ?? '—'}</button>{me?.tier_he && <span className={'chip ' + (me.superadmin ? 'bad' : 'outline')} title={me.role_he} style={{ marginInlineStart: 4 }}>{me.tier_he}</span>}
             <button className="sm" onClick={logout}>יציאה</button>
           </header>
           {pwOpen && <ChangePassword onDone={() => { setPwOpen(false); toast('הסיסמה הוחלפה') }} onCancel={() => setPwOpen(false)} />}
@@ -151,6 +152,7 @@ export default function App() {
                 <Route path="/users" element={<Users />} />
                 <Route path="/committees" element={<Committees />} />
                 <Route path="/architect" element={<Architect />} />
+                <Route path="/projects/new" element={<ProjectNew />} />
                 <Route path="/tasks" element={<Tasks />} />
               </Routes>
             ) : loadError ? <div className="notice warn" role="alert">לא ניתן לטעון את סביבת העבודה: {loadError} <button onClick={() => window.location.reload()}>נסה שוב</button></div> : <div className="empty" role="status">טוען…</div>}
