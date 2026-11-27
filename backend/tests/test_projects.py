@@ -382,6 +382,16 @@ def test_knowledge_zip_import_regulation360_export(env, monkeypatch, tmp_path):
     assert law.committee_id is None and law.kind == "law"                                   # title and type from index.csv
     assert docs["g"].committee_id == hid and docs["g"].kind == "guideline"                  # scope by folder name
 
+    from app import committee_docs as CD                          # an extraction stopped by a restart is redone
+    from app.models import CommitteeSnapshot
+    with SessionLocal() as s:
+        snap = s.scalars(select(CommitteeSnapshot).where(CommitteeSnapshot.document_id == docs["g"].id)).one()
+        snap.text_status = "failed"
+        s.commit()
+        assert CD.reextract(s, s.get(CommitteeDocument, docs["g"].id)) == "ok"
+        s.commit()
+        assert CD.hybrid_search(s, "hof guideline", hid, mode="keyword")
+
 
 def test_public_committee_lookup_and_demo_request(env, monkeypatch):
     from app import mailer

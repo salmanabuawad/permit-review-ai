@@ -312,10 +312,29 @@ def process(job: dict, factory) -> dict:
             job["processed"] = idx + 1
             if wrote or idx % 200 == 0 or idx + 1 == len(members):
                 _write(job)
+    _retry_failed_text(job, factory)
     job["status"], job["finished_at"] = "done", _now()
     _write(job)
     path.unlink(missing_ok=True)
     return job
+
+
+def _retry_failed_text(job: dict, factory) -> None:
+    """Uploads whose text extraction failed (a service restart during the import stops the extraction running at
+    that moment): try each once more from the stored file."""
+    from . import committee_docs as CD
+    from .models import CommitteeDocument, CommitteeSnapshot
+    with factory() as s:
+        ids = s.scalars(select(CommitteeDocument.id).join(CommitteeSnapshot, CommitteeSnapshot.document_id == CommitteeDocument.id)
+                        .where(CommitteeDocument.url.like("upload:%"), CommitteeDocument.found_on == f"upload:{job['user']}",
+                               CommitteeSnapshot.text_status == "failed")).all()
+    fixed = 0
+    for i in ids:
+        with factory() as s:
+            if CD.reextract(s, s.get(CommitteeDocument, i)) != "failed":
+                fixed += 1
+            s.commit()
+    job["text_retried"], job["text_fixed"] = len(ids), fixed
 
 
 def _pending() -> dict | None:

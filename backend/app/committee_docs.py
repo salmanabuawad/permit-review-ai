@@ -437,6 +437,31 @@ def upload(s: Session, committee_id: str | None, body: bytes, filename: str, kin
     return doc
 
 
+def reextract(s: Session, doc: CommitteeDocument, extract=None) -> str:
+    """Extract the text of a document whose extraction failed (e.g. the process was stopped by a service restart)
+    again from the stored file. Returns the new text status; documents whose text is fine are left alone."""
+    if extract is None:
+        from .safe_extract import extract
+    snap = s.scalars(select(CommitteeSnapshot).where(CommitteeSnapshot.document_id == doc.id)
+                     .order_by(CommitteeSnapshot.id.desc())).first()
+    if snap is None or snap.text_status != "failed":
+        return snap.text_status if snap else "none"
+    body = (store_root() / snap.path).read_bytes()
+    ext = Path(snap.path).suffix
+    try:
+        pages = extract(body, ext)
+    except ValueError as e:
+        doc.message = str(e)[:300]
+        return "failed"
+    status = "ok" if any(p.strip() for p in pages) else ("empty" if pages else "none")
+    snap.pages, snap.text_status, doc.message = len(pages), status, None
+    for i, txt in enumerate(pages, 1):
+        txt = clean(txt)
+        if txt.strip():
+            s.add(CommitteePassage(snapshot_id=snap.id, page=i, text_he=txt[:200000]))
+    return status
+
+
 def retire(s: Session, doc: CommitteeDocument) -> None:
     """Take an uploaded document out of the knowledge base (kept on disk and in the audit; searches skip it)."""
     doc.status, doc.sha256 = "retired", None
