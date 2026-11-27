@@ -143,6 +143,7 @@ def _row(s: Session, u: User, membership: AuthorityMembership | None) -> dict:
             "login": "db" if acct else "legacy" if legacy else "none",
             "active": acct.active if acct else True,
             "must_change": bool(acct and acct.must_change),
+            "signup_state": acct.signup_state if acct else None,
             "last_login_at": acct.last_login_at.isoformat() if acct and acct.last_login_at else None}
 
 
@@ -278,6 +279,8 @@ def set_active(s: Session, tenant: str, actor: str, user_id: str, active: bool) 
     u, acct = _home_login(s, tenant, user_id)
     if acct is None:
         raise ValueError("למשתמש אין כניסה המנוהלת במערכת")
+    if active and acct.signup_state in ("EMAIL_PENDING", "APPROVAL_PENDING"):
+        raise ValueError("זו בקשת הרשמה — יש לאשר אותה ברשימת בקשות ההרשמה")
     if not active:
         if user_id == actor:
             raise ValueError("לא ניתן להשבית את עצמך")

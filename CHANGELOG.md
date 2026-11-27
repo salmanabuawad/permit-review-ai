@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-11-27 — End-user self sign-up, outgoing mail, permit360.kortexd.com
+
+- Self sign-up for engineers and architects (migration 0026, `app/signup.py`): the login page's form creates an inactive
+  end_user login in the Permit360 Pro workspace → a verification link is e-mailed (valid 48 h) → the superadmin approves
+  or rejects it under Users → sign-up requests (BBP_SIGNUP=approval, the default; `open` skips approval, `off` hides it).
+  The applicant is notified of the outcome by mail. The role is always end_user in the Pro workspace; the password
+  policy matches administrator-created logins; three requests per address per hour, a ceiling on pending requests;
+  unverified requests expire and rejected ones are deleted (the username is freed). Logging in before verification or
+  approval says which step is missing, only after the correct password. Without outgoing mail, sign-up is off.
+- Outgoing mail (`app/mailer.py`): SMTP from the server environment (BBP_SMTP_*), sent as info@kortexd.com — the same
+  mailbox MuniFlow uses. Links in mail come from BBP_PUBLIC_URL, never from the request's Host header.
+- The app now also answers on https://permit360.kortexd.com (primary; the certificate covers both names);
+  permit.kortexd.com keeps working, including the AI PC's relay endpoint.
+- Cadastre lookup on PostgreSQL falls back to the stored GeoJSON when a row has no PostGIS geometry (the project tests
+  now pass on PostgreSQL too).
+
 ## 2026-11-27 — Permit360 Pro: dual-entry projects, jurisdiction from official boundaries, user levels
 
 - Planning jurisdictions (migration 0025, `app/jurisdiction.py`): the Planning Administration's planning areas (310, with

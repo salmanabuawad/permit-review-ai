@@ -580,6 +580,9 @@ class LoginAccount(Base):
     created_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), default=_now)
     password_changed_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime())
     last_login_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime())
+    email: Mapped[str | None] = mapped_column(String(254), index=True)               # self sign-up (verified address)
+    signup_state: Mapped[str | None] = mapped_column(String(20))                     # EMAIL_PENDING | APPROVAL_PENDING | APPROVED
+    signup_info: Mapped[dict | None] = mapped_column(JSON)                           # profession, license number, organization
 
 
 class PlanningCommittee(Base):

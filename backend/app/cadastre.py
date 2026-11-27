@@ -34,7 +34,7 @@ def parcel(s: Session, gush, helka) -> dict | None:
     if g is None or h is None:
         return None
     pg = s.get_bind().dialect.name == "postgresql"
-    geo = "ST_AsGeoJSON(geom, 2)" if pg else "geojson"
+    geo = "COALESCE(ST_AsGeoJSON(geom, 2), geojson)" if pg else "geojson"      # geojson: rows written without PostGIS
     rows = s.execute(text(f"SELECT {geo}, legal_area, status, locality, source FROM cadastre_parcels "
                           "WHERE gush = :g AND helka = :h AND (gush_suffix IS NULL OR gush_suffix = 0)"), {"g": g, "h": h}).all()
     if len(rows) != 1 or not rows[0][0]:

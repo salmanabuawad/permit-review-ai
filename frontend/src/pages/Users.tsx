@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
-import { api } from '../api'
+import { api, fmtDate } from '../api'
 import { useApp } from '../App'
 
 interface Row { id: string; display_name: string; role: string; role_he: string; kind: 'home' | 'member'; home_authority: string | null
-  username: string | null; login: 'db' | 'legacy' | 'none'; active: boolean; must_change: boolean; last_login_at: string | null }
+  username: string | null; login: 'db' | 'legacy' | 'none'; active: boolean; must_change: boolean; last_login_at: string | null; signup_state?: string | null }
 
 /** Role choices grouped by user level (committee admin / committee user / end user). */
 function roleOptions(roles: { id: string; label_he: string; tier?: string; tier_he?: string }[]) {
@@ -14,13 +14,45 @@ function roleOptions(roles: { id: string; label_he: string; tier?: string; tier_
 }
 
 /** The authority's users: logins, roles, membership of people from other authorities, password resets. */
+const PENDING = ['EMAIL_PENDING', 'APPROVAL_PENDING']
+interface SignupRow { username: string; display_name: string | null; email: string | null; state: string; profession_he: string | null
+  license_number: string | null; organization: string | null; requested_at: string | null; verified_at: string | null }
+
+/** Self sign-up requests of engineers and architects (Permit360 Pro workspace only). */
+function Signups({ toast, onChange }: { toast: (m: string, bad?: boolean) => void; onChange: () => void }) {
+  const [d, setD] = useState<{ mode: string; items: SignupRow[] } | null>(null), [busy, setBusy] = useState(false)
+  const load = () => api.get<any>('/api/signups').then(setD).catch(e => toast(e.message, true))
+  useEffect(() => { load() }, [])
+  const act = async (fn: () => Promise<any>, ok: string) => {
+    setBusy(true)
+    try { await fn(); toast(ok); await load(); onChange() } catch (e: any) { toast(e.message, true) } finally { setBusy(false) }
+  }
+  if (!d) return null
+  const modeHe = d.mode === 'open' ? 'פתוחה — החשבון נפתח לאחר אימות הדוא״ל' : d.mode === 'approval' ? 'באישור מנהל — לאחר אימות הדוא״ל' : 'סגורה'
+  return <div className="card" style={{ padding: 0, overflowX: 'auto', marginBottom: 12 }}>
+    <div style={{ padding: '10px 14px' }}><b>בקשות הרשמה</b> <span className="small muted">הרשמה עצמית: {modeHe}</span></div>
+    <table><thead><tr><th>שם</th><th>שם משתמש</th><th>דוא״ל</th><th>תחום</th><th>רישיון / ארגון</th><th>מצב</th><th /></tr></thead><tbody>
+      {d.items.map(r => <tr key={r.username}>
+        <td><b>{r.display_name}</b><div className="small muted">{fmtDate(r.requested_at)}</div></td>
+        <td className="ltr">{r.username}</td><td className="ltr">{r.email}</td><td>{r.profession_he}</td>
+        <td className="small">{[r.license_number, r.organization].filter(Boolean).join(' · ') || '—'}</td>
+        <td>{r.state === 'APPROVAL_PENDING' ? <span className="chip warn">ממתין לאישור</span> : <span className="chip outline">ממתין לאימות דוא״ל</span>}</td>
+        <td className="user-actions">
+          {r.state === 'APPROVAL_PENDING' && <button className="sm primary" disabled={busy} onClick={() => act(() => api.post(`/api/signups/${r.username}/approve`), 'החשבון אושר ונשלחה הודעה')}>אישור</button>}
+          <button className="sm" disabled={busy} onClick={() => { const reason = prompt(`לדחות את בקשת ${r.display_name}? הערה למבקש (לא חובה):`); if (reason !== null) act(() => api.post(`/api/signups/${r.username}/reject`, { reason }), 'הבקשה נדחתה') }}>דחייה</button>
+        </td></tr>)}
+      {!d.items.length && <tr><td colSpan={7} className="empty">אין בקשות ממתינות</td></tr>}
+    </tbody></table>
+  </div>
+}
+
 export default function Users() {
   const { me, toast } = useApp()
   const [rows, setRows] = useState<Row[]>([]), [roles, setRoles] = useState<{ id: string; label_he: string; tier?: string; tier_he?: string }[]>([])
   const [mode, setMode] = useState<'' | 'new' | 'member'>(''), [busy, setBusy] = useState(false)
   const [f, setF] = useState({ username: '', display_name: '', role: 'reviewer', password: '' })
   const [reset, setReset] = useState<Row | null>(null), [pw, setPw] = useState(''), [uname, setUname] = useState('')
-  const load = () => api.get<any>('/api/users/manage').then(d => { setRows(d.users); setRoles(d.roles) }).catch(e => toast(e.message, true))
+  const load = () => api.get<any>('/api/users/manage').then(d => { setRows(d.users.filter((u: Row) => !PENDING.includes(u.signup_state ?? ''))); setRoles(d.roles) }).catch(e => toast(e.message, true))
   useEffect(() => { load() }, [])
   const act = async (fn: () => Promise<any>, ok: string) => {
     setBusy(true)
@@ -44,6 +76,7 @@ export default function Users() {
       <button className={mode === 'new' ? 'primary' : ''} onClick={() => setMode(mode === 'new' ? '' : 'new')}>משתמש חדש</button>
       <button className={mode === 'member' ? 'primary' : ''} onClick={() => setMode(mode === 'member' ? '' : 'member')}>צירוף משתמש מרשות אחרת</button>
     </div>
+    {me?.workspace && <Signups toast={toast} onChange={load} />}
     {mode && <form className="card user-form" onSubmit={add}>
       <label>שם משתמש<input dir="ltr" required value={f.username} onChange={e => setF({ ...f, username: e.target.value })} placeholder="first.last" autoComplete="off" /></label>
       {mode === 'new' && <label>שם מלא<input required maxLength={200} value={f.display_name} onChange={e => setF({ ...f, display_name: e.target.value })} /></label>}

@@ -462,6 +462,10 @@ tr.selected td { background: #eef4ff; }
 .login input:focus { outline: 2px solid var(--brand-2); outline-offset: 0; background: #fff; }
 .login button.primary { width: 100%; border-radius: 6px; padding: 7px 14px; font-size: 15px; font-weight: 600; }
 .login-err { font-size: 13.6px; color: #b42318; }
+.login-ok { font-size: 13.6px; color: #1f6f3f; background: #eaf6ee; border: 1px solid #bfe3cb; border-radius: 6px; padding: 8px 10px; }
+.login select { background: #f4f6f7; border: 1px solid #d7dfe3; border-radius: 6px; padding: 7px 10px; font-size: 15.2px; color: #18303f; }
+.login-alt { font-size: 13.6px; color: #5c6f7b; text-align: center; }
+.login-alt button.link { background: none; border: 0; padding: 0; color: var(--brand-2); font-weight: 600; cursor: pointer; text-decoration: underline; }
 
 
 /* Municipality-neutral workspace: local font, responsive filters, visible focus and evidence controls. */

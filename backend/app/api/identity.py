@@ -16,6 +16,11 @@ def auth_login(body: LoginIn, request: Request, s: Session = Depends(get_session
         raise HTTPException(429, "יותר מדי ניסיונות כניסה — נסו שוב בעוד כמה דקות")
     admin, acct = usermgmt.authenticate(s, body.username, body.password)
     if not admin:
+        from .. import signup
+        waiting = signup.waiting_state(s, body.username, body.password)
+        if waiting:
+            raise HTTPException(403, "יש לאמת את כתובת הדוא״ל מהקישור שנשלח" if waiting == signup.EMAIL_PENDING
+                                else "בקשת ההרשמה ממתינה לאישור מנהל המערכת")
         login.record_failure(addr)
         known = usermgmt.known_user(s, body.username)
         if known:
@@ -33,6 +38,83 @@ def auth_login(body: LoginIn, request: Request, s: Session = Depends(get_session
                  httponly=True, secure=request.headers.get("x-forwarded-proto", request.url.scheme) == "https",
                  samesite="lax", path="/")
     return r
+
+
+class SignupIn(BaseModel):
+    username: str
+    display_name: str
+    email: str
+    password: str
+    profession: str
+    license_number: str | None = None
+    organization: str | None = None
+
+
+class RejectIn(BaseModel):
+    reason: str | None = None
+
+
+def _signup_call(fn, *a):
+    from .. import signup
+    try:
+        return fn(*a)
+    except signup.SignupError as e:
+        raise HTTPException(e.code, str(e))
+    except ValueError as e:
+        raise HTTPException(422, str(e))
+
+
+@router.get("/api/auth/signup")
+def signup_info():
+    """Whether self sign-up is open, for the login page."""
+    from .. import signup
+    return {"mode": signup.mode(), "professions": signup.PROFESSIONS}
+
+
+@router.post("/api/auth/signup", status_code=201)
+def signup_request(body: SignupIn, request: Request, s: Session = Depends(get_session)):
+    from .. import signup
+    addr = request.headers.get("x-real-ip") or (request.client.host if request.client else "?")
+    # the link in the mail comes from server configuration, never from the request's Host header
+    base = __import__("os").environ.get("BBP_PUBLIC_URL") or str(request.base_url)
+    return _signup_call(lambda: signup.request(s, username=body.username, display_name=body.display_name, email=body.email,
+                                               password=body.password, profession=body.profession,
+                                               license_number=body.license_number, organization=body.organization,
+                                               base_url=base, addr=addr))
+
+
+@router.get("/api/auth/signup/verify")
+def signup_verify(t: str = "", s: Session = Depends(get_session)):
+    from fastapi.responses import RedirectResponse
+    from .. import signup
+    state = signup.verify(s, t)
+    return RedirectResponse("/?signup=" + {"APPROVED": "approved", "APPROVAL_PENDING": "pending"}.get(state, "invalid"), 303)
+
+
+def _signup_admin(p: Principal) -> None:
+    if p.tenant_id != WORKSPACE_TENANT:
+        raise HTTPException(403, "בקשות הרשמה מנוהלות בסביבת Permit360 Pro")
+
+
+@router.get("/api/signups")
+def signups_list(p: Principal = Depends(require("user.manage")), s: Session = Depends(get_session)):
+    from .. import signup
+    _signup_admin(p)
+    return {"mode": signup.mode(), "items": signup.pending(s)}
+
+
+@router.post("/api/signups/{username}/approve")
+def signups_approve(username: str, p: Principal = Depends(require("user.manage")), s: Session = Depends(get_session)):
+    from .. import signup
+    _signup_admin(p)
+    return _signup_call(signup.approve, s, p.id, username)
+
+
+@router.post("/api/signups/{username}/reject", status_code=204)
+def signups_reject(username: str, body: RejectIn, p: Principal = Depends(require("user.manage")), s: Session = Depends(get_session)):
+    from .. import signup
+    _signup_admin(p)
+    _signup_call(signup.reject, s, p.id, username, body.reason)
 
 
 @router.post("/api/auth/logout")
