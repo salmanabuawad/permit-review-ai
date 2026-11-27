@@ -28,7 +28,7 @@ forwarded to the live application).
 | Live committee lookup (he): block 2832 parcel 27 | real answer from the application: Hof Ashkelon, code 633, Southern district, 119,105 m² |
 | Interactive demo | both editions, all 6 steps each, previous / next, keyboard arrows on the tabs; labelled "illustration" |
 | Mobile menu and guides dropdown | open / close, `aria-expanded` updated, Escape closes the dropdown |
-| Demo-request form, empty submit | shows the "required" message; no request sent. A real submission was **not** sent (it would e-mail info@kortexd.com) |
+| Demo-request form, empty submit | shows the "required" message; no request sent |
 | Share images (og-he/ar/en/ru.png) | rendered with correct Hebrew / Arabic shaping (comma glyph and Arabic line spacing fixed during testing) |
 
 ## Accessibility
@@ -72,9 +72,8 @@ Content-Security-Policy.
 
 ## kortexd.com
 
-Portfolio entry added on branch `permit360` (commit `dde4fbe`, not pushed). The site's own i18n check passes.
-A full build of kortexd.com was **not** run: its `node_modules` on this PC is incomplete (Vite missing) and a clean
-`npm ci` downloads packages — waiting for approval.
+Portfolio entry released and live on kortexd.com (links to https://permit360.kortexd.com/); the site's own i18n
+check passes.
 
 ## Lighthouse 12.8 and axe-core 4 on the live site (27.11.2026)
 
@@ -100,3 +99,10 @@ Arabic page loads a 65 KB font (performance 97).
 Hebrew guides and one guide each in Arabic, English and Russian — at 1366 px and 375 px, with the scroll
 sections revealed, a live lookup result shown and the Authority demo open: **no violations**. The first run found
 two (logo link name; the editions and lifecycle sections shared one heading) — both fixed and re-checked.
+
+## Demo-request delivery (27.11.2026)
+
+One test request sent from the live English page (https://permit360.kortexd.com/en/, contact form; marked
+"Website test (please ignore)", contact address info@kortexd.com): the page showed its thank-you message, the
+application answered `202` (it answers `503` when the mail server refuses), and the message arrived at
+info@kortexd.com — confirmed by the recipient.
