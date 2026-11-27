@@ -368,6 +368,7 @@ def test_knowledge_zip_import_regulation360_export(env, monkeypatch, tmp_path):
         z.writestr("exports/ui_upload/000_NATIONAL_חקיקה ארצית/law/0001/a.pdf", pdf("national planning law text"))
         z.writestr("exports/ui_upload/001_LC-D-633_חוף אשקלון/guideline/0001/g.pdf", pdf("hof guideline text"))
         z.writestr("exports/ui_upload/002_LC-X-999_ועדה שאינה קיימת/other/x.pdf", pdf("nowhere"))
+        z.writestr("exports/ui_upload/_cache/ab/cached.pdf", pdf("cached copy"))              # working folder: skipped
     r = env.post("/api/knowledge/imports", files={"file": ("exports.zip", buf.getvalue(), "application/zip")},
                  data={"scope": "national", "kind": "other"}, headers=A)
     assert r.status_code == 202, r.text

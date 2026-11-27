@@ -258,7 +258,9 @@ def process(job: dict, factory) -> dict:
                         with z.open(info) as src, open(dest, "wb") as out:
                             shutil.copyfileobj(src, out, 8 * 1024 * 1024)
                         job["server_packages"] += 1
-                elif not base or base.startswith(".") or "__MACOSX" in name or base in ("index.csv", "summary.json"):
+                elif any(seg.startswith("_") for seg in name.split("/")[:-1]):
+                    job["skipped"] += 1                     # _cache/, __MACOSX/ … — working folders, not documents
+                elif not base or base.startswith(".") or base in ("index.csv", "summary.json"):
                     job["skipped"] += 1
                 elif ext == ".zip":
                     job["skipped"] += 1
