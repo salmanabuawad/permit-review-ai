@@ -83,7 +83,10 @@ def member_name(info: zipfile.ZipInfo) -> str:
     UTF-8 or the Hebrew DOS code page there — recover either."""
     if info.flag_bits & 0x800:
         return info.filename
-    raw = info.filename.encode("cp437", errors="replace")
+    try:
+        raw = info.filename.encode("cp437")
+    except UnicodeEncodeError:      # already decoded properly (e.g. from the Unicode Path extra field)
+        return info.filename
     for enc in ("utf-8", "cp862", "cp1255"):
         try:
             return raw.decode(enc)

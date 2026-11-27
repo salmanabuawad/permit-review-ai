@@ -333,6 +333,8 @@ def test_superadmin_knowledge_zip_import(env, monkeypatch, tmp_path):
     assert KI.member_name(info) == "תקנות.pdf"
     info.filename = "תקנות.pdf".encode("cp862").decode("cp437")
     assert KI.member_name(info) == "תקנות.pdf"
+    info.filename = "תקנות.pdf"                                     # name already decoded from the Unicode Path field
+    assert KI.member_name(info) == "תקנות.pdf"
 
 
 def test_knowledge_zip_import_regulation360_export(env, monkeypatch, tmp_path):
