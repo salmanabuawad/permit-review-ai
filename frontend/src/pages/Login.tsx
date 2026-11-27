@@ -52,6 +52,7 @@ export default function Login() {
         {signup && signup.mode !== 'off' && <div className="login-alt">
           מהנדס/ת או אדריכל/ית? <button type="button" className="link" onClick={() => { setErr(null); setView('signup') }}>הרשמה ל-Permit360 Pro</button>
         </div>}
+        <div className="login-alt"><a href="/about.html">אודות · About · حول</a></div>
       </form>
     </div>
   )

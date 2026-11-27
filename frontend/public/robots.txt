@@ -1,0 +1,12 @@
+# KORTEX Permit360 — public pages are open to search engines and AI crawlers; the application and its API are not.
+User-agent: *
+Allow: /$
+Allow: /about.html
+Allow: /llms.txt
+Disallow: /api/
+Disallow: /llm-relay/
+Disallow: /cases
+Disallow: /projects
+Disallow: /users
+
+Sitemap: https://permit360.kortexd.com/sitemap.xml

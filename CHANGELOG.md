@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-11-27 — Search engines and AI tools: trilingual discovery
+
+- The app page carries a Hebrew / English / Arabic title, description, keywords, canonical URL (permit360.kortexd.com),
+  Open Graph tags and schema.org SoftwareApplication data; a `<noscript>` summary links to the about page.
+- `/about.html`: a static page in Hebrew, English and Arabic describing the product for committees and for engineers
+  and architects (readable without JavaScript), linked from the login page.
+- `/robots.txt` (public pages open; the application, its API and the AI relay closed), `/sitemap.xml` with hreflang,
+  and `/llms.txt` for AI tools. nginx serves the site's text files as UTF-8.
+
 ## 2026-11-27 — Committee roles: administrator and reviewer only
 
 - A committee now has two roles: its administrator (מנהל/ת ועדה) and reviewers (בודק/ת). Reviewers do all the
