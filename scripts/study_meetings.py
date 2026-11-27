@@ -24,7 +24,7 @@ from app.db import SessionLocal  # noqa: E402
 from app.meetings import OUTCOMES_HE  # noqa: E402
 from app.models import CommitteeMeeting, CommitteeMeetingItem, PlanningCommittee  # noqa: E402
 
-DECIDED = ("APPROVED", "APPROVED_CONDITIONS", "REJECTED")
+DECIDED = ("APPROVED", "APPROVED_CONDITIONS", "APPROVED_PARTIAL", "REJECTED")
 RELIEFS = {
     "קו בניין": r"קו(?:ו)?\s*בני[י]?ן|קווי\s*בני[י]?ן|מרווח",
     "גובה": r"גובה|הגבהת",
@@ -40,6 +40,7 @@ RELIEFS = {
     "פרגולה / סככה": r"פרגול|סככ",
 }
 REJECT_REASONS = {
+    "פרוצדורלי: איחור / תם המועד / לא תוקן": r"באיחור|איחור|תם\s+פרק\s+הזמן|חלף\s+המועד|לא\s+תוקנה|טרם\s+הסתיימה|תיסגר|להגישה\s+בשנית|יש\s+להגיש\s+בשנית|נוסח\s+ההחלטה\s+הנו\s+אחיד",
     "סטייה ניכרת": r"סטייה\s+ניכרת",
     "בניגוד לתכנית / אינו תואם": r"בניגוד\s+ל|אינ[וה]\s+תוא[םמ]|לא\s+תוא[םמ]|חורג\s+מ",
     "חריגה מקו בניין": r"קו(?:ו)?\s*בני[י]?ן",
@@ -93,15 +94,17 @@ def study(committee_id: str, since: dt.date) -> dict:
     out["by_item_type"] = table(lambda i, m: i.item_type or "—")
 
     req = [(i, m) for i, m in done if i.item_type and "בקש" in i.item_type and i.outcome in DECIDED]
-    with_r = [(i, m) for i, m in req if (i.reliefs or "").strip()]
-    without = [(i, m) for i, m in req if not (i.reliefs or "").strip()]
-    approved = lambda lst: sum(1 for i, _ in lst if i.outcome in ("APPROVED", "APPROVED_CONDITIONS"))  # noqa: E731
+    def has_relief(i):        # a reliefs field, a request type "כולל הקלות", or a relief named in the essence / decision
+        return bool((i.reliefs or "").strip()) or "כולל הקלות" in (i.subject or "") or bool(re.search(r"הקל[הות]", (i.essence or "") + " " + (i.decision or "")))
+    with_r = [(i, m) for i, m in req if has_relief(i)]
+    without = [(i, m) for i, m in req if not has_relief(i)]
+    approved = lambda lst: sum(1 for i, _ in lst if i.outcome in ("APPROVED", "APPROVED_CONDITIONS", "APPROVED_PARTIAL"))  # noqa: E731
     out["requests_decided"] = len(req)
     out["approval_rate_with_reliefs"] = {"n": len(with_r), "approved": approved(with_r)}
     out["approval_rate_without_reliefs"] = {"n": len(without), "approved": approved(without)}
     rel = collections.defaultdict(lambda: [0, 0])
     for i, _ in with_r:
-        for k in tag(i.reliefs, RELIEFS) or ["אחר"]:
+        for k in tag(" ".join(x for x in (i.reliefs, i.essence) if x), RELIEFS) or ["אחר"]:
             rel[k][0] += 1
             rel[k][1] += i.outcome != "REJECTED"
     out["reliefs"] = {k: {"n": n, "approved": a} for k, (n, a) in sorted(rel.items(), key=lambda kv: -kv[1][0])}
@@ -112,8 +115,13 @@ def study(committee_id: str, since: dt.date) -> dict:
     loc = collections.defaultdict(collections.Counter)
     for i, _ in done:
         if i.outcome in DECIDED:
-            loc[i.locality or "—"][i.outcome] += 1
+            loc[i.locality or "לא צוין"][i.outcome] += 1
     out["top_localities"] = {k: dict(v) for k, v in sorted(loc.items(), key=lambda kv: -sum(kv[1].values()))[:15]}
+    cov = collections.defaultdict(lambda: [0, 0])
+    for i, m in done:
+        cov[m.type_he or m.type_code][1] += 1
+        cov[m.type_he or m.type_code][0] += bool((i.decision or "").strip())
+    out["coverage_by_meeting_type"] = dict(cov)
     near = [(i, m) for i, m in done if (i.gush == "2832") or (i.plan and "0723718" in i.plan) or (i.locality or "").startswith("זיקים")]
     out["zikim_block_2832_plan_0723718"] = {"items": len(near), "outcomes": dict(collections.Counter(i.outcome for i, _ in near)),
                                             "reliefs": dict(collections.Counter(k for i, _ in near for k in tag(i.reliefs, RELIEFS)))}
@@ -127,7 +135,7 @@ def markdown(r: dict) -> str:
          f"- ישיבות: {r['meetings']} · סעיפים: {r['items']} · נקראו: {r['items_read']} · עם נוסח החלטה: {r['with_decision_text']}", "",
          "## תוצאות", "", "| תוצאה | סעיפים |", "|---|---|"]
     L += [f"| {OUTCOMES_HE.get(k, k)} | {v} |" for k, v in r["outcomes"].items()]
-    outs = [k for k in ("APPROVED", "APPROVED_CONDITIONS", "REJECTED", "DEFERRED", "DEPOSIT", "PLAN_APPROVED", "RECOMMENDED", "OPEN", "OTHER")]
+    outs = [k for k in ("APPROVED", "APPROVED_CONDITIONS", "APPROVED_PARTIAL", "REJECTED", "DEFERRED", "DEPOSIT", "PLAN_APPROVED", "RECOMMENDED", "OPEN", "OTHER")]
     for title, key in (("לפי שנה", "by_year"), ("לפי סוג ישיבה", "by_meeting_type"), ("לפי סוג סעיף", "by_item_type")):
         L += ["", f"## {title}", "", "| | " + " | ".join(OUTCOMES_HE[o] for o in outs) + " | סה\"כ |", "|---" * (len(outs) + 2) + "|"]
         for k, v in r[key].items():
@@ -143,6 +151,9 @@ def markdown(r: dict) -> str:
     L += [f"| {k} | {v} |" for k, v in r["approval_conditions"].items()]
     L += ["", "## יישובים (סעיפים שהוכרעו)", "", "| יישוב | אושר | אושר בתנאים | נדחה |", "|---|---|---|---|"]
     L += [f"| {k} | {v.get('APPROVED', 0)} | {v.get('APPROVED_CONDITIONS', 0)} | {v.get('REJECTED', 0)} |" for k, v in r["top_localities"].items()]
+    cov = r["coverage_by_meeting_type"]
+    L += ["", "## כיסוי: סעיפים שבדף שלהם יש נוסח החלטה", "", "| סוג ישיבה | עם החלטה | סעיפים |", "|---|---|---|"]
+    L += [f"| {k} | {v[0]} | {v[1]} |" for k, v in cov.items()]
     z = r["zikim_block_2832_plan_0723718"]
     L += ["", "## זיקים — גוש 2832 / תכנית 633-0723718", "", f"- סעיפים: {z['items']}",
           "- תוצאות: " + ", ".join(f"{OUTCOMES_HE.get(k, k)} {v}" for k, v in z["outcomes"].items()),
