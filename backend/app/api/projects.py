@@ -201,3 +201,42 @@ async def committee_upload(committee_id: str, file: UploadFile = File(...), kind
     audit.record(s, p.tenant_id, p.id, "committee.upload", "committee_document", str(doc.id), {"committee_id": c.id, "sha256": sha})
     s.commit()
     return {"id": doc.id, "committee_id": c.id, "title": doc.title, "kind": doc.kind, "status": doc.status}
+
+
+# ---------------------------------------------------------------- AI knowledge base: superadmin uploads
+
+@router.get("/api/knowledge/uploads")
+def knowledge_uploads(scope: str | None = None, admin: User = Depends(_platform_admin), s: Session = Depends(get_session)):
+    from .. import committee_docs as CD
+    return {"kinds": CD.UPLOAD_KINDS, "rows": CD.uploads(s, scope)}
+
+
+@router.post("/api/knowledge/uploads", status_code=201)
+async def knowledge_upload(file: UploadFile = File(...), scope: str = Form("national"), kind: str = Form("regulation"),
+                           title: str = Form(""), admin: User = Depends(_platform_admin), s: Session = Depends(get_session)):
+    """Superadmin: add a document to the knowledge base the assistant answers from — national (laws, regulations,
+    procedures; searched with every committee) or one committee's. Unverified knowledge, never a rule."""
+    from .. import committee_docs as CD
+    body = await file.read(CD.MAX_UPLOAD + 1)
+    try:
+        doc = CD.upload(s, None if scope == "national" else scope, body, file.filename or "upload", kind, title, admin.id)
+    except ValueError as e:
+        s.rollback()
+        raise HTTPException(413 if "50 MB" in str(e) else 422, str(e)) from e
+    audit.record(s, admin.tenant_id, admin.id, "knowledge.upload", "committee_document", str(doc.id),
+                 {"scope": scope, "kind": kind, "url": doc.url})
+    s.commit()
+    return next(r for r in CD.uploads(s, scope) if r["id"] == doc.id)
+
+
+@router.post("/api/knowledge/uploads/{doc_id}/retire", status_code=204)
+def knowledge_retire(doc_id: int, admin: User = Depends(_platform_admin), s: Session = Depends(get_session)):
+    from .. import committee_docs as CD
+    from ..models import CommitteeDocument
+    d = s.get(CommitteeDocument, doc_id)
+    if d is None or not d.url.startswith("upload:"):
+        raise HTTPException(404, "מסמך לא נמצא")
+    CD.retire(s, d)
+    audit.record(s, admin.tenant_id, admin.id, "knowledge.retire", "committee_document", str(d.id), {"title": d.title})
+    s.commit()
+    return Response(status_code=204)

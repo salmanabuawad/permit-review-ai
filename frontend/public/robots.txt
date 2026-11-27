@@ -1,4 +1,4 @@
-# KORTEX Permit360 — public pages are open to search engines and AI crawlers; the application and its API are not.
+# Permit360 — public pages are open to search engines and AI crawlers; the application and its API are not.
 User-agent: *
 Allow: /$
 Allow: /about.html

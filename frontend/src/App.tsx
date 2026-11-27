@@ -21,7 +21,9 @@ import Architect from './pages/Architect'
 import ProjectNew from './pages/ProjectNew'
 import ApplyWizard from './pages/ApplyWizard'
 import Tasks from './pages/Tasks'
+import Knowledge from './pages/Knowledge'
 import ChangePassword from './components/ChangePassword'
+import LangPicker from './components/LangPicker'
 
 export interface Me { id: string; tenant_id: string; role: string; role_he: string; display_name: string; permissions: string[]; municipality_name?: string; is_demo?: boolean; username?: string | null; must_change_password?: boolean; tier?: string; tier_he?: string; superadmin?: boolean; workspace?: boolean }
 interface Ctx { me: Me | null; meta: any; can: (p: string) => boolean; toast: (m: string, err?: boolean) => void }
@@ -40,6 +42,7 @@ const NAV = [
   { to: '/learning', label: 'למידה מהחלטות', icon: 'brain' },
   { to: '/sources', label: 'מקורות ובסיס ידע', icon: 'database' },
   { to: '/committees', label: 'מאגר ועדות ארצי', icon: 'map' },
+  { to: '/knowledge', label: 'מאגר ידע ל-AI', icon: 'database' },
   { to: '/ai', label: 'הגדרות AI', icon: 'brain' },
   { to: '/integrations', label: 'ממשקים', icon: 'links', tag: 'מתוכנן' },
   { to: '/users', label: 'משתמשים', icon: 'users' },
@@ -93,7 +96,7 @@ export default function App() {
   const can = (p: string) => !!me?.permissions.includes(p)
   const isDemo = me?.is_demo ?? me?.tenant_id === 'demo'
   const org = me?.municipality_name || me?.tenant_id || 'סביבת רישוי'
-  useEffect(() => { if (me) document.title = `${isDemo ? 'סביבת הדגמה' : org} — בדיקת היתרי בנייה` }, [me, org, isDemo])
+  useEffect(() => { if (me) document.title = `${isDemo ? 'סביבת הדגמה' : org} — Permit360` }, [me, org, isDemo])
 
   if (needLogin) {
     const q = new URLSearchParams(window.location.search)
@@ -108,11 +111,11 @@ export default function App() {
         <aside className={'sidebar' + (mobileOpen ? ' mobile-open' : '')}>
           <div className="brand-lockup">
             <div className="brand-mark" aria-hidden="true">⌑</div>
-            <div><strong>מערכת רישוי חכמה</strong><small>{org} · מערכת תומכת החלטה</small></div>
+            <div><strong>Permit360</strong><small>{org} · Kortex Digital</small></div>
           </div>
           <div className="sidebar-section-label">סביבת עבודה</div>
           <nav aria-label="ניווט ראשי">
-            {NAV.filter(n => n.to === '/' ? can('dashboard.read') : n.to === '/audit' ? can('audit.read') : n.to === '/ai' ? can('ai.configure') : n.to === '/rules/sources' ? can('source.crawl') : n.to === '/learning' ? (can('learning.manage') || can('finding.decide')) : n.to === '/users' ? can('user.manage') : n.to === '/committees' ? can('source.crawl') : n.to === '/architect' || n.to === '/apply' ? can('design.create') : n.to === '/tasks' ? can('case.read') && !can('design.create') || can('case.assign') : true).map(n => (
+            {NAV.filter(n => n.to === '/' ? can('dashboard.read') : n.to === '/audit' ? can('audit.read') : n.to === '/ai' ? can('ai.configure') : n.to === '/rules/sources' ? can('source.crawl') : n.to === '/learning' ? (can('learning.manage') || can('finding.decide')) : n.to === '/users' ? can('user.manage') : n.to === '/knowledge' ? !!me?.superadmin : n.to === '/committees' ? can('source.crawl') : n.to === '/architect' || n.to === '/apply' ? can('design.create') : n.to === '/tasks' ? can('case.read') && !can('design.create') || can('case.assign') : true).map(n => (
               <NavLink key={n.to} to={n.to} end={n.end} onClick={() => setMobileOpen(false)}>
                 <NavIcon name={n.icon} /><span className="nav-label">{n.label}</span>{n.tag && <span className="tag">{n.tag}</span>}
               </NavLink>
@@ -137,6 +140,7 @@ export default function App() {
             <span className="spacer" />
             <span className="topbar-policy"><span className="live-dot" /> כל תוצר הוא המלצה בלבד — ההחלטה בסמכות בעל תפקיד מוסמך</span>
             <button className="link-btn small" title="החלפת סיסמה" onClick={() => setPwOpen(true)}>{me?.display_name ?? '—'}</button>{me?.tier_he && <span className={'chip ' + (me.superadmin ? 'bad' : 'outline')} title={me.role_he} style={{ marginInlineStart: 4 }}>{me.tier_he}</span>}
+            <LangPicker />
             <button className="sm" onClick={logout}>יציאה</button>
           </header>
           {pwOpen && <ChangePassword onDone={() => { setPwOpen(false); toast('הסיסמה הוחלפה') }} onCancel={() => setPwOpen(false)} />}
@@ -163,6 +167,7 @@ export default function App() {
                 <Route path="/apply" element={<ApplyWizard />} />
                 <Route path="/apply/:id" element={<ApplyWizard />} />
                 <Route path="/tasks" element={<Tasks />} />
+                <Route path="/knowledge" element={<Knowledge />} />
               </Routes>
             ) : loadError ? <div className="notice warn" role="alert">לא ניתן לטעון את סביבת העבודה: {loadError} <button onClick={() => window.location.reload()}>נסה שוב</button></div> : <div className="empty" role="status">טוען…</div>}
           </main>

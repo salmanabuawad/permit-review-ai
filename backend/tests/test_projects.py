@@ -235,3 +235,46 @@ def test_submission_to_unconnected_committee_still_gets_a_number(env, monkeypatc
         out = SB.submit(s, case, "u-ha-planner", True)
         assert not out["connected"] and out["confirmation_number"].startswith("P360-") and "רישוי זמין" in out["note_he"]
         assert case.status == "SUBMITTED"
+
+
+def test_superadmin_knowledge_uploads_national_and_committee(env, monkeypatch):
+    import pymupdf
+
+    from app import committee_docs as CD
+    monkeypatch.setenv("BBP_SUPERADMINS", '["u-ha-admin"]')
+    c = env
+    A = {"X-User": "u-ha-admin"}
+
+    def pdf(text):
+        d = pymupdf.open()
+        d.new_page().insert_text((72, 72), text)
+        return d.tobytes()
+    with SessionLocal() as s:
+        hid = hof(s).id
+        ash = s.scalars(select(PlanningCommittee).where(PlanningCommittee.name_he == "אשקלון")).one().id
+    regs = pdf("national parking standard 2026")
+    up = c.post("/api/knowledge/uploads", files={"file": ("regs.pdf", regs, "application/pdf")},
+                data={"scope": "national", "kind": "regulation", "title": "Parking regulations"}, headers=A)
+    assert up.status_code == 201, up.text
+    row = up.json()
+    assert row["committee_id"] is None and row["scope_he"] == "ידע ארצי" and row["text_status"] == "ok" and row["passages"] == 1
+    assert c.post("/api/knowledge/uploads", files={"file": ("g.pdf", pdf("hof only guideline"), "application/pdf")},
+                  data={"scope": hid, "kind": "guideline"}, headers=A).status_code == 201
+    assert c.post("/api/knowledge/uploads", files={"file": ("x.exe", b"MZ", "application/octet-stream")},
+                  data={"scope": "national"}, headers=A).status_code == 422
+    assert c.post("/api/knowledge/uploads", files={"file": ("g.pdf", pdf("x"), "application/pdf")},
+                  data={"scope": "national"}, headers=H).status_code == 403                                  # superadmin only
+    assert c.get("/api/knowledge/uploads", headers=H).status_code == 403
+    lst = c.get("/api/knowledge/uploads", headers=A).json()
+    assert len(lst["rows"]) == 2 and "regulation" in lst["kinds"]
+    with SessionLocal() as s:                       # national text is found for every committee, a committee's only for it
+        assert [h["committee"] for h in CD.hybrid_search(s, "parking standard", ash, mode="keyword")] == ["ידע ארצי"]
+        assert CD.hybrid_search(s, "hof only", hid, mode="keyword") and not CD.hybrid_search(s, "hof only", ash, mode="keyword")
+    assert c.post(f"/api/knowledge/uploads/{row['id']}/retire", headers=A).status_code == 204
+    with SessionLocal() as s:
+        assert not CD.hybrid_search(s, "parking standard", ash, mode="keyword")
+    again = c.post("/api/knowledge/uploads", files={"file": ("regs.pdf", regs, "application/pdf")},
+                   data={"scope": "national", "kind": "regulation"}, headers=A)
+    assert again.json()["id"] == row["id"] and again.json()["status"] == "ok"                                 # brought back
+    with SessionLocal() as s:
+        assert CD.hybrid_search(s, "parking standard", ash, mode="keyword")

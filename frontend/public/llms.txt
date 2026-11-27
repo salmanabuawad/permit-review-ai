@@ -1,9 +1,9 @@
-# KORTEX Permit360
+# Permit360
 
 > Building-permit review for Israeli local and regional planning and building committees, and Permit360 Pro for
 > engineers and architects preparing permit applications. Hebrew: בדיקת היתרי בנייה. Arabic: فحص رخص البناء. Russian: проверка разрешений на строительство.
 
-KORTEX Permit360 (https://permit360.kortexd.com) is a web application by KORTEX (https://kortexd.com).
+Permit360 (https://permit360.kortexd.com) is a product of Kortex Digital Ltd (https://kortexd.com).
 
 ## What it does
 - For planning committees (ועדות מקומיות לתכנון ובנייה / لجان التخطيط والبناء المحلية): checks a building-permit

@@ -163,7 +163,7 @@ def request(s: Session, *, username: str, display_name: str, email: str, passwor
                                     "mode": m}))
     s.flush()
     link = base_url.rstrip("/") + "/api/auth/signup/verify?t=" + token(name)
-    body = (f"שלום {display_name},\n\nהתקבלה בקשת הרשמה ל-KORTEX Permit360 Pro בשם המשתמש {name}.\n"
+    body = (f"שלום {display_name},\n\nהתקבלה בקשת הרשמה ל-Permit360 Pro בשם המשתמש {name}.\n"
             f"לאימות כתובת הדוא״ל יש לפתוח את הקישור (בתוקף {VERIFY_HOURS} שעות):\n{link}\n\n"
             "אם לא ביקשתם להירשם, אפשר להתעלם מהודעה זו.\n")
     if not mailer.send(email, "אימות כתובת דוא״ל — Permit360 Pro", body):
@@ -222,7 +222,7 @@ def approve(s: Session, actor: str, username: str) -> dict:
     s.commit()
     if acct.email:
         mailer.send(acct.email, "החשבון אושר — Permit360 Pro",
-                    f"החשבון {acct.username} ב-KORTEX Permit360 Pro אושר. אפשר להיכנס עם שם המשתמש והסיסמה שבחרתם.\n")
+                    f"החשבון {acct.username} ב-Permit360 Pro אושר. אפשר להיכנס עם שם המשתמש והסיסמה שבחרתם.\n")
     return _row(s, acct)
 
 
@@ -234,7 +234,7 @@ def reject(s: Session, actor: str, username: str, reason: str | None = None) -> 
     s.commit()
     if email:
         mailer.send(email, "בקשת ההרשמה לא אושרה — Permit360 Pro",
-                    "בקשת ההרשמה ל-KORTEX Permit360 Pro לא אושרה." + (f"\nהערה: {reason.strip()[:500]}" if reason and reason.strip() else "") + "\n")
+                    "בקשת ההרשמה ל-Permit360 Pro לא אושרה." + (f"\nהערה: {reason.strip()[:500]}" if reason and reason.strip() else "") + "\n")
 
 
 def waiting_state(s: Session, username: str, password: str) -> str | None:

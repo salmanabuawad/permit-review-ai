@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { api, ApiError, setAuthority } from '../api'
+import LangPicker from '../components/LangPicker'
 
 const SIGNUP_RESULT: Record<string, { ok: boolean; text: string }> = {
   pending: { ok: true, text: 'כתובת הדוא״ל אומתה. בקשת ההרשמה ממתינה לאישור מנהל המערכת — תישלח הודעה כשהחשבון יאושר.' },
@@ -37,6 +38,7 @@ export default function Login() {
   return (
     <div className="login-center">
       <form className="login" onSubmit={submit}>
+        <div className="login-top"><b>Permit360</b><LangPicker /></div>
         <h1>בדיקת היתרי בנייה</h1>
         <div className="hint">כניסה לצוותי הרשויות והוועדות לתכנון ובנייה, ולמהנדסים, אדריכלים ובעלי נכסים ב-Permit360 Pro</div>
         {view === 'sent' && <div className="login-ok" role="status">נשלח קישור אימות לכתובת הדוא״ל. יש לפתוח אותו בתוך 48 שעות.</div>}
@@ -83,6 +85,7 @@ function Signup({ professions, onSent, onBack }: { professions: Record<string, s
   return (
     <div className="login-center">
       <form className="login" onSubmit={submit}>
+        <div className="login-top"><b>Permit360</b><LangPicker /></div>
         <h1>הרשמה ל-Permit360 Pro</h1>
         <div className="hint">למהנדסים, אדריכלים והנדסאים המכינים בקשות להיתר, ולבעלי נכסים ומבקשי היתר. לאחר אימות הדוא״ל הבקשה נבדקת ומאושרת.</div>
         <label className="f">שם מלא<input required maxLength={200} value={f.display_name} onChange={set('display_name')} autoComplete="name" autoFocus /></label>

@@ -157,7 +157,7 @@ export default function CaseView() {
       )}
 
       <div className="workspace">
-        <section className="card" aria-label="תשריט">
+        <section className="card drawing-pane" aria-label="תשריט">
           <div className="card-head"><h3>תצוגת תשריט ושכבות</h3><span className="spacer" /><span className="small muted">לחיצה על סימון אדום/צהוב מציגה את הממצא</span></div>
           {!geoLoading && !(geo?.features?.length) && sheetFile
             ? <SheetViewer file={sheetFile} />

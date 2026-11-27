@@ -105,7 +105,7 @@ tr.clickable:hover td { background: #f7faff; }
 
 /* case workspace */
 .workspace { display: grid; grid-template-columns: minmax(380px, 1fr) minmax(0, 1.25fr); gap: 14px; align-items: start; }
-.workspace > section[aria-label="תשריט"] { order: 2; }   /* findings first (right side in RTL), drawing second */
+.workspace > section.drawing-pane { order: 2; }   /* findings first (right side in RTL), drawing second */
 .viewer { position: relative; background: #fbfdff; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
 .viewer svg { display: block; width: 100%; height: 520px; cursor: grab; }
 .viewer .legend { display: flex; flex-wrap: wrap; gap: 8px 14px; padding: 8px 10px; border-top: 1px solid var(--line); background: #fff; font-size: .8rem; }
@@ -180,6 +180,7 @@ tr.clickable:hover td { background: #f7faff; }
 
 /* 2026 professional product facelift — additive overrides */
 html { direction: rtl; scroll-behavior: smooth; }
+html[dir=ltr] { direction: ltr; }
 body { background: var(--bg); }
 .app { grid-template-columns: 260px minmax(0,1fr); }
 .sidebar { background: linear-gradient(178deg,#122c49 0%,#173e5a 70%,#12394e 100%); padding: 26px 15px 18px; display: flex; flex-direction: column; box-shadow: -3px 0 20px rgba(15,34,54,.05); }
@@ -574,6 +575,7 @@ tr.muted td { color: var(--muted); }
 .landing > * { max-width: 1080px; margin-inline: auto; padding-inline: 20px; }
 .ld-top { display: flex; align-items: center; gap: 14px; padding-block: 18px; }
 .ld-brand { display: flex; align-items: center; gap: 10px; font-size: 17px; margin-inline-end: auto; }
+.ld-brand small { color: var(--muted); font-size: 12px; font-weight: 500; }
 .ld-logo { width: 32px; height: 32px; border-radius: 9px; display: grid; place-items: center; color: #fff; font-weight: 800;
   background: linear-gradient(135deg, var(--brand), var(--brand-2)); }
 .ld-langs { display: flex; gap: 2px; background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 3px; }
@@ -652,3 +654,14 @@ tr.muted td { color: var(--muted); }
 .wiz-ok { width: 56px; height: 56px; margin: 4px auto 8px; border-radius: 50%; background: var(--pass); color: #fff; display: grid; place-items: center; font-size: 30px; }
 .wiz-number { font-size: 1.9rem; font-weight: 800; letter-spacing: .04em; color: var(--brand); margin: 2px 0 8px; }
 @media print { .wiz-steps, .wiz-nav { display: none !important; } .wiz-card { border: 0; box-shadow: none; } }
+
+/* ---- language picker; left-to-right layout (English, Russian) ---- */
+.lang-picker { font: inherit; font-size: 13px; padding: 3px 6px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink-2); }
+.login-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 4px; }
+.login-top b { color: var(--brand); font-size: 15px; }
+html[dir=ltr] .toast, html[dir=ltr] .stepper li::before { transform: translateX(-50%); }
+html[dir=ltr] .sidebar nav a:hover { transform: translateX(2px); }
+html[dir=ltr] .sidebar-footer-dot, html[dir=ltr] .live-dot, html[dir=ltr] .status-dot-label i { margin-left: 0; margin-right: 7px; }
+html[dir=ltr] .stat-decoration { left: auto; right: 18px; }
+html[dir=ltr] .hero-btn span { padding-right: 0; padding-left: 8px; }
+@media (max-width:760px) { html[dir=ltr] .sidebar { right: auto; left: 0; transform: translateX(-105%); } html[dir=ltr] .sidebar.mobile-open { transform: translateX(0); } }

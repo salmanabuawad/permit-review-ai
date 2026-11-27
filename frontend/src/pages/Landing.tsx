@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
+import { lang as appLang, setLang as switchLang } from '../i18n'
 
 /** Public landing page for signed-out visitors (and search engines): Hebrew, English, Arabic, Russian. */
 type Lang = 'he' | 'en' | 'ar' | 'ru'
@@ -8,7 +9,7 @@ const T = {
     dir: 'rtl', name: 'עברית',
     tag: 'בדיקת היתרי בנייה',
     title: 'מהגוש והחלקה ועד היתר הבנייה — עם המקור לכל ממצא',
-    lead: 'KORTEX Permit360 בודקת בקשות להיתר בנייה עבור ועדות לתכנון ובנייה, ומלווה מהנדסים ואדריכלים בהכנת הבקשה — מזיהוי הוועדה המוסמכת ועד מוכנות להגשה.',
+    lead: 'Permit360 בודקת בקשות להיתר בנייה עבור ועדות לתכנון ובנייה, ומלווה מהנדסים ואדריכלים בהכנת הבקשה — מזיהוי הוועדה המוסמכת ועד מוכנות להגשה.',
     signin: 'כניסה', register: 'הרשמה',
     committees: 'לוועדות לתכנון ובנייה',
     committeesItems: ['בדיקת הבקשה מול התכניות החלות (תב"ע), זכויות הבנייה, קווי הבניין, הגובה ומספר הקומות',
@@ -24,13 +25,13 @@ const T = {
     trust: 'עקרונות', trustItems: [['מקור לכל ממצא', 'שום מספר בלי הפניה לסעיף ולמסמך'], ['האדם מחליט', 'המערכת מסייעת; ההחלטה של הוועדה'],
       ['בינה מלאכותית מקומית', 'מסמכי התיקים לא נשלחים לענן'], ['עברית, אנגלית, ערבית ורוסית', 'ממשק בעברית, מידע בארבע שפות']],
     ctaTitle: 'מהנדס/ת, אדריכל/ית או בעל/ת נכס?', ctaText: 'נרשמים, מאמתים את הדוא״ל, ולאחר אישור פותחים פרויקט לפי גוש וחלקה.',
-    about: 'אודות',
+    about: 'אודות', by: 'Permit360 — מוצר של Kortex Digital Ltd',
   },
   en: {
     dir: 'ltr', name: 'English',
     tag: 'Building Permit Review',
     title: 'From block and parcel to building permit — with a source for every finding',
-    lead: 'KORTEX Permit360 reviews building-permit applications for Israeli planning and building committees, and guides engineers and architects through preparing them — from finding the responsible committee to submission readiness.',
+    lead: 'Permit360 reviews building-permit applications for Israeli planning and building committees, and guides engineers and architects through preparing them — from finding the responsible committee to submission readiness.',
     signin: 'Sign in', register: 'Register',
     committees: 'For planning and building committees',
     committeesItems: ['Checks the application against the applicable zoning plans (TABA), building rights, building lines, height and floors',
@@ -46,13 +47,13 @@ const T = {
     trust: 'Principles', trustItems: [['A source for every finding', 'No number without a clause and a document'], ['People decide', 'The system assists; the committee decides'],
       ['Local AI', 'Case documents are not sent to the cloud'], ['Hebrew, English, Arabic, Russian', 'Hebrew interface, information in four languages']],
     ctaTitle: 'Engineer, architect or property owner?', ctaText: 'Register, verify your e-mail, and once approved open a project by block and parcel.',
-    about: 'About',
+    about: 'About', by: 'Permit360 — a product of Kortex Digital Ltd',
   },
   ar: {
     dir: 'rtl', name: 'العربية',
     tag: 'فحص رخص البناء',
     title: 'من الحوض والقسيمة حتى رخصة البناء — مع مصدر لكل نتيجة',
-    lead: 'KORTEX Permit360 يفحص طلبات رخص البناء للجان التخطيط والبناء، ويرافق المهندسين والمعماريين في إعداد الطلب — من تحديد اللجنة المختصة حتى الجاهزية للتقديم.',
+    lead: 'Permit360 يفحص طلبات رخص البناء للجان التخطيط والبناء، ويرافق المهندسين والمعماريين في إعداد الطلب — من تحديد اللجنة المختصة حتى الجاهزية للتقديم.',
     signin: 'دخول', register: 'التسجيل',
     committees: 'للجان التخطيط والبناء',
     committeesItems: ['فحص الطلب مقابل المخططات الهيكلية السارية، وحقوق البناء، وخطوط البناء، والارتفاع وعدد الطوابق',
@@ -68,13 +69,13 @@ const T = {
     trust: 'مبادئ', trustItems: [['مصدر لكل نتيجة', 'لا رقم دون بند ومستند'], ['الإنسان يقرر', 'النظام يساعد؛ القرار للجنة'],
       ['ذكاء اصطناعي محلي', 'مستندات الملفات لا تُرسل إلى السحابة'], ['العبرية والإنجليزية والعربية والروسية', 'واجهة بالعبرية ومعلومات بأربع لغات']],
     ctaTitle: 'مهندس أو معماري أو صاحب عقار؟', ctaText: 'سجّل، أكّد بريدك الإلكتروني، وبعد الموافقة افتح مشروعًا حسب الحوض والقسيمة.',
-    about: 'حول',
+    about: 'حول', by: 'Permit360 — منتج من Kortex Digital Ltd',
   },
   ru: {
     dir: 'ltr', name: 'Русский',
     tag: 'Проверка разрешений на строительство',
     title: 'От блока и участка до разрешения на строительство — с источником для каждого вывода',
-    lead: 'KORTEX Permit360 проверяет заявки на разрешение на строительство для местных комиссий по планированию и строительству в Израиле и помогает инженерам, архитекторам и владельцам недвижимости подготовить заявку — от определения ответственной комиссии до готовности к подаче.',
+    lead: 'Permit360 проверяет заявки на разрешение на строительство для местных комиссий по планированию и строительству в Израиле и помогает инженерам, архитекторам и владельцам недвижимости подготовить заявку — от определения ответственной комиссии до готовности к подаче.',
     signin: 'Вход', register: 'Регистрация',
     committees: 'Для комиссий по планированию и строительству',
     committeesItems: ['Проверка заявки по действующим градостроительным планам (ТАБА), строительным правам, линиям застройки, высоте и этажности',
@@ -90,34 +91,22 @@ const T = {
     trust: 'Принципы', trustItems: [['Источник для каждого вывода', 'Ни одной цифры без пункта и документа'], ['Решают люди', 'Система помогает; решение за комиссией'],
       ['Локальный ИИ', 'Документы дел не отправляются в облако'], ['Иврит, английский, арабский, русский', 'Интерфейс на иврите, информация на четырёх языках']],
     ctaTitle: 'Инженер, архитектор или владелец недвижимости?', ctaText: 'Зарегистрируйтесь, подтвердите e-mail и после одобрения откройте проект по блоку и участку.',
-    about: 'О системе',
+    about: 'О системе', by: 'Permit360 — продукт Kortex Digital Ltd',
   },
 } as const
 
-function initialLang(): Lang {
-  const q = new URLSearchParams(window.location.search).get('lang')
-  if (q === 'he' || q === 'en' || q === 'ar' || q === 'ru') return q
-  try { const s = localStorage.getItem('p360-lang'); if (s === 'he' || s === 'en' || s === 'ar' || s === 'ru') return s } catch { /* */ }
-  const n = (navigator.language || '').slice(0, 2)
-  return n === 'ar' ? 'ar' : n === 'en' ? 'en' : n === 'ru' ? 'ru' : 'he'
-}
 
 export default function Landing() {
-  const [lang, setLang] = useState<Lang>(initialLang)
+  const lang: Lang = appLang                         // the app-wide language (switching reloads the page)
   const t = T[lang]
-  useEffect(() => {
-    document.documentElement.lang = lang
-    document.documentElement.dir = t.dir
-    document.title = `KORTEX Permit360 — ${t.tag}`
-    try { localStorage.setItem('p360-lang', lang) } catch { /* */ }
-  }, [lang, t])
+  useEffect(() => { document.title = `Permit360 — ${t.tag}` }, [t])
 
   return (
-    <div className="landing" dir={t.dir} lang={lang}>
+    <div className="landing notranslate" dir={t.dir} lang={lang}>
       <header className="ld-top">
-        <div className="ld-brand"><span className="ld-logo" aria-hidden>P</span><b>KORTEX Permit360</b></div>
+        <div className="ld-brand"><span className="ld-logo" aria-hidden>P</span><b>Permit360</b><small>Kortex Digital</small></div>
         <nav className="ld-langs" aria-label="Language">
-          {(Object.keys(T) as Lang[]).map(k => <button key={k} className={k === lang ? 'on' : ''} lang={k} onClick={() => setLang(k)}>{T[k].name}</button>)}
+          {(Object.keys(T) as Lang[]).map(k => <button key={k} className={k === lang ? 'on' : ''} lang={k} onClick={() => k !== lang && switchLang(k)}>{T[k].name}</button>)}
         </nav>
         <a className="ld-btn ghost" href="/login">{t.signin}</a>
       </header>
@@ -152,7 +141,7 @@ export default function Landing() {
       </section>
 
       <footer className="ld-foot">
-        <span>KORTEX · <a href="https://kortexd.com/">kortexd.com</a></span>
+        <span>{t.by} · <a href="https://kortexd.com/">kortexd.com</a></span>
         <a href="/about.html">{t.about}</a>
       </footer>
     </div>

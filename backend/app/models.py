@@ -636,7 +636,8 @@ class CommitteeDocument(Base):
     Committee-level knowledge, before any authority uses the system: candidates, never rules."""
     __tablename__ = 'committee_documents'
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    committee_id: Mapped[str] = mapped_column(ForeignKey('planning_committees.id', ondelete='CASCADE'), index=True)
+    # None: national knowledge (laws, regulations, national procedures) — searched together with every committee's text
+    committee_id: Mapped[str | None] = mapped_column(ForeignKey('planning_committees.id', ondelete='CASCADE'), index=True, nullable=True)
     url: Mapped[str] = mapped_column(String(1000))
     title: Mapped[str | None] = mapped_column(String(300))
     kind: Mapped[str] = mapped_column(String(20))                    # guideline | plan | bylaw | procedure

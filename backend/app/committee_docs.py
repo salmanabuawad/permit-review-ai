@@ -18,13 +18,17 @@ import re
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from .config import settings
 from .models import CommitteeDocument, CommitteePassage, CommitteeSnapshot, PlanningCommittee
 
 MAX_FETCH = 40
+NATIONAL_HE = "ידע ארצי"
+UPLOAD_KINDS = {"law": "חוק", "regulation": "תקנות", "guideline": "הנחיות", "procedure": "נוהל", "plan": "תכנית", "bylaw": "חוק עזר",
+                "other": "אחר"}
+MAX_UPLOAD = 50 * 1024 * 1024
 DOC_EXT = {".pdf": "application/pdf",
            ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
            ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}
@@ -354,10 +358,10 @@ def hybrid_search(s: Session, q: str, committee_id: str | None = None, mode: str
     base = (select(CommitteePassage, CommitteeSnapshot, CommitteeDocument, PlanningCommittee)
             .join(CommitteeSnapshot, CommitteePassage.snapshot_id == CommitteeSnapshot.id)
             .join(CommitteeDocument, CommitteeSnapshot.document_id == CommitteeDocument.id)
-            .join(PlanningCommittee, CommitteeDocument.committee_id == PlanningCommittee.id)
+            .outerjoin(PlanningCommittee, CommitteeDocument.committee_id == PlanningCommittee.id)
             .where(CommitteeDocument.sha256 == CommitteeSnapshot.sha256))
-    if committee_id:
-        base = base.where(PlanningCommittee.id == committee_id)
+    if committee_id:                                   # the committee's own text, and national knowledge
+        base = base.where(or_(CommitteeDocument.committee_id == committee_id, CommitteeDocument.committee_id.is_(None)))
     rows, kw, sem, best_chunk = {}, [], [], {}
     if mode in ("hybrid", "keyword"):
         for x, snap, d, c in s.execute(base.where(CommitteePassage.text_he.contains(q, autoescape=True)).limit(k)):
@@ -386,8 +390,83 @@ def hybrid_search(s: Session, q: str, committee_id: str | None = None, mode: str
         else:
             ch, _ = best_chunk[pid]
             excerpt = x.text_he[ch.start:ch.end]
-        out.append({"committee": c.name_he, "committee_id": c.id, "document": d.title or d.url, "url": d.url, "kind": d.kind,
+        out.append({"committee": c.name_he if c else NATIONAL_HE, "committee_id": c.id if c else None, "document": d.title or d.url, "url": d.url, "kind": d.kind,
                     "page": x.page, "snapshot_id": snap.id, "excerpt": excerpt, "verification": "UNVERIFIED",
                     "found_by": [n for n, lst in (("keyword", kw), ("semantic", sem)) if pid in lst],
                     "similarity": round(best_chunk[pid][1], 3) if pid in best_chunk else None, "passage_id": pid})
+    return out
+
+
+# ---------------------------------------------------------------- uploads to the AI knowledge base (superadmin)
+
+def upload(s: Session, committee_id: str | None, body: bytes, filename: str, kind: str, title: str, user: str) -> CommitteeDocument:
+    """Add a document to the knowledge base the assistant searches: a committee's, or national (committee_id None).
+    Text is extracted in the sandbox; the crawler worker splits and embeds it when idle. The same file twice is one
+    document; a retired one comes back."""
+    import datetime as dt
+    import hashlib
+
+    from .safe_extract import extract as sandboxed
+    from .source_monitor.service import validate_upload
+    if committee_id is not None and s.get(PlanningCommittee, committee_id) is None:
+        raise ValueError("ועדה לא נמצאה")
+    if kind not in UPLOAD_KINDS:
+        raise ValueError("סוג מסמך לא מוכר")
+    if len(body) > MAX_UPLOAD:
+        raise ValueError("הקובץ גדול מ־50 MB")
+    name = (filename or "upload").lower()
+    ext = next((e for e in DOC_EXT if name.endswith(e)), None)
+    if ext is None:
+        raise ValueError("רק PDF, DOCX או XLSX")
+    validate_upload(body, ext)
+    sha = hashlib.sha256(body).hexdigest()
+    url = f"upload:{sha}"
+    q = select(CommitteeDocument).where(CommitteeDocument.url == url)
+    q = q.where(CommitteeDocument.committee_id.is_(None) if committee_id is None else CommitteeDocument.committee_id == committee_id)
+    doc = s.scalars(q).first()
+    if doc is None:
+        doc = CommitteeDocument(committee_id=committee_id, url=url, title=(title or filename or "")[:300], kind=kind,
+                                found_on=f"upload:{user}", status="pending")
+        s.add(doc)
+        s.flush()
+        _save(s, doc, body, DOC_EXT[ext], ext, None, sandboxed)
+    elif doc.status == "retired":
+        doc.sha256 = sha
+    doc.kind, doc.title = kind, (title or doc.title or filename or "")[:300]
+    doc.status, doc.checked_at = "ok", dt.datetime.now(dt.timezone.utc)
+    return doc
+
+
+def retire(s: Session, doc: CommitteeDocument) -> None:
+    """Take an uploaded document out of the knowledge base (kept on disk and in the audit; searches skip it)."""
+    doc.status, doc.sha256 = "retired", None
+
+
+def uploads(s: Session, scope: str | None = None) -> list[dict]:
+    """Uploaded documents with extraction and indexing progress. scope: None all, "national", or a committee id."""
+    from .models import CommitteeChunk
+    q = select(CommitteeDocument).where(CommitteeDocument.url.like("upload:%"))
+    if scope == "national":
+        q = q.where(CommitteeDocument.committee_id.is_(None))
+    elif scope:
+        q = q.where(CommitteeDocument.committee_id == scope)
+    out = []
+    for d in s.scalars(q.order_by(CommitteeDocument.id.desc()).limit(500)):
+        snap = s.scalars(select(CommitteeSnapshot).where(CommitteeSnapshot.document_id == d.id)
+                         .order_by(CommitteeSnapshot.id.desc())).first()
+        passages = chunks = embedded = 0
+        if snap:
+            pids = select(CommitteePassage.id).where(CommitteePassage.snapshot_id == snap.id)
+            passages = s.scalar(select(func.count()).select_from(CommitteePassage).where(CommitteePassage.snapshot_id == snap.id)) or 0
+            chunks = s.scalar(select(func.count()).select_from(CommitteeChunk).where(CommitteeChunk.passage_id.in_(pids))) or 0
+            embedded = s.scalar(select(func.count()).select_from(CommitteeChunk).where(CommitteeChunk.passage_id.in_(pids),
+                                                                                         CommitteeChunk.model.is_not(None))) or 0
+        c = s.get(PlanningCommittee, d.committee_id) if d.committee_id else None
+        out.append({"id": d.id, "title": d.title, "kind": d.kind, "kind_he": UPLOAD_KINDS.get(d.kind, d.kind),
+                    "committee_id": d.committee_id, "scope_he": c.name_he if c else NATIONAL_HE, "status": d.status,
+                    "uploaded_by": (d.found_on or "").removeprefix("upload:") or None,
+                    "uploaded_at": d.checked_at.isoformat() if d.checked_at else None,
+                    "text_status": snap.text_status if snap else None, "pages": snap.pages if snap else 0,
+                    "size": snap.size if snap else None, "passages": passages, "chunks": chunks, "embedded": embedded,
+                    "message": d.message})
     return out

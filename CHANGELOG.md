@@ -1,5 +1,21 @@
 # Changelog
 
+## 2026-11-27 — Whole app in Hebrew, English, Arabic and Russian; superadmin AI knowledge base; Kortex Digital branding
+
+- Interface language for the entire application: a picker in the top bar and on the sign-in / sign-up page (shared
+  with the landing page; `?lang=` works everywhere). Hebrew stays the source text; `/i18n/{en,ar,ru}.json` hold
+  ≈ 2,270 translated interface texts and server messages each, and a translator swaps the page's Hebrew text and
+  placeholder / title / aria-label / alt attributes as it renders, including server error messages and native
+  dialogs. Left-to-right layout for English and Russian. User data (names, plan names, document text) and rule /
+  finding content are not translated.
+- AI knowledge base page for the superadmin ("מאגר ידע ל-AI", `/knowledge`): upload PDF / DOCX / XLSX as national
+  knowledge (laws, regulations, procedures — searched together with every committee's text) or to one committee;
+  see text extraction and background indexing progress; take a document out of use (and bring it back by uploading
+  it again). Committee documents may now have no committee (migration 0029); national clauses go to the national
+  level of the regulation hierarchy.
+- Branding: "Permit360 — a product of Kortex Digital Ltd" on the landing and about pages, structured data, llms.txt
+  and the app header; outgoing mail is sent as "Permit360 · Kortex Digital".
+
 ## 2026-11-27 — Russian on the public pages
 
 - The landing page, the about page, search keywords, structured data, sitemap (hreflang) and llms.txt now include

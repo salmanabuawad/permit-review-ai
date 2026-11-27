@@ -200,7 +200,7 @@ def extract_clauses(s: Session, limit: int = 300) -> int:
          .order_by(CommitteeDocument.committee_id.not_in(_served()), CommitteePassage.id).limit(limit))
     n = 0
     for p, committee_id in s.execute(q).all():
-        jid = f"committee:{committee_id}"
+        jid = f"committee:{committee_id}" if committee_id else NATIONAL          # uploaded national knowledge
         if s.get(Jurisdiction, jid) is None:
             continue
         rows: list[RegulatoryClause] = []

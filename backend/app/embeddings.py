@@ -156,7 +156,7 @@ def semantic(s: Session, query: str, k: int = 50, committee_id: str | None = Non
         sql = ("SELECT ch.id, 1 - (ch.embedding <=> CAST(:q AS vector)) AS sim FROM committee_chunks ch "
                "JOIN committee_passages p ON p.id = ch.passage_id JOIN committee_snapshots sn ON sn.id = p.snapshot_id "
                "JOIN committee_documents d ON d.id = sn.document_id "
-               "WHERE ch.model = :m AND d.sha256 = sn.sha256" + (" AND d.committee_id = :c" if committee_id else "") +
+               "WHERE ch.model = :m AND d.sha256 = sn.sha256" + (" AND (d.committee_id = :c OR d.committee_id IS NULL)" if committee_id else "") +
                " ORDER BY ch.embedding <=> CAST(:q AS vector) LIMIT :k")
         return [(r[0], float(r[1])) for r in s.execute(text(sql), {"q": vec_literal(qv), "m": MODEL_ID, "k": k,
                                                                     **({"c": committee_id} if committee_id else {})})]

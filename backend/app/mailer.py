@@ -25,7 +25,7 @@ def configured() -> bool:
 
 def _sender() -> tuple[str, str]:
     addr = os.environ.get("BBP_MAIL_FROM") or os.environ.get("BBP_SMTP_USER") or "noreply@localhost"
-    return os.environ.get("BBP_MAIL_FROM_NAME", "KORTEX Permit360"), addr
+    return os.environ.get("BBP_MAIL_FROM_NAME", "Permit360 · Kortex Digital"), addr
 
 
 def build(to: str, subject: str, body: str) -> EmailMessage:
