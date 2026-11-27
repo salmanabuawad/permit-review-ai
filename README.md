@@ -1,18 +1,18 @@
-# בדיקת היתרי בנייה בסיוע AI — בני ברק (POC למכרז 7/26)
+# Permit360 — בדיקת היתרי בנייה בסיוע AI
 
-מערכת תומכת החלטה לבדיקת בקשות לתוספות בנייה: קליטת PDF / DXF / DWG / Excel במצב Offline, מדידה דטרמיניסטית, מנוע כללים עם אסמכתאות, דוח שלמות, דוח זכויות ודוח בודק (כולל PDF עברי), Workflow, Audit, AI Gateway מקומי/ענן/היברידי.
+מוצר של Kortex Digital Ltd · https://permit360.kortexd.com
+
+מערכת תומכת החלטה לבדיקת בקשות להיתר בנייה עבור ועדות לתכנון ובנייה, ולהכנת בקשות והגשתן עבור מהנדסים, אדריכלים ובעלי נכסים (Permit360 Pro): קליטת PDF / DXF / DWG / Excel במצב Offline, מדידה דטרמיניסטית, מנוע כללים עם אסמכתאות, דוח שלמות, דוח זכויות ודוח בודק (כולל PDF עברי), Workflow, Audit, AI Gateway מקומי/ענן/היברידי.
 **כל תוצר הוא המלצה בלבד; ההחלטה בסמכות בעל תפקיד מוסמך.**
 
 ## מסמכים
 | # | מסמך |
 |---|---|
-| 00 | [מצב, סתירות וחוסרים](docs/00_status_contradictions_gaps.md) — **כולל סתירת מועדי ההגשה והחובה להשתתף בכנס המציעים** |
+| 00 | [סתירות וחוסרים במקורות](docs/00_status_contradictions_gaps.md) |
 | 01 | [רשם מקורות](docs/01_source_register.md) |
-| 02 | [מטריצת עמידה ועקיבות למכרז](docs/02_compliance_matrix.md) |
 | 03 | [SRS, ארכיטקטורה, ERD, אבטחה וסיכונים](docs/03_srs_architecture_security.md) |
 | 04 | [מאגר כללים ובדיקות גבול](docs/04_rules_catalog.md) |
-| 05 | [תכנית עבודה, Backlog ובדיקות](docs/05_workplan_backlog.md) |
-| 06 | [IP Inventory לנספח ה5](docs/06_ip_inventory.md) — **לבדיקת עו"ד** |
+| 05 | [Backlog ובדיקות](docs/05_workplan_backlog.md) |
 | 07 | [קליטת מסמכים — צנרת, מודל נתונים, בעיות פתוחות](docs/07_document_intake.md) |
 | 08 | [סריקת מקורות לכללים ובדיקה חוזרת](docs/08_source_monitor.md) |
 
@@ -64,5 +64,5 @@ knowledge/          תוכן פרויקט: כללים, מקורות, בסיס י
 fixtures/demo/      קבצי הדגמה שנוצרו ע"י scripts/make_fixtures.py
 db/                 סכמת PostgreSQL/PostGIS ליעד הייצור
 deploy/             systemd + Nginx + env לדוגמה
-docs/               מסמכי המכרז והאפיון
+docs/               אפיון ותיעוד (docs/permit360: ארכיטקטורה ותכנית פיתוח)
 ```

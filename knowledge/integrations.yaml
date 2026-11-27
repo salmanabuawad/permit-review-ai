@@ -1,5 +1,5 @@
-# Future integrations — ALL disabled for the pilot (tender §1.4: files only, no interfaces).
-# status: PLANNED (stage 2/3 per tender spec pp.28–30). No adapter here talks to a real API;
+# Future integrations — all disabled (the system works on files; no live interfaces yet).
+# status: PLANNED. No adapter here talks to a real API;
 # endpoints/auth are unknown until the authority provides interface specs.
 integrations:
   - {id: gis_municipal,   name_he: "GIS עירוני",                   stage: 2, status: PLANNED}

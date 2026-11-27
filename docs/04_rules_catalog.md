@@ -48,7 +48,7 @@
 | QA-AREA-CAD-VS-TABLE | שטח מוצע בשרטוט מול טבלת השטחים | הפרש ≤ 1% (הנחה לכיול) | DESIGN_ASSUMPTION |
 | QA-CAD-LAYERS | שכבות נדרשות לפי סוג בקשה | לפי `layer_convention.yaml` | DESIGN_ASSUMPTION |
 | QA-REQ-* | טופס בקשה, מפת מדידה, טבלת שטחים, תכנית הגשה, מידע להיתר | נוכחות מסמך | SOURCE_LOCATED (לא פוסל אוטומטית עד אימות תקנות 2016) |
-| QA-REQ-SECTIONS / QA-REQ-ELEVATIONS | חתכים / חזיתות (מכרז §7.1.2) | שכבת SECTION/ELEVATION **או** מסמך "חתכים וחזיתות" | SOURCE_LOCATED |
+| QA-REQ-SECTIONS / QA-REQ-ELEVATIONS | חתכים / חזיתות (רשימת מסמכי חובה) | שכבת SECTION/ELEVATION **או** מסמך "חתכים וחזיתות" | SOURCE_LOCATED |
 | QA-SURVEY-MAP-AGE | מפת מדידה בתוקף | תאריך המפה + 6 חודשים קלנדריים ≥ המועד הקובע (31.8 → 28/29.2); תאריך חסר → UNCERTAIN | SOURCE_LOCATED — 6 חודשים נקרא ב־gov.il לשלב **מידע להיתר**; תחולה על בקשת היתר — לאמת |
 
 ## בדיקות גבול (ב־`backend/tests/test_rules_engine.py`)

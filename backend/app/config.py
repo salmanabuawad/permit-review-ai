@@ -3,7 +3,7 @@
 All values can be overridden with environment variables prefixed BBP_.
 Production (Ubuntu) uses PostgreSQL+PostGIS; the local POC defaults to SQLite so
 it runs without any server install. Nothing here enables an external integration:
-every connector is disabled by default for the pilot (tender scope: offline only).
+every connector is disabled by default (files only, no live interfaces).
 """
 from __future__ import annotations
 

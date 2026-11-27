@@ -93,4 +93,4 @@ several levels (file, page, entity, polygon, structured data, rule and source ve
 per result, whether a professionally reviewed finding may be reused. Reuse requires that dependency completeness can
 be established; otherwise the system falls back to a wider recheck. Every reuse is recorded with its evidence.
 Whether any of this is protectable intellectual property is a question for a patent attorney. This document makes no
-patentability or novelty claim. See also `docs/06_ip_inventory.md` (tender IP clauses).
+patentability or novelty claim.

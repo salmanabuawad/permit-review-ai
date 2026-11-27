@@ -66,7 +66,7 @@ providers:
     location: IL_REGION
     tasks: [Classification, ReportDraft, Vision, OCR, Extraction]
     model_version: "TBD-pinned"
-    approved: false                           # requires written approval of the authority (tender sec. on data/cloud)
+    approved: false                           # requires written approval of the authority (data / cloud)
     enabled: false
     no_training_on_data: true
     cost_per_unit_ils: 0.05

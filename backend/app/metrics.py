@@ -1,4 +1,4 @@
-"""Process metrics for the management dashboard (tender spec §8.1–8.2).
+"""Process metrics for the management dashboard.
 
 Stage timings are reconstructed from the append-only audit log, so they cannot drift from
 what actually happened and need no extra bookkeeping in the workflow code.

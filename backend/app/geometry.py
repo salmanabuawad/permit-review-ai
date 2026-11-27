@@ -11,7 +11,7 @@ from shapely.geometry import LineString, MultiLineString, Polygon
 from shapely.ops import unary_union
 
 # Uncertainty assumed for vector CAD input (drawing precision). DESIGN_ASSUMPTION — to be
-# calibrated in the POC against manual reviewer measurements (KPI: 95% area agreement).
+# calibrated against manual reviewer measurements.
 CAD_LENGTH_UNCERTAINTY_M = 0.0
 CAD_AREA_REL_UNCERTAINTY = 0.0
 

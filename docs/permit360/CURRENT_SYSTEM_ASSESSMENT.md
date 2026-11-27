@@ -103,7 +103,7 @@ one-time drawing reading. Caching the summary by its inputs and reading only cha
 
 | Authority | What exists | State |
 |---|---|---|
-| Bnei Brak | tender analysis (`docs/00`), plan family בב/105 sources and rule candidates, 19 rules | rules await source documents (G1 in docs/00) |
+| Bnei Brak | source analysis (`docs/00`), plan family בב/105 sources and rule candidates, 19 rules | rules await source documents (G1 in docs/00) |
 | Hof Ashkelon | 33 rules, plan rights files, lot 2832/368 ledger, 3 live cases (Zikim), decided-case evaluation (docs/12) | most complete |
 | Haifa / Beit Shemesh | authorities created, linked to their committees; recheck reports exist outside the system; Beit Shemesh spatial guidelines found by the probe | requests to be uploaded |
 

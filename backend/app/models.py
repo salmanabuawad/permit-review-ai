@@ -116,7 +116,7 @@ class CaseFile(Base):
     supersedes_id: Mapped[str | None] = mapped_column(String(32))
     storage_path: Mapped[str] = mapped_column(String(600))
     ingest_status: Mapped[str] = mapped_column(String(40), default="PENDING")  # OK | NEEDS_OCR | NEEDS_CONVERSION | ERROR
-    # Document life cycle (tender spec §12.3): ACTIVE | ARCHIVED (kept, excluded from checks) | DELETED (bytes purged)
+    # Document life cycle: ACTIVE | ARCHIVED (kept, excluded from checks) | DELETED (bytes purged)
     lifecycle: Mapped[str] = mapped_column(String(12), default="ACTIVE")
     doc_class: Mapped[str | None] = mapped_column(String(40))           # committee_protocol | permit_application | ...
     origin: Mapped[dict | None] = mapped_column(JSON)                   # {file, sha256, pages} when cut from a larger document

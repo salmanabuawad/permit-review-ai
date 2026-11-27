@@ -38,5 +38,5 @@ Priority: P1 (next), P2 (this phase), P3 (later). Size: S (≤ 1 day), M (≤ 1 
 | R-06 | Regulatory interpretation error presented as fact | medium | high | provenance classes, professional approval, conflicts blocked from external reports |
 | R-07 | No application-level backups (owner's decision) | medium | high | confirm the server backup policy; document recovery |
 | R-08 | Scope of Permit360 outruns delivery capacity | high | medium | phase gates; ship Review360 / Regulation360 value first |
-| R-09 | Licensing / IP terms of models and tender (docs/06) | medium | medium | licence register per model; legal review |
+| R-09 | Licensing terms of models | medium | medium | licence register per model; legal review |
 | R-10 | Shared server hosts other applications | medium | medium | resource limits per service; separate DB roles (done) |

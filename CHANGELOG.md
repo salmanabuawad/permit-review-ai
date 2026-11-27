@@ -4,6 +4,10 @@
 
 - Removed the tender acceptance-metrics note from the dashboard, "pilot" from the side menu footer and the tender
   clause reference from the integrations page.
+- Docs: removed the tender compliance matrix (docs/02) and the IP inventory for the tender contract (docs/06); the
+  tender status, deadlines, bidder risks, milestones and clause references are gone from docs/00, 01, 03, 04, 05, 08,
+  docs/permit360 and the README, which now describes Permit360 as a Kortex Digital product. Code comments no longer
+  cite tender clauses.
 
 ## 2026-11-27 — Whole app in Hebrew, English, Arabic and Russian; superadmin AI knowledge base; Kortex Digital branding
 
