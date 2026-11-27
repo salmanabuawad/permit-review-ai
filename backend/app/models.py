@@ -566,6 +566,21 @@ class ParcelPlanDiscovery(Base):
     error: Mapped[str | None] = mapped_column(Text)
 
 
+class Submission(Base):
+    """A permit request submitted from a Permit360 Pro project, with its confirmation number. When the responsible
+    committee works in Permit360, the request is also opened as a case in that committee's workspace."""
+    __tablename__ = 'submissions'
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_id)
+    confirmation_number: Mapped[str] = mapped_column(String(30), unique=True)
+    project_id: Mapped[str] = mapped_column(ForeignKey('permit_cases.id'), unique=True)       # the Pro project (design)
+    committee_id: Mapped[str | None] = mapped_column(ForeignKey('planning_committees.id'))
+    target_tenant_id: Mapped[str | None] = mapped_column(String(40))          # committee workspace, when connected
+    target_case_id: Mapped[str | None] = mapped_column(String(32))            # the case opened there
+    submitted_by: Mapped[str] = mapped_column(String(40))
+    submitted_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), default=_now)
+    snapshot: Mapped[dict] = mapped_column(JSON, default=dict)                # what was submitted (no file bytes)
+
+
 class LoginAccount(Base):
     """A login (username + scrypt hash) for a home user of an authority. Managed in the app by the authority's
     administrator; the legacy htpasswd account still works for usernames that have no row here."""

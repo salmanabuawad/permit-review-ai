@@ -33,6 +33,10 @@ class AskIn(BaseModel):
     question: str
 
 
+class SubmitIn(BaseModel):
+    declaration: bool = False
+
+
 def _err(e):
     from .. import projects as P
     if isinstance(e, P.ProjectError):
@@ -102,13 +106,40 @@ def project_create(body: ProjectIn, p: Principal = Depends(require("design.creat
 def project_view(case_id: str, p: Principal = Depends(require("design.create")), s: Session = Depends(get_session)):
     from .. import projects as P
     c = _project(s, p, case_id)
+    from .. import submissions as SB
     pkg = P.package(s, c)
-    return {"case": case_dict(c), "jurisdiction": c.jurisdiction, "package": pkg, "workflow": P.workflow(s, c, pkg)}
+    return {"case": case_dict(c), "jurisdiction": c.jurisdiction, "package": pkg, "workflow": P.workflow(s, c, pkg),
+            "checklist": SB.checklist(s, c), "submission": SB.view(s, SB.of_project(s, c.id)),
+            "committee_connected": SB.committee_workspace(s, c.committee_id) is not None}
+
+
+@router.post("/api/projects/{case_id}/submit")
+def project_submit(case_id: str, body: SubmitIn, p: Principal = Depends(require("design.create")), s: Session = Depends(get_session)):
+    """Submit the request to the responsible committee; returns the confirmation number."""
+    from .. import submissions as SB
+    c = _project(s, p, case_id)
+    if c.owner_id != p.id:
+        raise HTTPException(403, "רק מי שפתח/ה את הפרויקט יכול/ה להגיש אותו")
+    try:
+        return SB.submit(s, c, p.id, body.declaration)
+    except SB.SubmitError as e:
+        s.rollback()
+        raise HTTPException(e.code, str(e)) from e
+
+
+@router.get("/api/submissions")
+def my_submissions(p: Principal = Depends(require("design.create")), s: Session = Depends(get_session)):
+    from .. import submissions as SB
+    from ..models import Submission
+    rows = s.scalars(select(Submission).where(Submission.submitted_by == p.id).order_by(Submission.submitted_at.desc()))
+    return [{**SB.view(s, x), "project_id": x.project_id, "title": (x.snapshot or {}).get("title")} for x in rows]
 
 
 @router.put("/api/projects/{case_id}/purpose")
 def project_purpose(case_id: str, body: PurposeIn, p: Principal = Depends(require("design.create")), s: Session = Depends(get_session)):
     c = _project(s, p, case_id)
+    if c.status == "SUBMITTED":
+        raise HTTPException(409, "הבקשה כבר הוגשה")
     if body.permit_type not in PERMIT_TYPES or not body.purpose.strip():
         raise HTTPException(422, "יש לבחור סוג בקשה ולתאר את מטרתה")
     c.permit_type = body.permit_type

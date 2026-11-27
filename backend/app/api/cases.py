@@ -53,6 +53,8 @@ async def upload(case_id: str, file: UploadFile = File(...), doc_type: str = For
     c = get_case(s, p, case_id)
     if c.locked_version is not None:
         raise HTTPException(409, "התיק נעול")
+    if c.kind == "design" and c.status == "SUBMITTED":
+        raise HTTPException(409, "הבקשה כבר הוגשה — לא ניתן להוסיף מסמכים")
     if doc_type not in services.DOC_TYPES_HE:
         raise HTTPException(422, "סוג מסמך לא מוכר")
     data = await file.read()

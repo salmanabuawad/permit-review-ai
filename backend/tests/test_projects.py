@@ -178,3 +178,60 @@ def test_directory_and_upload(env):
                   headers={"X-User": "u-ha-admin"}).status_code == 422
     assert c.post(f"/api/committees/{hid}/upload", files={"file": ("g.pdf", b"%PDF-1.4", "application/pdf")},
                   headers=H).status_code == 403                                                              # planners cannot
+
+
+def test_wizard_submit_gives_confirmation_number_and_opens_committee_case(env, monkeypatch):
+    from app import mailer
+    from app.models import Municipality, Submission
+    from pathlib import Path
+    FIX = Path(__file__).resolve().parents[2] / "fixtures" / "demo"
+    monkeypatch.setattr(mailer, "transport", [])
+    pdf = (FIX / "survey_map.pdf").read_bytes()
+    c = env
+    with SessionLocal() as s:
+        hid = hof(s).id
+        ws = s.scalars(select(Municipality).where(Municipality.committee_id == hid, Municipality.is_demo.is_(False))).first()
+        assert ws is not None
+        wsid = ws.id
+    pid = c.post("/api/projects", json={"path": "B", "gush": "2832", "helka": "27", "confirm": True}, headers=H).json()["id"]
+    v = c.get(f"/api/projects/{pid}", headers=H).json()
+    assert v["submission"] is None and v["committee_connected"] and not all(x["done"] for x in v["checklist"])
+    assert c.post(f"/api/projects/{pid}/submit", json={"declaration": True}, headers=H).status_code == 422     # nothing yet
+    assert c.put(f"/api/projects/{pid}/purpose", json={"permit_type": "new_building", "purpose": "בית מגורים"}, headers=H).status_code == 200
+    assert c.post(f"/api/cases/{pid}/files", headers=H, files={"file": ("survey_map.pdf", pdf)},
+                  data={"doc_type": "survey_map"}).status_code == 200
+    assert c.post(f"/api/projects/{pid}/submit", json={"declaration": False}, headers=H).status_code == 422     # declaration
+    r = c.post(f"/api/projects/{pid}/submit", json={"declaration": True}, headers=H)
+    assert r.status_code == 200, r.text
+    out = r.json()
+    assert out["confirmation_number"].startswith("P360-") and len(out["confirmation_number"]) == 16 and out["connected"]
+    assert c.post(f"/api/projects/{pid}/submit", json={"declaration": True}, headers=H).status_code == 409      # once
+    assert c.post(f"/api/cases/{pid}/files", headers=H, files={"file": ("x.pdf", pdf + b" ")},
+                  data={"doc_type": "other"}).status_code == 409                                                 # frozen
+    assert c.put(f"/api/projects/{pid}/purpose", json={"permit_type": "new_building", "purpose": "x"}, headers=H).status_code == 409
+    assert c.get(f"/api/projects/{pid}", headers=H).json()["submission"]["confirmation_number"] == out["confirmation_number"]
+    assert c.get("/api/submissions", headers=H).json()[0]["project_id"] == pid
+    with SessionLocal() as s:
+        sub = s.scalars(select(Submission).where(Submission.project_id == pid)).one()
+        t = s.get(PermitCase, sub.target_case_id)
+        assert t.tenant_id == wsid and t.case_number == sub.confirmation_number and t.kind == "application"
+        assert len(t.files) == 1 and t.declared["submitted_via"] == "permit360-pro" and t.source == "pro"
+    # the committee's reviewers see it in their case list
+    assert any(x["case_number"] == out["confirmation_number"] for x in c.get("/api/cases", headers={"X-User": "u-ha-admin"}).json())
+
+
+def test_submission_to_unconnected_committee_still_gets_a_number(env, monkeypatch):
+    from app import mailer
+    from app import submissions as SB
+    from app.models import CaseFile
+    monkeypatch.setattr(mailer, "transport", [])
+    with SessionLocal() as s:
+        ash = s.scalars(select(PlanningCommittee).where(PlanningCommittee.name_he == "אשקלון")).one()
+        case = P.create(s, "hof-ashkelon", "u-ha-planner", "B", "2832", "28", committee_id=ash.id)
+        case.declared = {**case.declared, "purpose": "תוספת חדר"}
+        s.add(CaseFile(tenant_id=case.tenant_id, case_id=case.id, doc_type="survey_map", filename="a.pdf", kind="pdf",
+                       sha256="0" * 64, size_bytes=1, storage_path="/nonexistent"))
+        s.commit()
+        out = SB.submit(s, case, "u-ha-planner", True)
+        assert not out["connected"] and out["confirmation_number"].startswith("P360-") and "רישוי זמין" in out["note_he"]
+        assert case.status == "SUBMITTED"

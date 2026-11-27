@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-11-27 — Request wizard: from block and parcel to submission with a confirmation number
+
+- New "הגשת בקשה להיתר" wizard (`/apply`) for end users in Permit360 Pro: property (block / parcel / lot) → the
+  responsible committee found from the official planning boundaries (pick among candidates when the parcel crosses a
+  border, or choose by hand, marked unverified) → request type and purpose → what applies to the plot (plans,
+  restrictions, requirements) → documents → summary, declaration and submission. Every step is saved, and
+  `/apply/<project>` resumes where the user stopped.
+- Submission issues a unique confirmation number `P360-<year>-<6 digits>` (new `submissions` table, migration 0028),
+  freezes the project and e-mails the confirmation to the account's verified address. When the committee works in
+  Permit360, the request is opened as a case in its workspace, numbered with the confirmation number, documents
+  copied, so reviewers see it in their case list; the submitter follows its status. Otherwise the wizard says the
+  committee is not connected yet and that the request should also be filed in רישוי זמין.
+
 ## 2026-11-27 — Property owners and permit applicants can register
 
 - Self sign-up now offers the account type "בעל/ת נכס / מבקש/ת היתר" (property owner / permit applicant) next to

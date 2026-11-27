@@ -30,6 +30,8 @@ export default function ProjectPanel({ c }: { c: Case }) {
     catch (e: any) { toast(e.message, true) } finally { setAsking(false) }
   }
   return <div className="project-panel">
+    {v.submission ? <div className="notice ok small" style={{ marginBottom: 10 }}>הבקשה הוגשה · מספר אישור <b className="ltr">{v.submission.confirmation_number}</b> · {v.submission.committee_name} · {v.submission.status_he}</div>
+      : <div className="small" style={{ marginBottom: 10 }}><a className="button primary" href={`/apply/${c.id}`}>המשך באשף ההגשה</a></div>}
     <ol className="stages" style={{ display: 'flex', flexWrap: 'wrap', gap: 6, listStyle: 'none', padding: 0, margin: '0 0 10px' }}>
       {wf.stages.map((s: any, i: number) => <li key={s.key} className={'chip ' + (ST[s.status]?.[0] ?? '') + (wf.current === s.key ? ' current' : '')}
         title={ST[s.status]?.[1]} style={wf.current === s.key ? { outline: '2px solid currentColor' } : undefined}>{i + 1}. {s.label_he}</li>)}
