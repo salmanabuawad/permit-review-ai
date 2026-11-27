@@ -8,7 +8,7 @@ or were deliberately left for a later increment.
 | 1 | Accuracy figures (defect precision / recall, Recall@K, MRR) | No professionally verified ground truth beyond 1 blind + 1 known-outcome case | Authority experts answer a question set and review ≥ 30 decided cases |
 | 2 | Model selection (V11 §34–45) | Benchmark of ≥ 100 Hebrew planning questions must be professionally answered; several candidates not downloaded (DictaLM 24B, Gemma 4 31B, NeoDictaBERT, e5-base/large) | Expert answers; approval to download each model |
 | 3 | Official committee codes | Not in the Planning Administration list | An official register (e.g. iplan / data.gov.il) or the Administration |
-| 4 | XPLAN plan discovery live | Endpoint untested live; must run in the restricted crawler | Move `plan_discovery` into the crawler; verify one parcel per district |
+| 4 | ~~XPLAN plan discovery live~~ — DONE 2026-11-27 (crawler job; verified in all six districts). Still open: registered parcel boundaries — the public cadastre (GovMap) refuses the server (HTTP 403), so discovery uses the verified parcel or the plan cell | Access to the Survey of Israel cadastre (agreement or a permitted open-data download) |
 | 5 | Integrations (רישוי זמין, BarTech, Complot, OneCity, GIS) | No agreed interfaces; public pages only | Agreements with the Planning Administration / vendors |
 | 6 | OCR | ≈ 220 fetched documents have no text layer (scanned) | Approve a local OCR engine (Tesseract heb) in the crawler |
 | 7 | Clauses for curated YAML passages and uploads | Clause model built for committee sources first | Next increment |

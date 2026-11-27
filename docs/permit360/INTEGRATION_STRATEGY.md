@@ -17,7 +17,7 @@ audited.
 |---|---|---|---|---|---|
 | רישוי זמין (national licensing portal) | logged-in portal | not known to us | — | import of the exported request PDF: form number and declared fields with page citations (`batch_import.py`) | file import IMPLEMENTED; API UNKNOWN (ask the Planning Administration) |
 | מבא"ת / mavat (plans) | public website (JavaScript app) | no documented public API found | read | plan numbers kept as text; documents uploaded by hand | MANUAL |
-| XPLAN (ArcGIS REST, Planning Administration) | public map service | ArcGIS REST (public) | read | `plan_discovery.py` written and tested with mocks; disabled; the live endpoint was unreachable during V10 | NOT VERIFIED |
+| XPLAN (ArcGIS REST, Planning Administration) | public map service | ArcGIS REST (public) | read | crawler job (`plan_discovery.py`): declared plans, covering / partial plans, land-use cells; geometry from the verified parcel or the plan cell | VERIFIED LIVE 2026-11-27 (six districts) |
 | gov.il pages | public | none (refuses automated requests, HTTP 403) | read | read through a browser by an operator (committee list 2026-11-26) | MANUAL |
 | Committee sites, BarTech | public pages per committee (44 identified so far) | not known; public pages only | read | site probe: vendor, request-search link, candidate sources | IMPLEMENTED (public pages) |
 | Committee sites, Complot | public pages (31 identified so far) | not known | read | same | IMPLEMENTED (public pages) |

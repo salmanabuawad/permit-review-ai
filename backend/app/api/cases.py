@@ -586,7 +586,19 @@ def case_regulatory_resolution(case_id: str, p: Principal = Depends(require("cas
 
 @router.post("/api/cases/{case_id}/discover-plans")
 def discover_case_plans(case_id: str, p: Principal = Depends(require("source.crawl")), s: Session = Depends(get_session)):
-    return plan_discovery.refresh(s, get_case(s, p, case_id))
+    """Queue XPLAN plan discovery for the case; the restricted crawler process runs it (the app never fetches)."""
+    c = get_case(s, p, case_id)
+    if c.kind == "design":
+        raise HTTPException(422, "איתור תכניות זמין לבקשות שהוגשו")
+    plan_discovery.queue(s, c, p.id)
+    audit.record(s, p.tenant_id, p.id, "plans.discover.queue", "case", c.id, {})
+    s.commit()
+    return plan_discovery.view(s, c)
+
+
+@router.get("/api/cases/{case_id}/plan-discovery")
+def case_plan_discovery(case_id: str, p: Principal = Depends(require("case.read")), s: Session = Depends(get_session)):
+    return plan_discovery.view(s, get_case(s, p, case_id))
 
 
 @router.get("/api/runs/{run_id}/findings/normalised")

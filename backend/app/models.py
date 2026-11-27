@@ -554,9 +554,13 @@ class ParcelPlanDiscovery(Base):
     __tablename__ = 'parcel_plan_discovery'
     case_id: Mapped[str] = mapped_column(ForeignKey('permit_cases.id', ondelete='CASCADE'), primary_key=True)
     tenant_id: Mapped[str] = mapped_column(ForeignKey('municipalities.id'), index=True)
-    parcel_hash: Mapped[str] = mapped_column(String(64))
+    parcel_hash: Mapped[str | None] = mapped_column(String(64))        # digest of the geometry the query used
     result: Mapped[dict] = mapped_column(JSON)
     checked_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), default=_now)
+    state: Mapped[str] = mapped_column(String(16), default='done', index=True)   # queued | running | done | failed
+    requested_by: Mapped[str | None] = mapped_column(String(40))
+    requested_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime())
+    error: Mapped[str | None] = mapped_column(Text)
 
 
 class LoginAccount(Base):

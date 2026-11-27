@@ -59,3 +59,11 @@ result (`validation/results/20210885.*`); see docs/09 and docs/12 for the case-l
 Not yet measured: semantic latency at the full 64k vectors (exact scan grows linearly; an HNSW index only after a
 benchmark shows no recall loss), Recall@K / MRR (needs a question set with expected clauses), defect precision /
 recall (needs professionally verified ground truth).
+
+## XPLAN plan discovery (2026-11-27, live, crawler process)
+
+| Metric | Value | Conditions |
+|---|---|---|
+| one case, full discovery | ≈ 1.5–2 s | layer schema check + declared-plan lookup + cell geometry + intersect / within + land use |
+| one plan cell per district | 0.8–1.7 s; own plan COVERS in all 6 | דרום, חיפה, ירושלים, מרכז, צפון, תל-אביב (מטה holds national plans only) |
+| Zikim cell 368 (633-0723718) | 5 covering plans, 5 land-use cells | three Hof Ashkelon cases |

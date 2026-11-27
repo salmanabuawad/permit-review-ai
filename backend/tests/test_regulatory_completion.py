@@ -56,17 +56,8 @@ def test_evidence_scope_and_missing_date(env):
         r=resolve_case(s,c);assert r['entries'][0]['status']=='UNRESOLVED';assert r['unresolved'];s.rollback()
 
 def test_xplan_metadata_pagination():
-    from urllib.parse import urlsplit,parse_qs
-    def fetch(url,*args):
-        u=urlsplit(url);params=parse_qs(u.query)
-        if u.path.endswith('MapServer'): data={'layers':[{'id':0,'subLayerIds':None}]}
-        elif u.path.endswith('/0'): data={'geometryType':'esriGeometryPolygon','fields':[{'name':'PL_NUMBER','alias':'מספר תכנית'}]}
-        else:
-            assert params['inSR']==['2039']
-            off=int(params['resultOffset'][0]);data={'features':[{'attributes':{'PL_NUMBER':'633-1234567' if off==0 else '633-9876543'}}],'exceededTransferLimit':off==0}
-        return F.Fetched('ok',url,200,'application/json',json.dumps(data).encode())
-    r=discover(GEO,fetch);assert len(r['plans'])==2 and r['status']=='CANDIDATES_FOUND' and not r['coverage_complete']
-    r=discover(GEO,lambda url,*a:F.Fetched('blocked',url,403));assert r['status']=='UNAVAILABLE'
+    """Kept: an unreachable service is UNAVAILABLE, never an exception (full XPLAN tests: test_plan_discovery.py)."""
+    r=discover(GEO,lambda url,*a:F.Fetched('blocked',url,403));assert r['status']=='UNAVAILABLE' and not r['coverage_complete']
 
 def test_crawl_recovery_after_failure(env,monkeypatch):
     targets=[{'url':'https://test.example/a.txt','source_id':None,'title':None,'from':None},{'url':'https://test.example/b.txt','source_id':None,'title':None,'from':None}]

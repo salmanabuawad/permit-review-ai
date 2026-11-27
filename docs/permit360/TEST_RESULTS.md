@@ -12,3 +12,8 @@ test_ai_registry, test_finding_schema, test_pdg, test_feedback, test_architect, 
 test_construction, test_rule_fixtures, test_summary_cache, test_regulatory_completion.
 
 Skipped tests: validation cases not present in the environment, and the real-model test where the model is absent.
+
+
+## 2026-11-27 — XPLAN in the crawler
+
+SQLite 421 passed, 9 skipped · Postgres 385 passed, 11 skipped, 34 deselected (validation data not on the server). New: `tests/test_plan_discovery.py` (6).

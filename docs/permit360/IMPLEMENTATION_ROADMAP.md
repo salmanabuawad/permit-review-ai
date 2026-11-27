@@ -19,7 +19,7 @@ a copy of live data, regression tests passing on PostgreSQL, and a release note.
 
 ## Phase 2: Preventive intelligence
 
-**Status 2026-11-26:** PDG v1 + revision report, professional feedback engine + regression cases, Architect360 workspace — DONE. XPLAN live verification — open (REMAINING_BLOCKERS #4).
+**Status 2026-11-26:** PDG v1 + revision report, professional feedback engine + regression cases, Architect360 workspace — DONE. XPLAN live verification — DONE 2026-11-27 (crawler job, six districts).
 
 **PDG v1 + revision report DONE 2026-11-26** (rule-level inputs exact; document-level dependencies coarse).
 

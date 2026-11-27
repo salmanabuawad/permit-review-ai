@@ -8,7 +8,8 @@ never reach the server itself, the private network or a cloud metadata address. 
 onboarding jobs in the database (BBP_CRAWLER_SEPARATE=true); this worker claims and runs them:
   * queued source crawls (oldest first) — a user's "crawl now", or a schedule the authority's administrator chose;
   * authority onboarding jobs (official-directory discovery + first crawl) a user started;
-  * committee site probes and candidate-source fetches a platform administrator queued (national committee register).
+  * committee site probes and candidate-source fetches a platform administrator queued (national committee register);
+  * XPLAN plan discovery for a case (Planning Administration map service; BBP_XPLAN_ENABLED=true).
 Crawls run on demand only unless the administrator sets a daily or weekly schedule. Nothing is retried or resumed on
 its own: a crawl left 'running' by a crawler that died is marked failed at start, an onboarding job whose lease
 expired becomes FAILED; a user starts it again.
@@ -48,6 +49,12 @@ def run_once() -> bool:
         log.info("committee fetch %s", cid)
         committees.run_fetch(SessionLocal, cid)
         return True
+    from . import plan_discovery
+    cid = plan_discovery.claim(SessionLocal)         # XPLAN plan discovery a user requested for a case
+    if cid:
+        log.info("xplan discovery %s", cid)
+        plan_discovery.run_claimed(SessionLocal, cid)
+        return True
     due = service.queue_due(SessionLocal)                 # only authorities whose administrator set a schedule
     if due:
         log.info("scheduled crawl(s) queued: %s", due)
@@ -77,6 +84,10 @@ def main(interval_s: float = 10.0) -> None:
     n = committees.fail_interrupted(SessionLocal)
     if n:
         log.warning("%d interrupted committee job(s) marked failed", n)
+    from . import plan_discovery
+    n = plan_discovery.fail_interrupted(SessionLocal)
+    if n:
+        log.warning("%d interrupted XPLAN discovery job(s) marked failed", n)
     while True:
         try:
             if run_once():

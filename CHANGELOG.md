@@ -1,5 +1,24 @@
 # Changelog
 
+## 2026-11-27 — XPLAN plan discovery live, in the crawler
+
+- Plan discovery is now a job of the restricted crawler process: "איתור תכניות ב־XPLAN" queues it
+  (`POST /api/cases/{id}/discover-plans`), the crawler runs it, the panel follows `GET /api/cases/{id}/plan-discovery`.
+  The app process never contacts XPLAN. Network use needs `BBP_XPLAN_ENABLED=true` (now set on the server).
+  Migration 0021: queue state, requester, error on `parcel_plan_discovery`; an interrupted job is marked failed when
+  the crawler starts.
+- Per case: each declared plan as XPLAN shows it (status, stage, publication in רשומות, subtype, committee, Mavat
+  link); plans whose blue line intersects the case geometry, each COVERS (the geometry lies within the plan, to within
+  0.5 m) or PARTIAL; and the land-use cells that intersect it. Every plan is a candidate, never legal activation;
+  XPLAN shows online plans only (coverage is never complete).
+- Geometry: the verified parcel when there is one; otherwise the declared plan's land-use cell polygon from XPLAN (the
+  declared lot, or the authority ledger's only cell for the block and plan), labelled as a plan cell, not a
+  registered parcel. The public cadastre (GovMap) refuses the server (HTTP 403), so no parcel boundaries are fetched.
+- The declared plan and its cell become passport facts (source `xplan`; APPROVED when XPLAN's status is "אישור").
+- Spatial queries are POSTed: the service answers 404 to a polygon in a long query string. Verified live: the three
+  Hof Ashkelon cases (cell 368 of 633-0723718: five covering plans, among them 633-0639674 deposited for objections)
+  and one approved plan cell in each of the six districts (own plan COVERS in all, 0.8–1.7 s each).
+
 ## 2026-11-26 — Construction360: site inspections (base)
 
 - `inspections` (migration 0020): per case and milestone (start, foundations, frame, roof, envelope, completion);

@@ -11,6 +11,7 @@ import ipaddress
 import re
 import socket
 import urllib.error
+import urllib.parse
 import urllib.request
 from dataclasses import dataclass
 from urllib.parse import quote, unquote, urljoin, urlsplit, urlunsplit
@@ -69,7 +70,9 @@ class _HostGuard(urllib.request.HTTPRedirectHandler):
         return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
-def fetch(url: str, cfg: dict, allowed: set[str], etag: str | None = None, last_modified: str | None = None) -> Fetched:
+def fetch(url: str, cfg: dict, allowed: set[str], etag: str | None = None, last_modified: str | None = None,
+          form: dict | None = None) -> Fetched:
+    """GET `url` (POST `form` url-encoded when given — for map-service queries whose geometry is too long for a URL)."""
     if host(url) not in allowed or not public_target(url):
         return Fetched("error", url, message="כתובת מחוץ לרשם המקורות")
     headers = {"User-Agent": cfg["user_agent"], "Accept": "text/html,application/pdf,*/*;q=0.8",
@@ -81,7 +84,11 @@ def fetch(url: str, cfg: dict, allowed: set[str], etag: str | None = None, last_
     opener = urllib.request.build_opener(_HostGuard(allowed))
     limit = int(cfg["max_bytes"])
     try:
-        with opener.open(urllib.request.Request(wire(url), headers=headers), timeout=cfg["timeout_s"]) as r:
+        body = None
+        if form is not None:
+            body = urllib.parse.urlencode(form).encode()
+            headers["Content-Type"] = "application/x-www-form-urlencoded"
+        with opener.open(urllib.request.Request(wire(url), data=body, headers=headers), timeout=cfg["timeout_s"]) as r:
             data = r.read(limit + 1)
             ct = r.headers.get_content_type()
             res = Fetched("ok", url, r.status, ct, data, r.headers.get("ETag"), r.headers.get("Last-Modified"),
