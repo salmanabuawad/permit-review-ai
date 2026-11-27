@@ -96,7 +96,6 @@ export default function Dashboard() {
           <p className="small muted">עלות לתיק זמינה ב־API (cost_per_case). תקציב ויעדים נקבעים לכל רשות לפי הגדרותיה.</p>
         </div>
       </div>
-      <div className="notice" style={{ marginTop: 14 }}>{d.kpi_note_he}</div>
       <ManagementPanel />
     </>
   )

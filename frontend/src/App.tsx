@@ -121,7 +121,7 @@ export default function App() {
               </NavLink>
             ))}
           </nav>
-          <div className="sidebar-footer"><div className="sidebar-footer-dot" /> פיילוט · מערכת תומכת החלטה<small>מערכת רב־רשותית</small></div>
+          <div className="sidebar-footer"><div className="sidebar-footer-dot" /> מערכת תומכת החלטה<small>מערכת רב־רשותית</small></div>
         </aside>
         <div className="main">
           {isDemo && (

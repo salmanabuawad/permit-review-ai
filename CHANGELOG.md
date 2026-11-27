@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-11-27 — General product wording, not tender-specific
+
+- Removed the tender acceptance-metrics note from the dashboard, "pilot" from the side menu footer and the tender
+  clause reference from the integrations page.
+
 ## 2026-11-27 — Whole app in Hebrew, English, Arabic and Russian; superadmin AI knowledge base; Kortex Digital branding
 
 - Interface language for the entire application: a picker in the top bar and on the sign-in / sign-up page (shared

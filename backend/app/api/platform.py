@@ -159,7 +159,6 @@ def dashboard(p: Principal = Depends(require("dashboard.read")), s: Session = De
                             "avg": round(sum(durations) / len(durations)) if durations else 0},
         "stages": metrics.stage_stats(s, t),
         **metrics.cost_breakdown(s, t),
-        "kpi_note_he": "מדדי הקבלה של המכרז (95%/90%/85%) יימדדו מול ground truth של בודקים על 100 תיקי אמת — טרם נמדדו.",
     }
 
 
