@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026-11-27 — Russian on the public pages
+
+- The landing page, the about page, search keywords, structured data, sitemap (hreflang) and llms.txt now include
+  Russian (`?lang=ru`, or the browser language), next to Hebrew, English and Arabic.
+
 ## 2026-11-27 — Request wizard: from block and parcel to submission with a confirmation number
 
 - New "הגשת בקשה להיתר" wizard (`/apply`) for end users in Permit360 Pro: property (block / parcel / lot) → the

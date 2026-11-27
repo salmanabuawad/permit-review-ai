@@ -6,12 +6,14 @@
     <xhtml:link rel="alternate" hreflang="he" href="https://permit360.kortexd.com/about.html#he"/>
     <xhtml:link rel="alternate" hreflang="en" href="https://permit360.kortexd.com/about.html#en"/>
     <xhtml:link rel="alternate" hreflang="ar" href="https://permit360.kortexd.com/about.html#ar"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://permit360.kortexd.com/about.html#ru"/>
   </url>
   <url>
     <loc>https://permit360.kortexd.com/</loc>
     <xhtml:link rel="alternate" hreflang="he" href="https://permit360.kortexd.com/?lang=he"/>
     <xhtml:link rel="alternate" hreflang="en" href="https://permit360.kortexd.com/?lang=en"/>
     <xhtml:link rel="alternate" hreflang="ar" href="https://permit360.kortexd.com/?lang=ar"/>
+    <xhtml:link rel="alternate" hreflang="ru" href="https://permit360.kortexd.com/?lang=ru"/>
     <lastmod>2026-11-27</lastmod>
   </url>
 </urlset>
