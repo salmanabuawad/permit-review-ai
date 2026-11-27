@@ -237,7 +237,7 @@ def header(cfg, lang: str, c: dict, slug: str | None) -> str:
 <a class="skip" href="#main">{e(u['skip'])}</a>
 <header class="site-header">
  <nav class="wrap nav" aria-label="{e(u['nav_product'])}">
-  <a class="brand" href="{home}" aria-label="Permit360 by Kortex Digital">{BRAND_MARK}<span><b>Permit<span>360</span></b><small>by Kortex Digital</small></span></a>
+  <a class="brand" href="{home}">{BRAND_MARK}<span><b>Permit<span>360</span></b><small>by Kortex Digital</small></span></a>
   <button class="menu-btn" type="button" aria-expanded="false" aria-controls="nav-links"><span></span><span class="sr-only">{e(u['menu'])}</span></button>
   <div class="nav-links" id="nav-links">
    <a href="/{lang}/engineers-architects/">{e(u['nav_pro'])}</a>
@@ -362,7 +362,7 @@ def home(cfg, lang: str, c: dict) -> str:
 
 <section class="section" aria-labelledby="ed-title">
  <div class="wrap">
-  <div class="section-head center reveal"><span class="kicker">Permit360</span><h2 id="ed-title">{e(h['lifecycle']['title'])}</h2></div>
+  <div class="section-head center reveal"><span class="kicker">Permit360</span><h2 id="ed-title">{e(h['pro']['label'])} · {e(h['authority']['label'])}</h2></div>
   <div class="editions">{edition('pro', 'pro', 'engineers-architects')}{edition('authority', 'authority', 'planning-committees')}</div>
  </div>
 </section>
@@ -651,6 +651,15 @@ def og_images(cfg, out: Path, contents):
         im.save(out / "site" / "og" / f"og-{l}.png", optimize=True)
 
 
+def minify_css(css: str) -> str:
+    """Comments and whitespace out (no rewriting of values)."""
+    import re
+    css = re.sub(r"/\*.*?\*/", "", css, flags=re.S)
+    css = re.sub(r"\s+", " ", css)
+    css = re.sub(r"\s*([{};,>])\s*", r"\1", css)
+    return css.replace(";}", "}").strip()
+
+
 FAVICON = ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 36"><rect width="36" height="36" rx="9" fill="#0f8a85"/>'
            '<path d="M8 22 18 16l10 6-10 6z" fill="#5fd6c8" fill-opacity=".35" stroke="#e8fbf8" stroke-width="1.4" stroke-linejoin="round"/>'
            '<path d="M13 21V11h6.5a4 4 0 0 1 0 8H13" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>')
@@ -684,7 +693,8 @@ def main():
     (out / "robots.txt").write_text("User-agent: *\nAllow: /\n" + "".join(f"Disallow: {p}\n" for p in app_paths)
                                     + f"\nSitemap: {cfg.base}/sitemap.xml\n", encoding="utf-8")
     (out / "llms.txt").write_text(llms(cfg, contents), encoding="utf-8")
-    (out / "site" / "site.css").write_text((HERE / "assets" / "site.css").read_text(encoding="utf-8").replace("/assets/fonts/", "/site/fonts/"), encoding="utf-8")
+    (out / "site" / "site.css").write_text(minify_css((HERE / "assets" / "site.css").read_text(encoding="utf-8").replace("/assets/fonts/", "/site/fonts/")),
+                                          encoding="utf-8")
     shutil.copy(HERE / "assets" / "site.js", out / "site" / "site.js")
     shutil.copytree(HERE / "assets" / "fonts", out / "site" / "fonts")
     (out / "site" / "favicon.svg").write_text(FAVICON, encoding="utf-8")

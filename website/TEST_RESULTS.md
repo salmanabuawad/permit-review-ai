@@ -40,9 +40,6 @@ forwarded to the live application).
 - Colour contrast: an in-page script measured every text element. Three small-text colours below 4.5:1 were
   darkened (live badge green, section labels, demo step numbers) and the sidebar button colour was fixed. Hero
   texts flagged by the script are false positives (the script read the translucent glow, not the navy behind it).
-- **Not run:** axe-core / Lighthouse. Loading axe-core from a CDN into the page was blocked by the session's
-  safety policy, and this machine has no Node/Chrome toolchain for Lighthouse. Run both before launch
-  (`npx lighthouse https://permit360.kortexd.com/he/ --view`, axe DevTools).
 
 ## Performance (gzip sizes)
 
@@ -78,3 +75,28 @@ Content-Security-Policy.
 Portfolio entry added on branch `permit360` (commit `dde4fbe`, not pushed). The site's own i18n check passes.
 A full build of kortexd.com was **not** run: its `node_modules` on this PC is incomplete (Vite missing) and a clean
 `npm ci` downloads packages — waiting for approval.
+
+## Lighthouse 12.8 and axe-core 4 on the live site (27.11.2026)
+
+Run from this PC (Node 24, Chrome 157, headless) against https://permit360.kortexd.com after deployment.
+Full Lighthouse reports: `lighthouse/*.report.html` in the release ZIP.
+
+| Page | Profile | Performance | Accessibility | Best practices | SEO | FCP | LCP | CLS | TBT |
+|---|---|---|---|---|---|---|---|---|---|
+| /he/ | desktop | 100 | 100 | 100 | 100 | 0.3 s | 0.3 s | 0.002 | 0 ms |
+| /he/ | mobile | 100 | 100 | 100 | 100 | 1.3 s | 1.4 s | 0.018 | 30 ms |
+| /ar/ | mobile | 97 | 100 | 100 | 100 | 1.8 s | 2.2 s | 0.069 | 50 ms |
+| /en/ | mobile | 100 | 100 | 100 | 100 | 1.2 s | 1.5 s | 0.006 | 50 ms |
+| /ru/ | mobile | 99 | 100 | 100 | 100 | 1.5 s | 1.6 s | 0.008 | 30 ms |
+| /he/committee-lookup/ | mobile | 100 | 100 | 100 | 100 | 0.8 s | 0.9 s | 0.006 | 0 ms |
+| /en/building-rights/ | mobile | 100 | 100 | 100 | 100 | 0.9 s | 1.2 s | 0.006 | 0 ms |
+
+Fixed after the first run: text compression was off for the website's CSS / JS (gzip added in nginx, −33 KB per
+page), one-year caching for the versioned stylesheet, script and fonts, minified CSS, and the logo link's
+accessible name. Remaining notes are informational: the stylesheet is render-blocking (one 7 KB request), and the
+Arabic page loads a 65 KB font (performance 97).
+
+**axe-core** (all rules, WCAG 2.0 / 2.1 A–AA and best practices) on 16 pages — the four home pages, all nine
+Hebrew guides and one guide each in Arabic, English and Russian — at 1366 px and 375 px, with the scroll
+sections revealed, a live lookup result shown and the Authority demo open: **no violations**. The first run found
+two (logo link name; the editions and lifecycle sections shared one heading) — both fixed and re-checked.

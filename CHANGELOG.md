@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-11-27 — Website audited: Lighthouse and axe-core
+
+- Lighthouse on the live site: accessibility, best practices and SEO 100 on every page tested; performance 97–100
+  (mobile), 100 (desktop). axe-core: no violations on 16 pages at desktop and phone widths.
+- Fixes from the audit: gzip for the website's CSS / JS in nginx, one-year caching for versioned files and fonts,
+  minified CSS, the logo link's accessible name, a unique heading for the editions section.
+
 ## 2026-11-27 — Public product website on permit360.kortexd.com (live)
 
 - `website/`: static four-language site (he / ar / en / ru), home + nine guide pages per language, original copy
