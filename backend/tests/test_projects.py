@@ -335,6 +335,51 @@ def test_superadmin_knowledge_zip_import(env, monkeypatch, tmp_path):
     assert KI.member_name(info) == "תקנות.pdf"
 
 
+def test_knowledge_zip_import_regulation360_export(env, monkeypatch, tmp_path):
+    import io
+    import zipfile
+
+    import pymupdf
+
+    from app import knowledge_import as KI
+    from app.models import CommitteeDocument
+    monkeypatch.setenv("BBP_SUPERADMINS", '["u-ha-admin"]')
+    monkeypatch.setattr(KI, "import_dir", lambda: tmp_path)
+    monkeypatch.setattr(KI, "kick", lambda: [KI.process(j, SessionLocal) for j in KI.jobs() if j["status"] == "queued"])
+    A = {"X-User": "u-ha-admin"}
+
+    def pdf(text):
+        d = pymupdf.open()
+        d.new_page().insert_text((72, 72), text)
+        return d.tobytes()
+    with SessionLocal() as s:
+        hid = hof(s).id
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:
+        z.writestr("exports/main_system/IMPORT_README.md", "# readme")
+        z.writestr("exports/main_system/manifest.json", "{}")
+        z.writestr("exports/main_system/packages/r360_X.zip", b"PK-not-really")
+        z.writestr("exports/main_system/knowledge/source_texts/x/p001.txt", "page")
+        z.writestr("exports/ui_upload/000_NATIONAL_חקיקה ארצית/index.csv",
+                   "file,kind,kind_he,title\nlaw/0001/a.pdf,law,חוק,חוק התכנון והבנייה (נוסח משני)\n")
+        z.writestr("exports/ui_upload/000_NATIONAL_חקיקה ארצית/summary.json", "{}")
+        z.writestr("exports/ui_upload/000_NATIONAL_חקיקה ארצית/law/0001/a.pdf", pdf("national planning law text"))
+        z.writestr("exports/ui_upload/001_LC-D-633_חוף אשקלון/guideline/0001/g.pdf", pdf("hof guideline text"))
+        z.writestr("exports/ui_upload/002_LC-X-999_ועדה שאינה קיימת/other/x.pdf", pdf("nowhere"))
+    r = env.post("/api/knowledge/imports", files={"file": ("exports.zip", buf.getvalue(), "application/zip")},
+                 data={"scope": "national", "kind": "other"}, headers=A)
+    assert r.status_code == 202, r.text
+    job = env.get("/api/knowledge/imports", headers=A).json()["rows"][0]
+    assert (job["added"], job["failed"], job["server_packages"]) == (2, 1, 3), job
+    assert "ועדה לא נמצאה" in job["errors"][0]["reason"]
+    assert (tmp_path / f"{job['id']}-server" / "packages" / "r360_X.zip").read_bytes() == b"PK-not-really"
+    with SessionLocal() as s:
+        docs = {d.title: d for d in s.scalars(select(CommitteeDocument).where(CommitteeDocument.url.like("upload:%")))}
+    law = docs["חוק התכנון והבנייה (נוסח משני)"]
+    assert law.committee_id is None and law.kind == "law"                                   # title and type from index.csv
+    assert docs["g"].committee_id == hid and docs["g"].kind == "guideline"                  # scope by folder name
+
+
 def test_public_committee_lookup_and_demo_request(env, monkeypatch):
     from app import mailer
     from app.api import public

@@ -88,6 +88,8 @@ export default function Knowledge() {
       <table className="small"><thead><tr><th>ארכיון</th><th>מצב</th><th>התקדמות</th><th>נוספו</th><th>כפולים</th><th>דולגו</th><th>נכשלו</th><th>הועלה</th></tr></thead><tbody>
         {imports.map(j => <tr key={j.id}>
           <td><b>{j.filename}</b> <span className="muted">{mb(j.size)}</span>
+            {j.scopes && Object.keys(j.scopes).length > 0 && <div className="muted">{Object.entries(j.scopes).map(([k, v]) => `${k}: ${v}`).join(' · ')}</div>}
+            {j.server_packages > 0 && <div className="muted">{`חבילות שרת (main_system) נשמרו להתקנה: ${j.server_packages}`}</div>}
             {j.errors?.length > 0 && <details><summary className="muted">{`פירוט (${j.errors.length})`}</summary>
               <ul style={{ margin: 0 }}>{j.errors.map((e: any, i: number) => <li key={i}><span dir="auto">{e.name}</span> — {e.reason}</li>)}</ul></details>}</td>
           <td><span className={`chip ${j.status === 'done' ? 'ok' : j.status === 'failed' ? 'bad' : 'info'}`}>{IMPORT_HE[j.status] ?? j.status}</span></td>

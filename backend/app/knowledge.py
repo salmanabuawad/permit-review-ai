@@ -32,6 +32,13 @@ def tokenize(text: str) -> list[str]:
     return [_norm(t) for t in TOKEN.findall(text or "")]
 
 
+_SAFE_LOADER = getattr(yaml, "CSafeLoader", yaml.SafeLoader)   # libyaml: ~20x faster on large imported registers
+
+
+def _yaml(text: str):
+    return yaml.load(text, Loader=_SAFE_LOADER)  # noqa: S506 — a safe loader
+
+
 @lru_cache(maxsize=1)
 def load_sources() -> dict:
     """sources.yaml plus generated registers in sources.d/*.yaml (e.g. imported plan packages).
@@ -41,7 +48,7 @@ def load_sources() -> dict:
     files = [settings.knowledge_dir / "sources.yaml", *sorted((settings.knowledge_dir / "sources.d").glob("*.yaml"))]
     out: dict = {}
     for f in files:
-        for s in (yaml.safe_load(f.read_text(encoding="utf-8")) or {}).get("sources", []):
+        for s in (_yaml(f.read_text(encoding="utf-8")) or {}).get("sources", []):
             if s["id"] in out:
                 raise ValueError(f"duplicate source id {s['id']} in {f.name}")
             # The legacy register omitted jurisdiction on explicitly national sources.
@@ -60,7 +67,7 @@ def load_passages() -> list[dict]:
     sources = load_sources()
     out = []
     for p in sorted((settings.knowledge_dir / "kb").glob("*.yaml")):
-        for item in yaml.safe_load(p.read_text(encoding="utf-8")).get("passages", []):
+        for item in _yaml(p.read_text(encoding="utf-8")).get("passages", []):
             if item.get("source_id") not in sources:
                 raise ValueError(f"passage without registered source: {item}")
             out.append(item)

@@ -5,14 +5,23 @@ DOCX or XLSX in the archive as its own knowledge document through committee_docs
 text extraction and duplicate handling as a single upload; the crawler worker splits and embeds them when idle.
 Progress lives in a small JSON file next to the archive, so an import interrupted by a restart resumes where it
 stopped. The archive is deleted when the import finishes (the documents themselves are kept in storage).
+
+Regulation360 exports are understood: a file under ui_upload/<NNN>_<NATIONAL | code>_<committee name>/ goes to that
+scope (committees matched by Hebrew name), with the type and title from the folder's index.csv (else the subfolder
+name, else the import's type); main_system/ server packages are not imported but kept in <job>-server/ for an
+operator to install into knowledge/.
 """
 from __future__ import annotations
 
+import csv
 import datetime as dt
+import io
 import hashlib
 import json
 import logging
 import os
+import re
+import shutil
 import threading
 import time
 import uuid
@@ -156,6 +165,54 @@ def kick() -> None:
     _wake.set()
 
 
+# Regulation360 exports: ui_upload/<NNN>_<NATIONAL | committee code>_<committee name>/… — the folder sets the scope;
+# main_system/ holds server packages (installed into knowledge/ by an operator, not through this import).
+SCOPE_DIR = re.compile(r"^\d{1,4}_(NATIONAL|[A-Z]{1,3}-[A-Z]{1,3}-\d{1,4})_(.*)$")
+SERVER_KEEP = re.compile(r"(^|/)main_system/(packages/[^/]+\.zip|manifest\.json|IMPORT_README\.md)$")
+
+
+def _key(name: str) -> str:
+    return re.sub(r"[\s\-\u05be\u2013\u2014\"'״׳]", "", name or "")
+
+
+def folder_scope(name: str, s, cache: dict) -> tuple[str, str | None, str, str] | None:
+    """("national", None, label, root) / ("committee", id, label, root) / ("missing", None, label, root) for a file
+    inside a scope folder (root = the path up to that folder); None when the path has no scope folder."""
+    from .models import PlanningCommittee
+    parts = name.split("/")
+    for n, seg in enumerate(parts[:-1]):
+        m = SCOPE_DIR.match(seg)
+        if not m:
+            continue
+        code, label, root = m.group(1), m.group(2).strip(), "/".join(parts[:n + 1])
+        if code == "NATIONAL":
+            return ("national", None, label or code, root)
+        if seg not in cache:
+            if "names" not in cache:
+                cache["names"] = {_key(n): i for i, n in s.execute(select(PlanningCommittee.id, PlanningCommittee.name_he))}
+            cache[seg] = cache["names"].get(_key(label))
+        cid = cache[seg]
+        return ("committee", cid, label, root) if cid else ("missing", None, f"{code} {label}", root)
+
+
+def folder_index(z: zipfile.ZipFile, names: dict, root: str, cache: dict) -> dict:
+    """The scope folder's index.csv (file → kind, title), when the export has one."""
+    key = f"index:{root}"
+    if key not in cache:
+        cache[key] = {}
+        info = names.get(f"{root}/index.csv")
+        if info is not None and info.file_size < 50 * 1024 * 1024:
+            try:
+                text = z.read(info).decode("utf-8-sig", errors="replace")
+                for row in csv.DictReader(io.StringIO(text)):
+                    if row.get("file"):
+                        cache[key][row["file"].replace("\\", "/")] = (row.get("kind") or "", (row.get("title") or "").strip())
+            except (csv.Error, OSError, zipfile.BadZipFile):
+                pass
+    return cache[key]
+    return None
+
+
 def _note(job: dict, name: str, reason: str) -> None:
     if len(job["errors"]) < MAX_ERRORS_KEPT:
         job["errors"].append({"name": name[-200:], "reason": reason[:200]})
@@ -175,16 +232,30 @@ def process(job: dict, factory) -> dict:
         job["status"], job["finished_at"], job["message"] = "failed", _now(), "הארכיון לא נפתח"
         _write(job)
         return job
+    cache: dict = {}
+    job.setdefault("server_packages", 0)
+    job.setdefault("scopes", {})
     with z:
         members = [i for i in z.infolist() if not i.is_dir()]
+        names = {member_name(i).replace("\\", "/"): i for i in members}
         job["total"] = len(members)
         for idx in range(job["processed"], len(members)):
             info = members[idx]
-            name = member_name(info)
-            base = PurePosixPath(name.replace("\\", "/")).name
+            name = member_name(info).replace("\\", "/")
+            base = PurePosixPath(name).name
             ext = PurePosixPath(base.lower()).suffix
+            wrote = False
             try:
-                if not base or base.startswith(".") or "__MACOSX" in name:
+                if "/main_system/" in f"/{name}":
+                    job["skipped"] += 1
+                    if SERVER_KEEP.search(name):            # kept for the operator to install into knowledge/
+                        rel = name[name.index("main_system/") + len("main_system/"):]
+                        dest = import_dir() / f"{job['id']}-server" / rel
+                        dest.parent.mkdir(parents=True, exist_ok=True)
+                        with z.open(info) as src, open(dest, "wb") as out:
+                            shutil.copyfileobj(src, out, 8 * 1024 * 1024)
+                        job["server_packages"] += 1
+                elif not base or base.startswith(".") or "__MACOSX" in name or base in ("index.csv", "summary.json"):
                     job["skipped"] += 1
                 elif ext == ".zip":
                     job["skipped"] += 1
@@ -199,21 +270,34 @@ def process(job: dict, factory) -> dict:
                     job["skipped"] += 1
                     _note(job, name, "יחס דחיסה חשוד")
                 else:
-                    with z.open(info) as f:
-                        body = f.read(CD.MAX_UPLOAD + 1)
-                    url = f"upload:{hashlib.sha256(body).hexdigest()}"
                     with factory() as s:
+                        fs = folder_scope(name, s, cache)
+                        if fs and fs[0] == "missing":
+                            raise ValueError(f"ועדה לא נמצאה: {fs[2]}")
+                        cid = fs[1] if fs else job["committee_id"]
+                        label = fs[2] if fs else job["scope"]
+                        kind, title_hint = job["kind"], ""
+                        if fs:                              # type and title from the folder's index.csv / subfolder
+                            rel = name[len(fs[3]) + 1:]
+                            k, title_hint = folder_index(z, names, fs[3], cache).get(rel, ("", ""))
+                            sub = rel.split("/")[0] if "/" in rel else ""
+                            kind = k if k in CD.UPLOAD_KINDS else sub if sub in CD.UPLOAD_KINDS else job["kind"]
+                        with z.open(info) as f:
+                            body = f.read(CD.MAX_UPLOAD + 1)
+                        url = f"upload:{hashlib.sha256(body).hexdigest()}"
                         q = select(CommitteeDocument.id).where(CommitteeDocument.url == url)
-                        q = q.where(CommitteeDocument.committee_id.is_(None) if job["committee_id"] is None
-                                    else CommitteeDocument.committee_id == job["committee_id"])
+                        q = q.where(CommitteeDocument.committee_id.is_(None) if cid is None
+                                    else CommitteeDocument.committee_id == cid)
                         existed = s.scalar(q) is not None
-                        title = "" if existed else PurePosixPath(base).stem      # a copy keeps the first title
-                        doc = CD.upload(s, job["committee_id"], body, base, job["kind"], title, job["user"])
+                        title = "" if existed else (title_hint or PurePosixPath(base).stem)  # a copy keeps the first title
+                        doc = CD.upload(s, cid, body, base, kind, title, job["user"])
                         audit.record(s, job["tenant"], job["user"], "knowledge.upload", "committee_document",
-                                     str(doc.id), {"scope": job["scope"], "kind": job["kind"], "url": doc.url,
+                                     str(doc.id), {"scope": cid or "national", "kind": kind, "url": doc.url,
                                                    "import": job["id"], "member": name[-300:]})
                         s.commit()
                     job["duplicate" if existed else "added"] += 1
+                    job["scopes"][label] = job["scopes"].get(label, 0) + 1
+                    wrote = True
             except ValueError as e:
                 job["failed"] += 1
                 _note(job, name, str(e))
@@ -221,7 +305,8 @@ def process(job: dict, factory) -> dict:
                 job["failed"] += 1
                 _note(job, name, f"שגיאה בעיבוד ({type(e).__name__})")
             job["processed"] = idx + 1
-            _write(job)
+            if wrote or idx % 200 == 0 or idx + 1 == len(members):
+                _write(job)
     job["status"], job["finished_at"] = "done", _now()
     _write(job)
     path.unlink(missing_ok=True)
