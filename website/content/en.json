@@ -1,0 +1,818 @@
+{
+ "meta": {
+  "home_title": "Permit360 | Building Permit Software for Israel",
+  "home_description": "Permit360 by Kortex Digital: building permit preparation and automated plan review for Israel, built on official parcels, plans and committee rules.",
+  "og_locale": "en_IL"
+ },
+ "ui": {
+  "skip": "Skip to content",
+  "menu": "Menu",
+  "close": "Close",
+  "language": "Language",
+  "signin": "Sign in",
+  "register": "Get started",
+  "request_demo": "Request a demo",
+  "nav_product": "Product",
+  "nav_pro": "Permit360 Pro",
+  "nav_authority": "Permit360 Authority",
+  "nav_guides": "Guides",
+  "nav_contact": "Contact",
+  "read_more": "Read more",
+  "back_home": "Back to home",
+  "on_this_page": "On this page",
+  "sources": "Official sources",
+  "related": "Related pages",
+  "faq": "Questions and answers",
+  "simulated": "Illustration",
+  "live": "Live data",
+  "planned": "Planned"
+ },
+ "home": {
+  "eyebrow": "Building permit preparation and review for Israel",
+  "h1": "Find the problems",
+  "h1_accent": "before the committee does.",
+  "lead": "Permit360 prepares, checks and tracks building permit applications against Israeli planning regulations. Applicants see the responsible committee, the applicable plans and the building rights for their parcel; committees review submissions with a rule engine in which every finding cites its source.",
+  "cta_primary": "Get started with Permit360 Pro",
+  "cta_secondary": "See how it works",
+  "proof": [
+   "131 planning committees linked to official boundaries",
+   "About 1.1 million registered parcels",
+   "Every finding cites plan, regulation or guideline",
+   "Language models run locally, not in the cloud"
+  ],
+  "pro": {
+   "label": "Permit360 Pro",
+   "title": "For engineers, architects and permit applicants",
+   "text": "Start from a block and parcel number and build a complete, checked application step by step. Run the same rules the committee uses on your own draft before you submit.",
+   "bullets": [
+    "Responsible committee from official planning-area boundaries",
+    "Applicable plans, land-use designations and restrictions from XPLAN",
+    "Building rights computed when the plan provisions are available",
+    "AI engineering assistant that answers only from cited sources",
+    "Pre-submission check with readiness score and blockers"
+   ]
+  },
+  "authority": {
+   "label": "Permit360 Authority",
+   "title": "For local and regional planning committees",
+   "text": "Receive applications, extract their data and check them with deterministic rules that cite plan clauses, regulations and committee guidelines. The reviewer accepts or overrides every finding, and every action is recorded.",
+   "bullets": [
+    "Intake of PDF, DWG/DXF, DWFX, Excel and ZIP packages",
+    "Rules take effect only after professional approval, with versions and validity dates",
+    "Drawing geometry, setbacks and area tables checked for consistency",
+    "Cases, tasks, deadlines and a tamper-evident audit log",
+    "Committee knowledge base with a source monitor that proposes rule drafts"
+   ]
+  },
+  "advantage": {
+   "title": "Don’t wait for the committee to discover mistakes.",
+   "text": "Permit360 Pro runs the same rule engine that committees use, so missing documents, conflicts with the plan and inconsistent area tables surface while the application is still a draft."
+  },
+  "lookup": {
+   "title": "Find the responsible committee",
+   "text": "Enter a block (gush) and parcel (helka). The answer comes from the registered parcel boundary intersected with the Planning Administration’s official planning areas, not from a locality name.",
+   "gush": "Block (gush)",
+   "helka": "Parcel (helka)",
+   "button": "Find committee",
+   "checking": "Checking…",
+   "resolved": "Responsible committee",
+   "ambiguous": "The parcel crosses {n} planning areas",
+   "not_found": "This parcel was not found in the registered cadastre, so no official boundary can answer. In Permit360 Pro you can choose the committee manually; the project will be marked unresolved.",
+   "unlinked": "The parcel lies in a planning area that is not yet linked to a committee in the national register. Check with the planning authority before filing.",
+   "invalid": "Please enter digits only.",
+   "error": "The lookup service is unavailable right now. Please try again later.",
+   "rate": "Too many lookups. Please wait a minute and try again.",
+   "share": "of the parcel",
+   "area": "Planning area",
+   "code": "Code",
+   "district": "District",
+   "locality": "Locality",
+   "parcel_area": "Registered parcel area",
+   "sqm": "m²",
+   "note": "This result is derived from official boundaries; open a project in Permit360 Pro to continue with plans, rights and documents.",
+   "continue": "Continue in Permit360 Pro"
+  },
+  "demo": {
+   "title": "One application, two sides of the table",
+   "text": "An illustration with example data, showing how an application moves through Permit360 Pro and Permit360 Authority. The names, numbers and findings are not real.",
+   "tab_pro": "Permit360 Pro",
+   "tab_authority": "Permit360 Authority",
+   "steps_pro": [
+    {
+     "title": "Identify the property",
+     "text": "The applicant enters the block (gush) and parcel (helka). Permit360 loads the registered parcel boundary from the Survey of Israel cadastre."
+    },
+    {
+     "title": "Discover the committee",
+     "text": "The parcel is intersected with official planning-area boundaries. If it crosses two areas, both candidates are shown with their share of the parcel and the applicant chooses."
+    },
+    {
+     "title": "Understand the building rights",
+     "text": "Plans covering the parcel are retrieved from XPLAN, with land-use designations and restrictions. Building rights are computed where the rights table is available; otherwise Permit360 lists what is missing."
+    },
+    {
+     "title": "Ask the AI engineering assistant",
+     "text": "The applicant asks about permitted height or setbacks. The answer is drawn only from the project’s planning package and the committee’s published documents, with every source listed."
+    },
+    {
+     "title": "Prepare the application",
+     "text": "The wizard collects request type, purpose, documents in PDF, DWG, DXF or XLSX, and the applicant declaration. Each step is saved and can be resumed."
+    },
+    {
+     "title": "Validate before submission",
+     "text": "The committee’s rule engine runs on the draft and returns a readiness score, blockers and how to fix them. On submission the applicant receives a confirmation number such as P360-2026-000123."
+    }
+   ],
+   "steps_authority": [
+    {
+     "title": "Receive the application",
+     "text": "The request arrives as a case in the committee’s workspace with its documents and confirmation number. Files are classified by content and repeated imports do not create duplicates."
+    },
+    {
+     "title": "Identify applicable regulations",
+     "text": "The applicable plans, regulations and committee guidelines are assembled for the parcel. Only rules that have been professionally approved and are valid for the case are applied."
+    },
+    {
+     "title": "Analyze the drawings",
+     "text": "Layers, areas, building lines and setbacks are read from the DWG or DXF geometry. Drawings are compared with the area tables for consistency."
+    },
+    {
+     "title": "Verify measurements",
+     "text": "Measurements and calculations are deterministic and never performed by the AI model. Measurement uncertainty is carried into the result."
+    },
+    {
+     "title": "Evidence-backed findings",
+     "text": "Each finding is marked complies, does not comply, requires review or not applicable, and cites the plan clause, regulation or guideline with its page. Findings are marked on the drawing."
+    },
+    {
+     "title": "Track corrections",
+     "text": "The reviewer accepts or overrides each finding with a reason and returns the case for completions. Every action is written to a tamper-evident audit log."
+    }
+   ],
+   "prev": "Previous",
+   "next": "Next",
+   "step": "Step {n} of 6"
+  },
+  "lifecycle": {
+   "title": "The permit lifecycle, end to end",
+   "items": [
+    {
+     "title": "Property",
+     "text": "Start from the registered block and parcel, not from an address or a guess."
+    },
+    {
+     "title": "Committee",
+     "text": "Identify the responsible planning committee from official planning-area boundaries."
+    },
+    {
+     "title": "Planning information",
+     "text": "See the applicable plans, land uses, restrictions and building rights for the plot."
+    },
+    {
+     "title": "Application",
+     "text": "Assemble the request, documents and declaration in a guided, resumable wizard."
+    },
+    {
+     "title": "Review",
+     "text": "Check the application against approved rules, with every finding tied to its source."
+    },
+    {
+     "title": "Decision support",
+     "text": "Reviewers decide, return for completions and track every correction in the audit log."
+    }
+   ]
+  },
+  "principles": {
+   "title": "How Permit360 works",
+   "items": [
+    {
+     "title": "Evidence first",
+     "text": "Every finding cites a plan clause, regulation or committee guideline with its page. If the source is missing, the system says so instead of inventing an answer."
+    },
+    {
+     "title": "People decide",
+     "text": "Permit360 recommends; reviewers accept or override each finding with a reason. The statutory decision always belongs to the planning committee."
+    },
+    {
+     "title": "Local AI",
+     "text": "Language models run on local hardware operated for the platform, and case documents are not sent to cloud AI services. AI classifies, extracts and drafts; it never decides compliance or measures."
+    },
+    {
+     "title": "Israeli data",
+     "text": "Built on the Survey of Israel cadastre, Planning Administration boundaries, XPLAN plans and committees’ own published documents. The interface is available in Hebrew, English, Arabic and Russian."
+    }
+   ]
+  },
+  "faq": [
+   {
+    "q": "Does Permit360 issue building permits?",
+    "a": "No. In Israel the statutory decision on a building permit belongs to the local or regional planning and building committee. Permit360 helps applicants prepare a complete application and helps committees review it, with evidence for every finding."
+   },
+   {
+    "q": "Can I submit my application to Rishuy Zamin through Permit360?",
+    "a": "Not yet. A live interface to Rishuy Zamin, the national online permit system, is planned. Today, when the committee works in Permit360 the request opens directly as a case in its workspace; otherwise you are told the committee is not connected and must also file in Rishuy Zamin."
+   },
+   {
+    "q": "How does Permit360 know which committee is responsible for my parcel?",
+    "a": "It intersects the registered parcel boundary from the Survey of Israel cadastre with the official planning-area boundaries published by the Planning Administration. All 131 local and regional committees in the national register are linked by their planning-area codes, and the committee is never guessed from a locality name or plan number."
+   },
+   {
+    "q": "Does the AI decide whether a plan complies?",
+    "a": "No. Compliance checks and measurements are deterministic and each rule takes effect only after professional approval. The AI is used for classification, extraction and drafting, and the reviewer decides on every finding."
+   },
+   {
+    "q": "Are our documents sent to cloud AI services?",
+    "a": "No. Language models run on local hardware operated for the platform, and an AI policy per data type blocks any processing location that is not allowed. Using a cloud provider would require the authority’s written approval, and none is approved by default."
+   },
+   {
+    "q": "Who can sign up for Permit360 Pro?",
+    "a": "Engineers, architects, practical engineers and property owners can register. They verify their e-mail address and the account opens after approval."
+   }
+  ],
+  "contact": {
+   "title": "Talk to the Permit360 team",
+   "text": "Tell us whether you prepare applications or review them, and we will arrange a walkthrough with your own type of project."
+  }
+ },
+ "form": {
+  "title": "Request a demo",
+  "name": "Full name",
+  "organization": "Organization / office",
+  "role": "I am…",
+  "roles": {
+   "engineer": "An engineer or practical engineer",
+   "architect": "An architect",
+   "committee": "From a planning committee or local authority",
+   "owner": "A property owner or permit applicant",
+   "other": "Other"
+  },
+  "email": "E-mail",
+  "phone": "Phone (optional)",
+  "message": "Message (optional)",
+  "consent": "I agree to be contacted about Permit360 and to the processing of these details for that purpose only.",
+  "submit": "Send request",
+  "sending": "Sending…",
+  "ok": "Thank you. We have received your request and will be in touch shortly.",
+  "error": "Something went wrong and your request was not sent. Please try again.",
+  "rate": "Too many requests. Please wait a few minutes and try again.",
+  "required": "Please fill in this field."
+ },
+ "pages": {
+  "building-permit-preparation": {
+   "nav": "Permit preparation",
+   "title": "Building Permit Preparation Software for Israel",
+   "description": "Prepare a building permit application in Israel from block and parcel: committee, applicable plans, building rights, documents and a pre-submission check.",
+   "h1": "Building permit preparation software for Israel",
+   "lead": "Permit360 Pro guides engineers, architects and applicants from a block and parcel number to a complete building permit application. It identifies the responsible committee from official boundaries, gathers the planning information for the plot and runs the committee’s own rules on your draft before you submit.",
+   "sections": [
+    {
+     "h2": "Why preparation decides the outcome",
+     "paragraphs": [
+      "In Israel, building permits are governed by the Planning and Building Law, 5725-1965, and the Planning and Building Regulations (Building Licensing), 5776-2016. An application is examined by the local or regional planning and building committee against the plans that apply to the plot and against the committee’s own guidelines.",
+      "Most delays come from issues that could have been seen in advance: the wrong committee, a plan that covers only part of the parcel, missing documents or area tables that do not match the drawings. Permit360 Pro is built to expose those issues while the application is still yours to fix."
+     ]
+    },
+    {
+     "h2": "From parcel to application in one workflow",
+     "paragraphs": [
+      "Land in Israel is identified by block and parcel, known in Hebrew as gush and helka. Permit360 Pro starts there, reads the registered parcel boundary and moves through each stage of the request in a guided wizard. Every step is saved, so the work can be resumed at any time."
+     ],
+     "bullets": [
+      "Property: block and parcel from the Survey of Israel cadastre",
+      "Committee: resolved from official planning-area boundaries",
+      "Request type and purpose",
+      "Planning information: applicable plans, land uses, restrictions and building rights",
+      "Documents in PDF, DWG, DXF and XLSX",
+      "Summary, applicant declaration and submission with a confirmation number"
+     ]
+    },
+    {
+     "h2": "Check before you submit",
+     "paragraphs": [
+      "The pre-submission check runs the same rule engine that committees use in Permit360 Authority. It returns a readiness score, lists the blockers and explains how to fix each one, and it can compare design alternatives side by side.",
+      "Drafts are private to their author. Nothing reaches the committee until you submit."
+     ]
+    },
+    {
+     "h2": "What happens on submission",
+     "paragraphs": [
+      "Each submission receives a confirmation number in the format P360-year-six digits, which is also sent by e-mail. When the committee works in Permit360, the request opens directly as a case in its workspace together with its documents.",
+      "When the committee is not yet connected, Permit360 tells you so, and you must also file in Rishuy Zamin, the national online permit system. A live interface to Rishuy Zamin is planned; today Permit360 works with files."
+     ]
+    }
+   ],
+   "faq": [
+    {
+     "q": "Does Permit360 replace the engineer or architect who signs the plans?",
+     "a": "No. Under the Engineers and Architects Law, 5718-1958, plans are signed by a licensed professional, and that responsibility stays with them. Permit360 supports their preparation work and does not make professional determinations."
+    },
+    {
+     "q": "Can property owners use Permit360 Pro?",
+     "a": "Yes. Property owners and permit applicants can register alongside engineers, architects and practical engineers. Accounts open after e-mail verification and approval."
+    },
+    {
+     "q": "Which file formats can I upload?",
+     "a": "The request wizard accepts PDF, DWG, DXF and XLSX documents. Scanned documents without a text layer are not yet read automatically; OCR is planned."
+    }
+   ],
+   "sources": [
+    {
+     "label": "Planning Administration: building licensing steps (Hebrew)",
+     "url": "https://www.gov.il/he/pages/steps_licensing_full_permit?chapterIndex=4"
+    },
+    {
+     "label": "Planning Administration: licensing forms (Hebrew)",
+     "url": "https://www.gov.il/he/pages/forms_licensing_process?chapterIndex=2"
+    }
+   ]
+  },
+  "building-permit-review": {
+   "nav": "Plan review",
+   "title": "Automated Plan Review for Building Permits in Israel",
+   "description": "Automated plan review for Israeli planning committees: document intake, deterministic rule checks with cited sources, CAD analysis and reviewer control.",
+   "h1": "Automated plan review with evidence behind every finding",
+   "lead": "Permit360 Authority checks building permit applications against approved plan provisions, regulations and committee guidelines. Each finding cites its source with a page reference, and the reviewer accepts or overrides it with a reason.",
+   "sections": [
+    {
+     "h2": "From package to structured case",
+     "paragraphs": [
+      "Applications arrive as PDF, DWG/DXF, DWFX, Excel and ZIP packages. Permit360 classifies each document by its content and extracts the data together with its source, file and page, and a confidence level.",
+      "Committee protocols are split into individual requests, and repeated imports of the same material do not create duplicates. Requests submitted from Permit360 Pro arrive as cases with their documents and confirmation number."
+     ]
+    },
+    {
+     "h2": "A rule engine that shows its work",
+     "paragraphs": [
+      "Checks are deterministic. Measurements and calculations are never performed by the AI model, and every outcome is one of four: complies, does not comply, requires review or not applicable.",
+      "Every finding cites the plan clause, regulation or committee guideline it relies on, with its page. Reviewers see why the system reached a result, not just the result."
+     ],
+     "bullets": [
+      "A rule takes effect only after professional approval",
+      "Rules are versioned and carry validity dates",
+      "Checks are re-run when a new version of the application arrives",
+      "Findings from drawings are marked on the drawing itself"
+     ]
+    },
+    {
+     "h2": "The reviewer decides",
+     "paragraphs": [
+      "Permit360 recommends; it does not decide. Reviewers accept or override each finding and record a reason, and the statutory decision remains with the planning committee.",
+      "Corrections become classified feedback with regression checks, and accepting a correction requires a second person, a four-eyes control. Accuracy is measured against the reviewers’ own decisions."
+     ]
+    },
+    {
+     "h2": "Workflow and accountability",
+     "paragraphs": [
+      "Cases, tasks and deadlines are managed in one workspace. Reviewers can return a case for completions, mark it as waiting for external parties and issue a PDF defects report to the applicant.",
+      "Every action is written to a tamper-evident audit log built as a hash chain, so the history of a case can be reconstructed and verified."
+     ]
+    }
+   ],
+   "faq": [
+    {
+     "q": "Can a rule change on its own when a regulation changes?",
+     "a": "No. A source monitor detects changes in regulatory sources and proposes rule drafts, but a rule takes effect only after professional approval. Rules are versioned with validity dates."
+    },
+    {
+     "q": "Does Permit360 connect to our existing permit system?",
+     "a": "Not yet. Live interfaces to Rishuy Zamin, municipal GIS, permit systems and archives are planned. Today Permit360 works with files and packages."
+    },
+    {
+     "q": "What happens if the system is unsure?",
+     "a": "The outcome is marked requires review, and measurement uncertainty from the drawings is carried into the result. The reviewer then makes the call."
+    }
+   ],
+   "sources": [
+    {
+     "label": "Planning Administration: building licensing steps (Hebrew)",
+     "url": "https://www.gov.il/he/pages/steps_licensing_full_permit?chapterIndex=4"
+    }
+   ]
+  },
+  "engineers-architects": {
+   "nav": "Engineers & architects",
+   "title": "Permit Software for Engineers and Architects in Israel",
+   "description": "Permit360 Pro for engineers, architects and practical engineers in Israel: committee, plans, building rights, cited AI answers and a pre-submission check.",
+   "h1": "For engineers, architects and practical engineers",
+   "lead": "Permit360 Pro gives design professionals the planning picture of a plot and a way to test an application before the committee sees it. You keep the professional responsibility; Permit360 makes the inputs and the gaps visible.",
+   "sections": [
+    {
+     "h2": "Start every project on firm ground",
+     "paragraphs": [
+      "Enter the block and parcel, gush and helka in Hebrew, and Permit360 identifies the responsible planning committee from official planning-area boundaries. When a parcel crosses more than one planning area, you see each candidate committee with its share of the parcel.",
+      "You can also pick the committee from the national directory and let the system verify that the parcel lies inside its planning area, or report a mismatch."
+     ]
+    },
+    {
+     "h2": "Planning information you can trace",
+     "paragraphs": [
+      "Permit360 retrieves the plans that apply to the registered parcel through XPLAN, the Planning Administration’s plan system. It shows whether each plan covers the whole parcel or only part of it, its status and publication, the land-use designations and restrictions such as section 77–78 notices and deposited plans.",
+      "Building rights are computed when the rights table or plan provisions are available. When they are not, the system tells you exactly what is missing rather than producing a number."
+     ]
+    },
+    {
+     "h2": "An AI engineering assistant that cites its sources",
+     "paragraphs": [
+      "Ask a question about the project and the assistant answers using only the project’s planning package and the committee’s own published documents, such as guidelines, procedures and plans fetched from committee websites. Every answer lists its sources, and numbers not found in those sources are rejected.",
+      "The assistant runs on a local language model. Its answers are support for your work, not a professional determination."
+     ]
+    },
+    {
+     "h2": "Test the application the way the committee will",
+     "paragraphs": [
+      "The pre-submission check runs the same rule engine committees use. You receive a readiness score, a list of blockers and guidance on fixing them, and you can compare design alternatives before committing to one."
+     ],
+     "bullets": [
+      "Drafts are private to their author",
+      "Documents in PDF, DWG, DXF and XLSX",
+      "Resumable wizard with saved steps",
+      "Confirmation number on submission, also sent by e-mail"
+     ]
+    }
+   ],
+   "faq": [
+    {
+     "q": "Who is responsible for the plans submitted through Permit360?",
+     "a": "The licensed professional who signs them, as required under the Engineers and Architects Law, 5718-1958. Permit360 does not replace the engineer or architect and does not approve anything."
+    },
+    {
+     "q": "How do I get an account?",
+     "a": "Register online, verify your e-mail address and wait for approval. Once approved, the account opens and you can create projects."
+    }
+   ],
+   "sources": [
+    {
+     "label": "Mavat: national plan information",
+     "url": "https://mavat.iplan.gov.il"
+    }
+   ]
+  },
+  "planning-committees": {
+   "nav": "Planning committees",
+   "title": "Software for Planning Committees in Israel",
+   "description": "Permit360 Authority for local and regional planning committees in Israel: intake, evidence-based review, reviewer control, workflow and an audit trail.",
+   "h1": "Permit360 Authority for planning and building committees",
+   "lead": "Permit360 Authority is the review workspace for local and regional planning and building committees. It turns incoming applications into structured cases, checks them against approved rules with cited evidence and leaves every decision to the committee’s reviewers.",
+   "sections": [
+    {
+     "h2": "Local and regional committees, explained",
+     "paragraphs": [
+      "Under the Planning and Building Law, 5725-1965, building permits in Israel are issued by local planning and building committees. Some committees serve a single municipality; others, known as regional committees, cover several localities or the area of a regional council.",
+      "Each committee works within an official planning area. Permit360 links all 131 local and regional committees in the national register to their planning-area boundaries by planning-area code."
+     ]
+    },
+    {
+     "h2": "What the committee workspace includes",
+     "paragraphs": [
+      "Permit360 Authority covers the review path from intake to a documented recommendation, with each workspace separated from other authorities."
+     ],
+     "bullets": [
+      "Document intake: PDF, DWG/DXF, DWFX, Excel and ZIP, classified by content",
+      "Data extraction with source, page and confidence",
+      "Deterministic rule checks citing plan clause, regulation or guideline",
+      "CAD analysis of areas, setbacks and building lines",
+      "Cases, tasks, deadlines, returns for completions and PDF defects reports",
+      "Tamper-evident audit log"
+     ]
+    },
+    {
+     "h2": "Your rules, your approval",
+     "paragraphs": [
+      "Rules reflect the plans, regulations and the committee’s own guidelines. A rule takes effect only after professional approval, and rules are versioned with validity dates so a case is checked against the rules that applied to it.",
+      "The knowledge base holds committee documents fetched from committee websites and documents uploaded by the platform administrator, searched with keyword and local embedding search. A source monitor detects changes in regulatory sources and proposes rule drafts, never changing a rule automatically."
+     ]
+    },
+    {
+     "h2": "Reviewers stay in control",
+     "paragraphs": [
+      "Every finding can be accepted or overridden with a reason. Corrections become classified feedback with regression checks, and accepting a correction requires a second person. Accuracy is measured against reviewers’ decisions, and the statutory decision remains with the committee."
+     ]
+    }
+   ],
+   "faq": [
+    {
+     "q": "How do applications from Permit360 Pro reach the committee?",
+     "a": "When a committee works in Permit360, requests submitted from Permit360 Pro arrive as cases in its workspace with their documents and confirmation number. Applicants to committees that are not connected are told to also file in Rishuy Zamin."
+    },
+    {
+     "q": "Is integration with Rishuy Zamin or municipal GIS available?",
+     "a": "Not yet; live interfaces to Rishuy Zamin, municipal GIS, permit systems and archives are planned. Today the system works with files."
+    },
+    {
+     "q": "Who can access a committee’s cases?",
+     "a": "Workspaces are separated between authorities, and access is role-based, with administrator and reviewer roles in each committee."
+    }
+   ],
+   "sources": [
+    {
+     "label": "Planning Administration: building licensing steps (Hebrew)",
+     "url": "https://www.gov.il/he/pages/steps_licensing_full_permit?chapterIndex=4"
+    }
+   ]
+  },
+  "building-rights": {
+   "nav": "Building rights",
+   "title": "Building Rights in Israel: Plans, TABA and Limits",
+   "description": "How building rights are set in Israel by statutory plans (TABA), and how Permit360 computes them for a parcel when the rights table is available.",
+   "h1": "Building rights in Israel, from the plan to the plot",
+   "lead": "In Israel, what you may build on a plot is set by the statutory plans that apply to it, not by the parcel alone. Permit360 finds those plans for the registered parcel and computes building rights when the rights table or plan provisions are available; when they are not, it tells you what is missing.",
+   "sections": [
+    {
+     "h2": "Where building rights come from",
+     "paragraphs": [
+      "Building rights are defined in statutory plans prepared under the Planning and Building Law, 5725-1965. The plan that most applicants meet is the TABA, short for Tochnit Binyan Ir, a statutory zoning plan that sets land uses and, typically, quantities such as permitted building area, number of floors and units, height and setbacks.",
+      "A parcel may be covered by several plans, some covering all of it and some only part. Reading rights correctly means knowing which plans apply, where, and in what status."
+     ]
+    },
+    {
+     "h2": "How Permit360 assembles the picture",
+     "paragraphs": [
+      "Starting from the block and parcel, Permit360 queries XPLAN, the Planning Administration’s plan system, for plans on the registered parcel boundary. For each plan it shows whether it covers the whole parcel or part of it, its status and its publication."
+     ],
+     "bullets": [
+      "Applicable plans and their coverage of the parcel",
+      "Land-use designations",
+      "Restrictions such as section 77–78 notices and deposited plans",
+      "Building rights computed where provisions are available",
+      "A clear list of what is still missing"
+     ]
+    },
+    {
+     "h2": "No invented numbers",
+     "paragraphs": [
+      "When the rights table or plan provisions are not available in the data, Permit360 does not estimate. It reports what is missing so the professional can obtain it from the plan documents or the committee.",
+      "The AI engineering assistant follows the same discipline: numbers that do not appear in the project’s sources are rejected, and every answer lists the sources it used."
+     ]
+    },
+    {
+     "h2": "Restrictions that change the answer",
+     "paragraphs": [
+      "Plans in preparation can limit what may be approved today. Under sections 77 and 78 of the Planning and Building Law, notice of a plan’s preparation may be published together with conditions on permits in the area. Permit360 surfaces such notices and deposited plans alongside the plans in force, so they are not discovered late."
+     ]
+    }
+   ],
+   "faq": [
+    {
+     "q": "Is the building-rights result a legal opinion?",
+     "a": "No. It is a calculation from the available plan provisions, intended to support the professional preparing the application. The binding interpretation rests with the planning committee."
+    },
+    {
+     "q": "Where can I read the plans myself?",
+     "a": "Plan documents are published on Mavat, the national plan information site. Permit360 shows which plans apply to the parcel so you know what to look up."
+    }
+   ],
+   "sources": [
+    {
+     "label": "Mavat: national plan information",
+     "url": "https://mavat.iplan.gov.il"
+    }
+   ]
+  },
+  "committee-lookup": {
+   "nav": "Committee lookup",
+   "title": "Find the Planning Committee by Gush and Helka",
+   "description": "Find the planning committee for an Israeli parcel by block and parcel (gush and helka), from official cadastre data and planning-area boundaries.",
+   "h1": "Find the planning committee by block and parcel",
+   "lead": "Every building permit application in Israel is filed with a specific local or regional planning committee. Permit360 identifies it from the block and parcel by intersecting the registered parcel boundary with the official planning-area boundaries, and never by guessing from a locality name.",
+   "sections": [
+    {
+     "h2": "Gush and helka, briefly",
+     "paragraphs": [
+      "Land in Israel is registered by block and parcel, in Hebrew gush and helka. The Survey of Israel cadastre holds the registered boundaries of about 1.1 million parcels, and this is the reference Permit360 uses.",
+      "Addresses and locality names are not reliable guides to the responsible committee, particularly near municipal edges and in areas served by regional committees."
+     ]
+    },
+    {
+     "h2": "How the lookup works",
+     "paragraphs": [
+      "Permit360 intersects the registered parcel boundary with the planning-area boundaries published by the Planning Administration. All 131 local and regional committees in the national register are linked to those areas by planning-area code."
+     ],
+     "bullets": [
+      "One planning area: the responsible committee is shown",
+      "Several planning areas: each candidate committee is shown with its share of the parcel; you choose, and the project is marked not verified",
+      "No official answer, for example a parcel not in the cadastre: you may choose manually, and the project is marked unresolved"
+     ]
+    },
+    {
+     "h2": "Already know the committee?",
+     "paragraphs": [
+      "You can choose the committee from the national committee directory instead. Permit360 then checks that the parcel is inside that committee’s planning area and reports a mismatch if it is not.",
+      "Either way, the status of the answer is recorded with the project, so everyone working on it knows how the committee was determined."
+     ]
+    },
+    {
+     "h2": "From lookup to project",
+     "paragraphs": [
+      "The lookup on this website runs on the same official data. To continue with applicable plans, building rights, documents and a pre-submission check, open a project in Permit360 Pro."
+     ]
+    }
+   ],
+   "faq": [
+    {
+     "q": "Why not use the locality name?",
+     "a": "Because the committee’s jurisdiction is defined by its planning area, not by the name on an address. Permit360 never infers the committee from a locality name or a plan number."
+    },
+    {
+     "q": "What if my parcel crosses two planning areas?",
+     "a": "You will see both candidate committees with each one’s share of the parcel. You choose, and the project is marked not verified so the choice can be confirmed with the committee."
+    },
+    {
+     "q": "Does the lookup file anything with the committee?",
+     "a": "No. It only identifies the committee from official boundaries; filing happens through the request wizard or, for committees not connected to Permit360, in Rishuy Zamin."
+    }
+   ],
+   "sources": [
+    {
+     "label": "Planning Administration: building licensing steps (Hebrew)",
+     "url": "https://www.gov.il/he/pages/steps_licensing_full_permit?chapterIndex=4"
+    }
+   ]
+  },
+  "planning-regulations": {
+   "nav": "Planning regulations",
+   "title": "Israeli Planning Regulations for Building Permits",
+   "description": "A guide to Israeli planning regulations for building permits: the Planning and Building Law, licensing regulations, statutory plans and committee rules.",
+   "h1": "Israeli planning regulations, explained for permit applicants",
+   "lead": "A building permit in Israel is examined against several layers of rules: the Planning and Building Law, its licensing regulations, the statutory plans that apply to the plot and the committee’s own guidelines. Permit360 organizes these layers so that every check can be traced to its source.",
+   "sections": [
+    {
+     "h2": "The legal framework",
+     "paragraphs": [
+      "The Planning and Building Law, 5725-1965, establishes the planning institutions, the hierarchy of plans and the requirement for a permit. The Planning and Building Regulations (Building Licensing), 5776-2016, set out the licensing procedure and what an application must contain.",
+      "The Engineers and Architects Law, 5718-1958, governs the licensing of the professionals who sign the plans. This page is a general orientation, not legal advice."
+     ]
+    },
+    {
+     "h2": "Plans and committee guidelines",
+     "paragraphs": [
+      "Statutory plans, including the TABA or statutory zoning plan, define land uses and building rights for specific areas. Committees also publish their own guidelines and procedures, which shape how applications are prepared and reviewed in their jurisdiction.",
+      "Plans in preparation matter as well: notices under sections 77 and 78 of the law and deposited plans can affect what may be approved."
+     ]
+    },
+    {
+     "h2": "How Permit360 turns regulations into checks",
+     "paragraphs": [
+      "In Permit360 Authority, regulations, plan provisions and committee guidelines are expressed as deterministic rules. Each finding cites the plan clause, regulation or guideline it relies on, with its page."
+     ],
+     "bullets": [
+      "Rules take effect only after professional approval",
+      "Rules are versioned with validity dates",
+      "Checks are re-run on new versions of an application",
+      "Outcomes: complies, does not comply, requires review, not applicable"
+     ]
+    },
+    {
+     "h2": "Keeping up with change",
+     "paragraphs": [
+      "The knowledge base holds national knowledge such as laws, regulations and procedures, alongside committee documents fetched from committee websites or uploaded by the platform administrator. A source monitor detects changes in regulatory sources and proposes rule drafts for professional review; it never changes a rule automatically."
+     ]
+    }
+   ],
+   "faq": [
+    {
+     "q": "Does Permit360 provide legal advice?",
+     "a": "No. It applies professionally approved rules and shows their sources. Interpretation of the law and the statutory decision remain with professionals and the planning committee."
+    },
+    {
+     "q": "Are the official procedures available in English?",
+     "a": "The Planning Administration publishes licensing steps and forms on gov.il, mainly in Hebrew. The links below lead to the official pages."
+    }
+   ],
+   "sources": [
+    {
+     "label": "Planning Administration: building licensing steps (Hebrew)",
+     "url": "https://www.gov.il/he/pages/steps_licensing_full_permit?chapterIndex=4"
+    },
+    {
+     "label": "Planning Administration: licensing forms (Hebrew)",
+     "url": "https://www.gov.il/he/pages/forms_licensing_process?chapterIndex=2"
+    },
+    {
+     "label": "Mavat: national plan information",
+     "url": "https://mavat.iplan.gov.il"
+    }
+   ]
+  },
+  "cad-gis": {
+   "nav": "CAD & GIS",
+   "title": "CAD and GIS Plan Review for Building Permits",
+   "description": "Permit360 reads DWG and DXF geometry, checks setbacks, areas and building lines, and uses official parcel and planning-area GIS data for Israel.",
+   "h1": "CAD drawings and spatial data, checked together",
+   "lead": "Permit360 reads geometry directly from DWG and DXF drawings and checks it against the parcel and the plan. Spatial data from the Survey of Israel cadastre and the Planning Administration’s planning areas anchors every project to its real location.",
+   "sections": [
+    {
+     "h2": "Geometry from the drawing itself",
+     "paragraphs": [
+      "Permit360 extracts layers, areas, setbacks to plot boundaries and building lines from DXF and DWG files. Measurement uncertainty is carried into the result, so a borderline value is flagged rather than presented as certain.",
+      "Findings are marked on the drawing, letting reviewers and designers see exactly where an issue lies."
+     ],
+     "bullets": [
+      "Layers and areas",
+      "Setbacks to plot boundaries",
+      "Building lines",
+      "Consistency between drawings and area tables"
+     ]
+    },
+    {
+     "h2": "Deterministic measurement",
+     "paragraphs": [
+      "Measurements and calculations are performed by deterministic code, never by the AI model. The AI is used for classification, extraction and drafting, while compliance outcomes come from approved rules applied to measured geometry.",
+      "Each finding cites the plan clause, regulation or guideline it is checked against, with its page."
+     ]
+    },
+    {
+     "h2": "Official spatial data",
+     "paragraphs": [
+      "Parcels come from the Survey of Israel cadastre, covering about 1.1 million registered parcels. Planning-area boundaries come from the Planning Administration, and applicable plans from XPLAN. Spatial data is held in PostgreSQL with PostGIS.",
+      "This is what allows Permit360 to identify the responsible committee and the plans covering a parcel from geometry rather than from names."
+     ]
+    },
+    {
+     "h2": "What is planned",
+     "paragraphs": [
+      "Today Permit360 works with files and packages: PDF, DWG/DXF, DWFX, Excel and ZIP. Live interfaces to municipal GIS, permit systems, archives and Rishuy Zamin are planned, as is OCR for scanned documents without a text layer.",
+      "Until those interfaces exist, applicants and committees upload drawings and documents directly, and the system records the source file and page of every extracted value."
+     ]
+    }
+   ],
+   "faq": [
+    {
+     "q": "Which CAD formats are supported?",
+     "a": "Geometry is read from DWG and DXF files. DWFX files can be received at intake as part of an application package."
+    },
+    {
+     "q": "Can Permit360 connect to our municipal GIS?",
+     "a": "Not yet. A live interface to municipal GIS is planned; today the system uses official national datasets and uploaded files."
+    }
+   ],
+   "sources": [
+    {
+     "label": "Mavat: national plan information",
+     "url": "https://mavat.iplan.gov.il"
+    }
+   ]
+  },
+  "local-ai-security": {
+   "nav": "Local AI & security",
+   "title": "Local AI and Information Security | Permit360",
+   "description": "Permit360 runs language models on local hardware, keeps case documents out of cloud AI, separates workspaces and logs every action in an audit trail.",
+   "h1": "Local AI and information security",
+   "lead": "Permit360 runs its language models on local hardware operated for the platform, and case documents are not sent to cloud AI services. AI supports classification, extraction and drafting; it never decides compliance and never measures.",
+   "sections": [
+    {
+     "h2": "AI that stays local",
+     "paragraphs": [
+      "Planning applications contain personal details, property information and professional drawings. Permit360 processes them with language models on local hardware, not with external cloud AI services.",
+      "An AI policy per data type blocks any processing location that is not allowed for that data. Using a cloud provider would require the authority’s written approval, and none is approved by default."
+     ]
+    },
+    {
+     "h2": "A narrow, defined role for AI",
+     "paragraphs": [
+      "AI is used to classify documents, extract data and draft text. Compliance outcomes come from deterministic, professionally approved rules, and measurements come from deterministic code.",
+      "The AI engineering assistant answers only from the project’s planning package and the committee’s published documents, lists its sources and rejects numbers not found in them. Its answers are not a professional determination."
+     ]
+    },
+    {
+     "h2": "Access and accounts",
+     "paragraphs": [
+      "Each authority’s workspace is separated from the others. Permissions are role-based: committees have administrator and reviewer roles, and Permit360 Pro has end users whose drafts are private to their author."
+     ],
+     "bullets": [
+      "HttpOnly session cookies",
+      "Password policy with scrypt hashing",
+      "E-mail verification and approval for self sign-up",
+      "Complete audit log"
+     ]
+    },
+    {
+     "h2": "A record you can verify",
+     "paragraphs": [
+      "In Permit360 Authority, case actions are recorded in a tamper-evident audit log built as a hash chain. Reviewer decisions, overrides and their reasons are kept with the case, and accepting a correction to the system requires a second person.",
+      "Together, local processing, role separation and a verifiable log give committees a clear answer to who changed a case, what the system recommended and who decided."
+     ]
+    }
+   ],
+   "faq": [
+    {
+     "q": "Are documents used to train external AI models?",
+     "a": "Case documents are not sent to cloud AI services. The language models run on local hardware operated for the platform."
+    },
+    {
+     "q": "Can we allow a cloud AI provider?",
+     "a": "Only with the authority’s written approval, enforced by the AI policy for each data type. No cloud provider is approved by default."
+    }
+   ],
+   "sources": []
+  }
+ },
+ "footer": {
+  "tagline": "Permit360 by Kortex Digital: building permit preparation and review for Israel.",
+  "status": "Permit360 is in active development and in use; features marked planned are not yet available.",
+  "product": "Product",
+  "guides": "Guides",
+  "company": "Company",
+  "privacy": "Details sent through the form are e-mailed to the Permit360 team at Kortex Digital only so we can reply; the website does not store them."
+ },
+ "llms_summary": "Permit360 by Kortex Digital Ltd is software for preparing, checking and reviewing building permit applications in Israel. Permit360 Pro serves engineers, architects, practical engineers and property owners: it identifies the responsible planning committee by block and parcel (gush and helka) from the Survey of Israel cadastre and Planning Administration boundaries, retrieves applicable plans from XPLAN, computes building rights when plan provisions are available, and runs a pre-submission check. Permit360 Authority serves local and regional planning committees with document intake, deterministic rule checks that cite plan clauses, regulations and guidelines, CAD analysis, reviewer-controlled findings and a tamper-evident audit log. Language models run on local hardware and never decide compliance or perform measurements; the statutory decision remains with the committee. Integration with Rishuy Zamin, municipal GIS and OCR for scanned documents are planned. The interface is available in Hebrew, English, Arabic and Russian."
+}

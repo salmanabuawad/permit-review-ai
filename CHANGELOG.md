@@ -1,5 +1,17 @@
 # Changelog
 
+## 2026-11-27 — Public product website (permit.kortexd.com), prepared — not deployed
+
+- `website/`: static four-language site (he / ar / en / ru), home + nine guide pages per language, original copy
+  per language from a verified fact sheet; navy / teal design with original cadastral and architectural SVG
+  illustrations, interactive Pro / Authority demo (labelled as an illustration), live committee lookup, demo
+  request form; canonical + reciprocal hreflang, sitemap, robots, llms.txt, JSON-LD, per-language share images;
+  static checks, test results, SEO strategy, nginx site and release script (not installed).
+- Application: public endpoints for the website — `GET /api/public/committee` (block / parcel → responsible
+  committee from official boundaries, rate-limited, no internal IDs) and `POST /api/public/demo-request`
+  (consent, honeypot, rate limits; e-mailed, not stored).
+- kortexd.com: Permit360 portfolio entry on a separate branch of that site (not released).
+
 ## 2026-11-27 — General product wording, not tender-specific
 
 - Removed the tender acceptance-metrics note from the dashboard, "pilot" from the side menu footer and the tender

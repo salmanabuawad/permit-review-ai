@@ -1,0 +1,61 @@
+From dde4fbe525d0875e02cf443665cc38d636609cc9 Mon Sep 17 00:00:00 2001
+From: salmanabuawad <salman.abuawad@gmail.com>
+Date: Fri, 27 Nov 2026 18:18:51 +0200
+Subject: [PATCH] Portfolio: add Permit360 (permit.kortexd.com)
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ src/content/projects.ts | 37 +++++++++++++++++++++++++++++++++++++
+ 1 file changed, 37 insertions(+)
+
+diff --git a/src/content/projects.ts b/src/content/projects.ts
+index 41280da..ba6167e 100644
+--- a/src/content/projects.ts
++++ b/src/content/projects.ts
+@@ -57,6 +57,43 @@ export const PROJECTS: Project[] = [
+       },
+     ],
+   },
++  {
++    slug: "permit360",
++    name: "Permit360",
++    category: { en: "Building Permits & Planning (GovTech)", he: "רישוי בנייה ותכנון (GovTech)" },
++    description: {
++      en: "Building-permit preparation and review for Israel: the responsible planning committee found by block and parcel from official boundaries, applicable plans and building rights, and evidence-based checks for planning committees.",
++      he: "הכנה ובדיקה של בקשות להיתר בנייה בישראל: איתור הוועדה המוסמכת לפי גוש וחלקה מגבולות רשמיים, תכניות חלות וזכויות בנייה, ובדיקה מבוססת אסמכתאות לוועדות התכנון והבנייה.",
++    },
++    accent: "#5FD6C8",
++    motif: "building",
++    filters: ["public", "ai"],
++    visibility: "public",
++    featured: true, // TODO(content): confirm Permit360 as a featured project
++    ...UNCONFIRMED,
++    stage: "development",
++    role: { en: "Designed and developed by Kortex Digital", he: "תוכנן ופותח ב-Kortex Digital" },
++    features: {
++      en: [
++        "Committee discovery by block and parcel (gush / helka) from the Survey of Israel cadastre and Planning Administration boundaries",
++        "Applicable plans, land use and restrictions for the plot, and building rights when the plan data is available",
++        "AI engineering assistant answering only from the committee's documents, on a local language model",
++        "Request wizard ending in a submission with a confirmation number",
++        "Rule engine with cited sources, CAD drawing checks and a reviewer decision on every finding",
++        "Hebrew, English, Arabic and Russian interface",
++      ],
++      he: [
++        "איתור הוועדה לפי גוש וחלקה מתוך הקדסטר של המרכז למיפוי ישראל וגבולות מרחבי התכנון",
++        "תכניות חלות, ייעודי קרקע ומגבלות למגרש, וזכויות בנייה כשנתוני התכנית זמינים",
++        "עוזר הנדסי מבוסס AI שעונה רק מתוך מסמכי הוועדה, על מודל שפה מקומי",
++        "אשף בקשה שמסתיים בהגשה ובמספר אישור",
++        "מנוע כללים עם מקור לכל ממצא, בדיקת שרטוטי CAD והכרעת בודק/ת בכל ממצא",
++        "ממשק בעברית, אנגלית, ערבית ורוסית",
++      ],
++    },
++    technologies: ["Python", "FastAPI", "PostgreSQL / PostGIS", "React", "TypeScript", "Local LLMs", "DXF / DWG"],
++    externalUrl: "https://permit.kortexd.com/",
++  },
+   {
+     slug: "navvis",
+     name: "NavVis",
+-- 
+2.56.1
+

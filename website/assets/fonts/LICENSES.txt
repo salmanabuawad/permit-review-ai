@@ -1,0 +1,4 @@
+Fonts bundled with the Permit360 website — all under the SIL Open Font License 1.1 (https://openfontlicense.org).
+- Heebo (variable, Hebrew + Latin subsets) — from @fontsource-variable/heebo.
+- Inter (variable, Latin + Cyrillic subsets) — Copyright The Inter Project Authors; from @fontsource-variable/inter.
+- Noto Sans Arabic (Regular, Bold; subset to the Arabic block, WOFF) — Copyright Google LLC; from the system Noto fonts.

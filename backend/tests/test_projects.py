@@ -278,3 +278,33 @@ def test_superadmin_knowledge_uploads_national_and_committee(env, monkeypatch):
     assert again.json()["id"] == row["id"] and again.json()["status"] == "ok"                                 # brought back
     with SessionLocal() as s:
         assert CD.hybrid_search(s, "parking standard", ash, mode="keyword")
+
+
+def test_public_committee_lookup_and_demo_request(env, monkeypatch):
+    from app import mailer
+    from app.api import public
+    monkeypatch.setattr(public, "_hits", {})
+    c = env
+    r = c.get("/api/public/committee?gush=2832&helka=27")
+    assert r.status_code == 200
+    j = r.json()
+    assert j["status"] == "RESOLVED" and j["candidates"][0]["committee"] == "חוף אשקלון" and j["candidates"][0]["code"] == "633"
+    assert "committee_id" not in j["candidates"][0] and j["localities"] == ["זיקים"] and j["parcel_area_m2"] > 0
+    assert c.get("/api/public/committee?gush=2832&helka=28").json()["status"] == "AMBIGUOUS"
+    assert c.get("/api/public/committee?gush=2832&helka=99").json()["reason"] == "parcel_not_found"
+    assert c.get("/api/public/committee?gush=abc&helka=1").status_code == 422
+    for _ in range(25):
+        last = c.get("/api/public/committee?gush=2832&helka=27")
+    assert last.status_code == 429                                                    # rate limited per address
+    sent = []
+    monkeypatch.setattr(mailer, "transport", sent)
+    monkeypatch.setenv("BBP_SMTP_HOST", "smtp.example.org")
+    monkeypatch.setenv("BBP_MAIL_FROM", "info@example.org")
+    form = {"name": "Dana", "email": "dana@example.com", "role": "engineer", "consent": True, "lang": "en"}
+    assert c.post("/api/public/demo-request", json={**form, "consent": False}).status_code == 422
+    assert c.post("/api/public/demo-request", json={**form, "website": "spam"}).status_code == 202 and not sent  # honeypot
+    assert c.post("/api/public/demo-request", json=form).status_code == 202 and len(sent) == 1
+    assert "dana@example.com" in sent[0].get_content()
+    for _ in range(3):
+        last = c.post("/api/public/demo-request", json=form)
+    assert last.status_code == 429

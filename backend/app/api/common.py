@@ -34,7 +34,7 @@ from .. import authority_onboarding as authorities
 from .. import users as usermgmt
 
 
-_OPEN_API = ("/api/health", "/api/auth/", "/api/agent/")   # agent endpoints check their own token
+_OPEN_API = ("/api/health", "/api/auth/", "/api/agent/", "/api/public/")   # agent endpoints check their own token
 
 
 class LoginIn(BaseModel):
