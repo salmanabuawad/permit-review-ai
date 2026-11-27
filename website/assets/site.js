@@ -4,7 +4,7 @@
   var doc = document.documentElement;
   doc.classList.remove("no-js");
   var API = doc.getAttribute("data-api") || "";
-  var APP = doc.getAttribute("data-app") || "https://permit360.kortexd.com";
+  var APP = doc.getAttribute("data-app") || "";
   var LANG = doc.lang || "he";
   function $(s, r) { return (r || document).querySelector(s); }
   function $$(s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); }

@@ -13,7 +13,7 @@ import Integrations from './pages/Integrations'
 import Audit from './pages/Audit'
 import ImportCases from './pages/ImportCases'
 import Login from './pages/Login'
-import Landing from './pages/Landing'
+import { lang as uiLang } from './i18n'
 import Learning from './pages/Learning'
 import Users from './pages/Users'
 import Committees from './pages/Committees'
@@ -100,7 +100,9 @@ export default function App() {
 
   if (needLogin) {
     const q = new URLSearchParams(window.location.search)
-    return window.location.pathname === '/login' || q.has('signup') ? <Login /> : <Landing />
+    if (window.location.pathname === '/login' || q.has('signup')) return <Login />
+    window.location.replace(`/${uiLang}/`)           // signed out: the public website (same host, /he/ /ar/ /en/ /ru/)
+    return null
   }
   if (me?.must_change_password) return <ChangePassword forced onDone={() => window.location.assign('/')} />
 

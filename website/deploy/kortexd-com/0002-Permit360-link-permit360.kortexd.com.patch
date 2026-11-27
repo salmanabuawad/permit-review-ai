@@ -1,0 +1,26 @@
+From 264a07be77bba83b9e4113b312baea3b205100b1 Mon Sep 17 00:00:00 2001
+From: salmanabuawad <salman.abuawad@gmail.com>
+Date: Fri, 27 Nov 2026 18:30:24 +0200
+Subject: [PATCH 2/2] Permit360 link: permit360.kortexd.com
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+---
+ src/content/projects.ts | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/content/projects.ts b/src/content/projects.ts
+index ba6167e..d0962d8 100644
+--- a/src/content/projects.ts
++++ b/src/content/projects.ts
+@@ -92,7 +92,7 @@ export const PROJECTS: Project[] = [
+       ],
+     },
+     technologies: ["Python", "FastAPI", "PostgreSQL / PostGIS", "React", "TypeScript", "Local LLMs", "DXF / DWG"],
+-    externalUrl: "https://permit.kortexd.com/",
++    externalUrl: "https://permit360.kortexd.com/",
+   },
+   {
+     slug: "navvis",
+-- 
+2.56.1
+

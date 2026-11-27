@@ -70,7 +70,7 @@ class Page(HTMLParser):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--base", default="https://permit.kortexd.com")
+    ap.add_argument("--base", default="https://permit360.kortexd.com")
     base = ap.parse_args().base.rstrip("/")
     errors, warnings, pages = [], [], {}
     files = sorted(DIST.rglob("*.html"))
@@ -81,11 +81,11 @@ def main():
         pages[rel] = p
     sitemap = {u.text for u in ET.parse(DIST / "sitemap.xml").getroot().iter("{http://www.sitemaps.org/schemas/sitemap/0.9}loc")}
     for rel, p in pages.items():
-        if rel == "/404.html":
+        if rel.startswith("/site/"):
             continue
         lang = p.html_attrs.get("lang")
         where = rel
-        if rel != "/":
+        if True:
             if lang not in LANGS or p.html_attrs.get("dir") != LANGS[lang] or not rel.startswith(f"/{lang}/"):
                 errors.append(f"{where}: lang/dir {lang}/{p.html_attrs.get('dir')}")
             if not 10 <= len(p.title) <= 70:
@@ -116,6 +116,8 @@ def main():
             if hl != "x-default" and back.get(lang if rel != "/" else "he", None) is None:
                 errors.append(f"{where}: {target} does not link back")
         for href in p.hrefs:
+            if href.startswith(("/login", "/apply")):          # the application, same host
+                continue
             if href.startswith("/") and not href.startswith("//"):
                 path, _, frag = href.partition("#")
                 path = path.split("?")[0]
@@ -140,13 +142,13 @@ def main():
             n = len(HEB.findall(re.sub(r"<[^>]+>", " ", body)))
             if n:
                 warnings.append(f"{where}: {n} Hebrew characters outside lang=he")
-        size = (DIST / rel.lstrip("/") / "index.html").stat().st_size if rel != "/" else (DIST / "index.html").stat().st_size
+        size = (DIST / rel.lstrip("/") / "index.html").stat().st_size
         if size > 120_000:
             warnings.append(f"{where}: HTML {size // 1024} KB")
     for u in sitemap:
         if u.replace(base, "") not in pages:
             errors.append(f"sitemap: {u} has no page")
-    assets = sum(f.stat().st_size for f in (DIST / "assets").rglob("*") if f.is_file() and f.suffix in (".css", ".js"))
+    assets = sum(f.stat().st_size for f in (DIST / "site").rglob("*") if f.is_file() and f.suffix in (".css", ".js"))
     print(f"{len(pages)} HTML files · {len(sitemap)} sitemap URLs · CSS+JS {assets // 1024} KB")
     for w in warnings:
         print("WARN ", w)

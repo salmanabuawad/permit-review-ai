@@ -1,12 +1,12 @@
 # Permit360 website — test results (27.11.2026)
 
-Build: `python website/build.py` → 42 HTML pages (4 home pages, 36 guide pages, root language chooser, 404).
+Build: `python website/build.py` → 41 HTML pages (4 home pages, 36 guide pages, 404). Live at https://permit360.kortexd.com/he/ since 27.11.2026.
 All tests below were run on that build, served locally by `website/serve.py` (static files + `/api/public/*`
 forwarded to the live application).
 
 ## Automated static checks — `python website/tests/check_site.py` → **OK, 0 errors, 0 warnings**
 
-- 42 HTML files, 41 sitemap URLs, every page in the sitemap and every sitemap URL has a page.
+- 41 HTML files, 40 sitemap URLs, every page in the sitemap and every sitemap URL has a page.
 - `lang` / `dir` correct on every page (he, ar → rtl; en, ru → ltr).
 - Title 10–70 characters and meta description 70–170 characters on every page (content limits: ≤ 60 / 120–155).
 - Exactly one `<h1>` per page; no skipped heading levels.
@@ -42,7 +42,7 @@ forwarded to the live application).
   texts flagged by the script are false positives (the script read the translucent glow, not the navy behind it).
 - **Not run:** axe-core / Lighthouse. Loading axe-core from a CDN into the page was blocked by the session's
   safety policy, and this machine has no Node/Chrome toolchain for Lighthouse. Run both before launch
-  (`npx lighthouse https://permit.kortexd.com/he/ --view`, axe DevTools).
+  (`npx lighthouse https://permit360.kortexd.com/he/ --view`, axe DevTools).
 
 ## Performance (gzip sizes)
 
@@ -63,10 +63,15 @@ with `font-display: swap` and the main font preloaded, script deferred.
 per-address rate limit (429), no internal IDs in the response; demo request needs consent, honeypot silently
 drops bots, e-mail sent, per-address limit.
 
-## Deployment configuration
+## Deployment (27.11.2026)
 
-`website/deploy/nginx-permit.kortexd.com.conf` passes `nginx -t` (checked on the server against a throwaway test
-config; the live configuration was not touched). Not installed.
+`website/deploy/nginx-permit360.kortexd.com.conf` installed (identical application part, website paths added),
+`nginx -t` passed. Checked live: all four home pages and guide pages 200, unknown guide page 404 (website 404 page),
+`/site/*`, sitemap, robots, llms.txt 200; `/` signed out → 302 to `/he/` (or `/ru/` etc. by Accept-Language),
+signed in → application; `/login`, `/apply`, `/api/health` unchanged; Search Console verification file still
+served; website pages on permit.kortexd.com → 301 to permit360.kortexd.com; the AI relay keeps polling
+(`POST /llm-relay/agent/next` 204); live lookup returns Hof Ashkelon for 2832/27; no console errors under the
+Content-Security-Policy.
 
 ## kortexd.com
 

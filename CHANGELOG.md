@@ -1,12 +1,15 @@
 # Changelog
 
-## 2026-11-27 — Public product website (permit.kortexd.com), prepared — not deployed
+## 2026-11-27 — Public product website on permit360.kortexd.com (live)
 
 - `website/`: static four-language site (he / ar / en / ru), home + nine guide pages per language, original copy
   per language from a verified fact sheet; navy / teal design with original cadastral and architectural SVG
   illustrations, interactive Pro / Authority demo (labelled as an illustration), live committee lookup, demo
   request form; canonical + reciprocal hreflang, sitemap, robots, llms.txt, JSON-LD, per-language share images;
-  static checks, test results, SEO strategy, nginx site and release script (not installed).
+  static checks, test results, SEO strategy, nginx site and release script. Same host as the application:
+  website under /he/ /ar/ /en/ /ru/ and /site/; signed-out visitors of / go to the website in their language; the
+  application's own landing page, about.html, sitemap, robots and llms.txt are replaced by the website's, and the
+  application pages are noindex.
 - Application: public endpoints for the website — `GET /api/public/committee` (block / parcel → responsible
   committee from official boundaries, rate-limited, no internal IDs) and `POST /api/public/demo-request`
   (consent, honeypot, rate limits; e-mailed, not stored).

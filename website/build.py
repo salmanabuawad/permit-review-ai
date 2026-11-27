@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
-"""Build the Permit360 public website (permit.kortexd.com) into website/dist.
+"""Build the Permit360 public website (permit360.kortexd.com, next to the application) into website/dist.
 
-    python website/build.py [--base https://permit.kortexd.com] [--api ""] [--app https://permit360.kortexd.com]
+    python website/build.py [--base https://permit360.kortexd.com] [--api ""] [--app ""]
+
+The website shares its host with the application: pages under /he/ /ar/ /en/ /ru/, its files under /site/
+(the application owns /site/ and every other path).
 
 Four localized versions (/he/, /ar/, /en/, /ru/), each with a home page and nine guide pages, built from
 content/<lang>.json (original copy per language, facts from content/FACTS.md). Static HTML, one stylesheet, one
@@ -187,8 +190,8 @@ def url(cfg, lang: str, slug: str | None = None) -> str:
 
 def head(cfg, lang: str, c: dict, title: str, desc: str, slug: str | None, extra_ld: list) -> str:
     alts = "\n".join(f'<link rel="alternate" hreflang="{l}" href="{url(cfg, l, slug)}">' for l in LANGS)
-    alts += f'\n<link rel="alternate" hreflang="x-default" href="{cfg.base}/{("" if not slug else "he/" + slug + "/")}">'
-    og = f"{cfg.base}/assets/og/og-{lang}.png"
+    alts += f'\n<link rel="alternate" hreflang="x-default" href="{url(cfg, "he", slug)}">'
+    og = f"{cfg.base}/site/og/og-{lang}.png"
     locales = "".join(f'<meta property="og:locale:alternate" content="{json.load(open(HERE / "content" / f"{l}.json"))["meta"]["og_locale"]}">'
                       for l in LANGS if l != lang)
     return f"""<!doctype html>
@@ -211,10 +214,10 @@ def head(cfg, lang: str, c: dict, title: str, desc: str, slug: str | None, extra
 <meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">
 <meta property="og:locale" content="{c['meta']['og_locale']}">{locales}
 <meta name="twitter:card" content="summary_large_image">
-<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
-<link rel="preload" href="/assets/fonts/{'heebo-hebrew' if lang == 'he' else 'noto-sans-arabic-400' if lang == 'ar' else 'inter-cyrillic' if lang == 'ru' else 'inter-latin'}{'-wght-normal.woff2' if lang != 'ar' else '.woff'}" as="font" type="font/{'woff' if lang == 'ar' else 'woff2'}" crossorigin>
-<link rel="stylesheet" href="/assets/site.css?v={cfg.version}">
-<script src="/assets/site.js?v={cfg.version}" defer></script>
+<link rel="icon" href="/site/favicon.svg" type="image/svg+xml">
+<link rel="preload" href="/site/fonts/{'heebo-hebrew' if lang == 'he' else 'noto-sans-arabic-400' if lang == 'ar' else 'inter-cyrillic' if lang == 'ru' else 'inter-latin'}{'-wght-normal.woff2' if lang != 'ar' else '.woff'}" as="font" type="font/{'woff' if lang == 'ar' else 'woff2'}" crossorigin>
+<link rel="stylesheet" href="/site/site.css?v={cfg.version}">
+<script src="/site/site.js?v={cfg.version}" defer></script>
 {''.join(jsonld(x) for x in extra_ld)}
 </head>"""
 
@@ -531,7 +534,7 @@ def root(cfg, contents) -> str:
 <link rel="canonical" href="{cfg.base}/">
 {alts}
 <link rel="alternate" hreflang="x-default" href="{cfg.base}/">
-<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="/assets/site.css?v={cfg.version}">
+<link rel="icon" href="/site/favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="/site/site.css?v={cfg.version}">
 </head>
 <body>
 <main id="main" class="section"><div class="wrap" style="max-width:980px">
@@ -545,7 +548,7 @@ def root(cfg, contents) -> str:
 def not_found(cfg, contents) -> str:
     links = " · ".join(f'<a href="/{l}/" lang="{l}">{e(LANG_NAME[l])}</a>' for l in LANGS)
     return f"""<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>404 — Permit360</title><meta name="robots" content="noindex"><link rel="stylesheet" href="/assets/site.css?v={cfg.version}"></head>
+<title>404 — Permit360</title><meta name="robots" content="noindex"><link rel="stylesheet" href="/site/site.css?v={cfg.version}"></head>
 <body><main class="section"><div class="wrap" style="text-align:center"><h1>404</h1><p>הדף לא נמצא · Page not found · الصفحة غير موجودة · Страница не найдена</p><p>{links}</p></div></main></body></html>"""
 
 
@@ -554,9 +557,8 @@ def sitemap(cfg) -> str:
     for slug in [None, *SLUGS]:
         for l in LANGS:
             alts = "".join(f'<xhtml:link rel="alternate" hreflang="{x}" href="{url(cfg, x, slug)}"/>' for x in LANGS)
-            alts += f'<xhtml:link rel="alternate" hreflang="x-default" href="{cfg.base}/{("" if not slug else "he/" + slug + "/")}"/>'
+            alts += f'<xhtml:link rel="alternate" hreflang="x-default" href="{url(cfg, "he", slug)}"/>'
             rows.append(f"<url><loc>{url(cfg, l, slug)}</loc><lastmod>{cfg.today}</lastmod>{alts}</url>")
-    rows.append(f"<url><loc>{cfg.base}/</loc><lastmod>{cfg.today}</lastmod></url>")
     return ('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" '
             'xmlns:xhtml="http://www.w3.org/1999/xhtml">\n' + "\n".join(rows) + "\n</urlset>\n")
 
@@ -606,7 +608,7 @@ def og_images(cfg, out: Path, contents):
     fonts["he"], reg["he"] = str(tmp / "he-b.ttf"), str(tmp / "he-r.ttf")
     latin = ImageFont.truetype("/usr/share/fonts/truetype/noto/NotoSans-Bold.ttf", 46)
     small = ImageFont.truetype("/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf", 24)
-    (out / "assets" / "og").mkdir(parents=True, exist_ok=True)
+    (out / "site" / "og").mkdir(parents=True, exist_ok=True)
     for l in LANGS:
         c = contents[l]
         im = Image.new("RGB", (1200, 630), "#071a2b")
@@ -645,8 +647,8 @@ def og_images(cfg, out: Path, contents):
         for ln in lines[:4]:
             d.text((x, y), ln, font=fb, fill="#ffffff", anchor="la" if not rtl else "ra", direction="rtl" if rtl else None)
             y += step
-        d.text((x, y + 26), "permit.kortexd.com", font=small, fill="#5fd6c8", anchor="la" if not rtl else "ra")
-        im.save(out / "assets" / "og" / f"og-{l}.png", optimize=True)
+        d.text((x, y + 26), "permit360.kortexd.com", font=small, fill="#5fd6c8", anchor="la" if not rtl else "ra")
+        im.save(out / "site" / "og" / f"og-{l}.png", optimize=True)
 
 
 FAVICON = ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 36"><rect width="36" height="36" rx="9" fill="#0f8a85"/>'
@@ -656,9 +658,9 @@ FAVICON = ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 36"><rect wi
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--base", default="https://permit.kortexd.com")
+    ap.add_argument("--base", default="https://permit360.kortexd.com")
     ap.add_argument("--api", default="", help="API origin for the lookup and the form ('' = same origin)")
-    ap.add_argument("--app", default="https://permit360.kortexd.com")
+    ap.add_argument("--app", default="", help="application origin for sign-in links ('' = same host)")
     ap.add_argument("--out", default=str(HERE / "dist"))
     cfg = ap.parse_args()
     cfg.base = cfg.base.rstrip("/")
@@ -667,7 +669,7 @@ def main():
     out = Path(cfg.out)
     if out.exists():
         shutil.rmtree(out)
-    (out / "assets").mkdir(parents=True)
+    (out / "site").mkdir(parents=True)
     contents = {l: json.load(open(HERE / "content" / f"{l}.json", encoding="utf-8")) for l in LANGS}
     for l in LANGS:
         (out / l).mkdir()
@@ -675,15 +677,17 @@ def main():
         for s in SLUGS:
             (out / l / s).mkdir()
             (out / l / s / "index.html").write_text(page(cfg, l, contents[l], s), encoding="utf-8")
-    (out / "index.html").write_text(root(cfg, contents), encoding="utf-8")
-    (out / "404.html").write_text(not_found(cfg, contents), encoding="utf-8")
+    (out / "site" / "404.html").write_text(not_found(cfg, contents), encoding="utf-8")
     (out / "sitemap.xml").write_text(sitemap(cfg), encoding="utf-8")
-    (out / "robots.txt").write_text(f"User-agent: *\nAllow: /\nDisallow: /api/\n\nSitemap: {cfg.base}/sitemap.xml\n", encoding="utf-8")
+    app_paths = ["/api/", "/llm-relay/", "/login", "/apply", "/cases", "/projects", "/architect", "/rules", "/sources", "/committees",
+                 "/knowledge", "/users", "/audit", "/tasks", "/authorities", "/learning", "/ai", "/integrations"]
+    (out / "robots.txt").write_text("User-agent: *\nAllow: /\n" + "".join(f"Disallow: {p}\n" for p in app_paths)
+                                    + f"\nSitemap: {cfg.base}/sitemap.xml\n", encoding="utf-8")
     (out / "llms.txt").write_text(llms(cfg, contents), encoding="utf-8")
-    shutil.copy(HERE / "assets" / "site.css", out / "assets" / "site.css")
-    shutil.copy(HERE / "assets" / "site.js", out / "assets" / "site.js")
-    shutil.copytree(HERE / "assets" / "fonts", out / "assets" / "fonts")
-    (out / "assets" / "favicon.svg").write_text(FAVICON, encoding="utf-8")
+    (out / "site" / "site.css").write_text((HERE / "assets" / "site.css").read_text(encoding="utf-8").replace("/assets/fonts/", "/site/fonts/"), encoding="utf-8")
+    shutil.copy(HERE / "assets" / "site.js", out / "site" / "site.js")
+    shutil.copytree(HERE / "assets" / "fonts", out / "site" / "fonts")
+    (out / "site" / "favicon.svg").write_text(FAVICON, encoding="utf-8")
     og_images(cfg, out, contents)
     n = sum(1 for _ in out.rglob("*.html"))
     print(f"built {n} pages into {out}")

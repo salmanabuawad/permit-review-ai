@@ -6,7 +6,8 @@ as planned, never as available.
 
 ## Brand
 - Product: **Permit360 by Kortex Digital** (company: Kortex Digital Ltd, https://kortexd.com).
-- Public website: https://permit.kortexd.com · Application (sign-in): https://permit360.kortexd.com
+- Website and application share one address: https://permit360.kortexd.com — website pages under /he/ /ar/ /en/ /ru/,
+  application sign-in at /login.
 - Two editions: **Permit360 Pro** (engineers, architects, practical engineers, property owners / permit applicants)
   and **Permit360 Authority** (local and regional planning and building committees).
 - Market: Israel. Interface languages: Hebrew, English, Arabic, Russian.

@@ -1,8 +1,8 @@
-# Permit360 by Kortex Digital — public website (permit.kortexd.com)
+# Permit360 by Kortex Digital — public website (permit360.kortexd.com)
 
 Static, four-language product website: Hebrew `/he/`, Arabic `/ar/`, English `/en/`, Russian `/ru/` — a home
-page and nine guide pages per language. The authenticated application stays separate at
-https://permit360.kortexd.com.
+page and nine guide pages per language — on the same host as the application, https://permit360.kortexd.com
+(website files under `/site/`; the application keeps `/login`, `/assets/` and its own routes).
 
 ```
 website/
@@ -39,4 +39,4 @@ Change `content/<lang>.json` (structure in `content/SCHEMA.md`). Every product c
 
 ## Deployment
 
-See `deploy/README.md`. Nothing has been deployed; DNS is unchanged.
+Live since 27.11.2026 — see `deploy/README.md`.
