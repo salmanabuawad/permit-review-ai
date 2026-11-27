@@ -69,7 +69,7 @@ def test_controlled_delete(client):
         path = Path(s.get(CaseFile, f["id"]).storage_path)
     assert path.exists()
     body = {"state": "DELETED", "note": "הועלה בטעות"}
-    assert client.post(f"/api/files/{f['id']}/lifecycle", headers=H("u-reviewer"), json=body).status_code == 403
+    assert client.post(f"/api/files/{f['id']}/lifecycle", headers=H("u-planner"), json=body).status_code == 403
     assert client.post(f"/api/files/{f['id']}/lifecycle", headers=H("u-manager"), json={**body, "note": ""}).status_code == 422
     assert client.post(f"/api/files/{f['id']}/lifecycle", headers=H("u-manager"), json=body).status_code == 200
     assert not path.exists()                                            # bytes purged

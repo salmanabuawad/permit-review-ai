@@ -25,7 +25,7 @@ from sqlalchemy.orm import Session
 
 from . import audit
 from .models import AuthorityMembership, LoginAccount, User
-from .security import ROLES
+from .security import ROLES, role_of
 
 USERNAME = re.compile(r"[a-z0-9][a-z0-9._-]{2,63}")
 MIN_PASSWORD = 10
@@ -136,7 +136,8 @@ def _row(s: Session, u: User, membership: AuthorityMembership | None) -> dict:
     acct = s.scalars(select(LoginAccount).where(LoginAccount.user_id == login_user)).first()
     home = s.get(User, login_user) if membership else u
     legacy = acct is None and username_of(s, login_user) is not None
-    return {"id": u.id, "display_name": u.display_name, "role": u.role, "role_he": ROLES.get(u.role, {}).get("label_he", u.role),
+    r = role_of(u.role)
+    return {"id": u.id, "display_name": u.display_name, "role": r, "role_he": ROLES.get(r, {}).get("label_he", r),
             "kind": "member" if membership else "home",
             "home_authority": home.tenant_id if home else None,
             "username": acct.username if acct else username_of(s, login_user),

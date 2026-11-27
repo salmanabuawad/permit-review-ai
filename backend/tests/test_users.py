@@ -89,7 +89,8 @@ def test_safeguards_and_isolation(env):
     assert admin.post("/api/users/u-ha-admin/active", json={"active": False}).status_code == 422
     assert admin.patch("/api/users/u-admin", json={"role": "reviewer"}).status_code == 404   # other authority (demo)
     u = new_user(admin, "second.admin", "sysadmin")
-    assert admin.patch(f"/api/users/{u['id']}", json={"role": "dept_manager"}).status_code == 200
+    assert admin.patch(f"/api/users/{u['id']}", json={"role": "reviewer"}).status_code == 200
+    assert admin.patch(f"/api/users/{u['id']}", json={"role": "dept_manager"}).status_code == 422     # former role, no more
     eng = admin.patch("/api/users/u-ha-engineer", json={"display_name": "מהנדס הוועדה"}).json()
     assert eng["display_name"] == "מהנדס הוועדה" and eng["login"] == "none"
     # a user with no login gets one through a reset with a username
@@ -125,9 +126,9 @@ def test_member_from_other_authority(env):
     assert all(u["id"] != actor for u in admin.get("/api/users/manage").json()["users"])
     with SessionLocal() as s:     # the actor record stays for the audit trail
         assert s.get(User, actor) and not s.get(AuthorityMembership, ("u-bb-admin", "hof-ashkelon")).active
-    r = admin.post("/api/users/members", json={"username": "bb.admin", "role": "dept_manager"})   # re-added
-    assert r.status_code == 201 and r.json()["id"] == actor and r.json()["role"] == "dept_manager"
-    assert bb.get("/api/me", headers={"X-Authority": "hof-ashkelon"}).json()["role"] == "dept_manager"
+    r = admin.post("/api/users/members", json={"username": "bb.admin", "role": "sysadmin"})   # re-added
+    assert r.status_code == 201 and r.json()["id"] == actor and r.json()["role"] == "sysadmin"
+    assert bb.get("/api/me", headers={"X-Authority": "hof-ashkelon"}).json()["role"] == "sysadmin"
 
 
 def test_legacy_admin_moves_to_database(env):

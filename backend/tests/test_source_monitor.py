@@ -103,7 +103,7 @@ def docs_by_url(c):
 
 def test_crawl_permissions(env):
     c, _ = env
-    assert c.post("/api/source-monitor/crawl?wait=true", headers={"X-User": "u-reviewer"}).status_code == 403
+    assert c.post("/api/source-monitor/crawl?wait=true", headers={"X-User": "u-planner"}).status_code == 403
 
 
 def test_first_crawl_fetches_versions_and_drafts(env):

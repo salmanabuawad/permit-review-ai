@@ -46,7 +46,7 @@ def test_tenant_isolation(client):
 def test_rbac(client):
     case = demo_case(client, "DEMO-0001")
     assert client.post(f"/api/cases/{case['id']}/run", headers=H("u-planner")).status_code == 403
-    assert client.get("/api/audit", headers=H("u-reviewer")).status_code == 403
+    assert client.get("/api/audit", headers=H("u-planner")).status_code == 403
 
 
 def test_full_flow_upload_run_report_pdf(client):
@@ -86,7 +86,7 @@ def test_rule_approval_makes_rule_binding(client):
     rep = client.get(f"/api/runs/{run['run_id']}/report/reviewer", headers=H("u-reviewer")).json()
     f = next(x for x in rep["findings"] if x["rule_id"] == "BB-POL26-RR-SETBACK")
     assert (f["computed_result"], f["status"]) == ("FAIL", "UNCERTAIN")
-    assert client.post("/api/rules/BB-POL26-RR-SETBACK/approval", headers=H("u-reviewer"),
+    assert client.post("/api/rules/BB-POL26-RR-SETBACK/approval", headers=H("u-planner"),
                        json={"note": "x" * 10}).status_code == 403
     assert client.post("/api/rules/BB-B105-MAX-HEIGHT/approval", headers=H("u-engineer"),
                        json={"note": "אישור ללא מקור"}).status_code == 409

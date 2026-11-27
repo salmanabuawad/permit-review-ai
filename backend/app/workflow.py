@@ -4,7 +4,7 @@
   dependencies are ready together (parallel); a step becomes ready when all its dependencies are done or skipped.
 * A `decision` step (e.g. the committee decision, permit issuance) is a legally required act: only its role or a
   system administrator completes it, with a note — never the system.
-* SLA: the due date is counted from when the step became ready. Overdue tasks escalate to the department manager when
+* SLA: the due date is counted from when the step became ready. Overdue tasks escalate to the committee administrator when
   they pass twice their SLA. No fabricated progress: status is what people recorded.
 """
 from __future__ import annotations
@@ -16,17 +16,18 @@ from sqlalchemy.orm import Session
 
 from . import audit
 from .models import PermitCase, WorkflowTask, WorkflowTemplate
+from .security import role_of
 
 DEFAULT_STEPS = [
-    {"key": "intake", "name_he": "קליטת הבקשה", "role": "secretariat", "sla_days": 3, "depends_on": []},
+    {"key": "intake", "name_he": "קליטת הבקשה", "role": "reviewer", "sla_days": 3, "depends_on": []},
     {"key": "completeness", "name_he": "בדיקת שלמות מסמכים", "role": "reviewer", "sla_days": 7, "depends_on": ["intake"]},
     {"key": "engineering", "name_he": "בדיקה הנדסית", "role": "reviewer", "sla_days": 14, "depends_on": ["completeness"]},
     {"key": "regulatory", "name_he": "בדיקה תכנונית / רגולטורית", "role": "reviewer", "sla_days": 14, "depends_on": ["completeness"]},
-    {"key": "external", "name_he": "אישורי גורמי חוץ", "role": "secretariat", "sla_days": 30, "depends_on": ["completeness"]},
-    {"key": "committee", "name_he": "החלטת ועדה / רשות רישוי", "role": "city_engineer", "sla_days": 30,
+    {"key": "external", "name_he": "אישורי גורמי חוץ", "role": "reviewer", "sla_days": 30, "depends_on": ["completeness"]},
+    {"key": "committee", "name_he": "החלטת ועדה / רשות רישוי", "role": "reviewer", "sla_days": 30,
      "depends_on": ["engineering", "regulatory", "external"], "decision": True},
-    {"key": "conditions", "name_he": "מילוי תנאים להיתר", "role": "secretariat", "sla_days": 45, "depends_on": ["committee"]},
-    {"key": "permit", "name_he": "הפקת היתר", "role": "city_engineer", "sla_days": 7, "depends_on": ["conditions"], "decision": True},
+    {"key": "conditions", "name_he": "מילוי תנאים להיתר", "role": "reviewer", "sla_days": 45, "depends_on": ["committee"]},
+    {"key": "permit", "name_he": "הפקת היתר", "role": "reviewer", "sla_days": 7, "depends_on": ["conditions"], "decision": True},
 ]
 STATUS_HE = {"waiting": "ממתין לשלבים קודמים", "ready": "מוכן לביצוע", "in_progress": "בטיפול", "done": "הושלם", "skipped": "דולג"}
 
@@ -116,7 +117,7 @@ def act(s: Session, task: WorkflowTask, user: str, role: str, action: str, note:
     elif action in ("done", "skip"):
         if task.status not in ("ready", "in_progress"):
             raise ValueError("השלב אינו פתוח")
-        if task.decision and role not in (task.role, "sysadmin"):
+        if task.decision and role_of(role) not in (role_of(task.role), "sysadmin"):
             raise PermissionError("החלטה זו מחייבת בעל תפקיד מוסמך")
         if (task.decision or action == "skip") and len(note.strip()) < 3:
             raise ValueError("נדרש נימוק")
@@ -135,11 +136,11 @@ def task_dict(t: WorkflowTask, at: dt.datetime | None = None) -> dict:
     at = at or now()
     overdue = bool(t.due_at and t.status in ("ready", "in_progress") and at > t.due_at)
     escalated = bool(overdue and t.sla_days and at > (t.ready_at + dt.timedelta(days=2 * t.sla_days)))
-    return {"id": t.id, "case_id": t.case_id, "step": t.step_key, "name_he": t.name_he, "role": t.role, "status": t.status,
+    return {"id": t.id, "case_id": t.case_id, "step": t.step_key, "name_he": t.name_he, "role": role_of(t.role), "status": t.status,
             "status_he": STATUS_HE[t.status], "decision": t.decision, "depends_on": t.depends_on, "assignee": t.assignee,
             "sla_days": t.sla_days, "ready_at": t.ready_at and t.ready_at.isoformat(), "started_at": t.started_at and t.started_at.isoformat(),
             "due_at": t.due_at and t.due_at.isoformat(), "done_at": t.done_at and t.done_at.isoformat(), "done_by": t.done_by,
-            "note": t.note, "overdue": overdue, "escalated_to": "dept_manager" if escalated else None}
+            "note": t.note, "overdue": overdue, "escalated_to": "sysadmin" if escalated else None}
 
 
 def bottlenecks(s: Session, tenant: str) -> list[dict]:

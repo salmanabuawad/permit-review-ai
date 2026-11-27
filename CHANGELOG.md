@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-11-27 — Committee roles: administrator and reviewer only
+
+- A committee now has two roles: its administrator (מנהל/ת ועדה) and reviewers (בודק/ת). Reviewers do all the
+  professional work the former roles did between them — cases, runs, findings, locking, rules (authoring and approval),
+  committee sources, inspections, file deletion, assignment, audit and the management dashboard. Users, AI settings,
+  crawl schedules and loading decided cases stay with the administrator. End users remain in the Pro workspace.
+- Migration 0027 moves existing users: engineer, licensing manager, secretariat, inspector and external party →
+  reviewer; the committee's application editors → end user (the same permissions they had). Workflow steps and stored
+  templates addressed to former roles go to reviewers; overdue tasks escalate to the administrator. A row or task with
+  a former role name is still read as its successor.
+- Four eyes kept without role separation: a correction (override) is accepted into the regression cases by a different
+  reviewer or the administrator, never by the reviewer who raised it.
+
 ## 2026-11-27 — End-user self sign-up, outgoing mail, permit360.kortexd.com
 
 - Self sign-up for engineers and architects (migration 0026, `app/signup.py`): the login page's form creates an inactive

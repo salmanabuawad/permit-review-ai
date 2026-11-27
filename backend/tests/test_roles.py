@@ -61,3 +61,13 @@ def test_end_users_live_in_the_workspace(env):
     listed = env.get("/api/cases", headers=eng).json()
     rows = listed if isinstance(listed, list) else listed.get("cases", listed.get("items", []))
     assert rows == []                                                       # the workspace holds no applications
+
+
+def test_committee_has_two_roles_and_legacy_rows_still_work():
+    from app.security import LEGACY_ROLES, PERMISSIONS, ROLES, role_of, roles_for
+    assert set(roles_for("hof-ashkelon")) == {"sysadmin", "reviewer"}
+    assert set(roles_for("pro")) == {"sysadmin", "end_user"}
+    assert all(role_of(r) in ROLES for r in LEGACY_ROLES)
+    admin_only = {k for k, v in PERMISSIONS.items() if v == {"sysadmin"}}
+    assert admin_only == {"ai.configure", "source.schedule", "learning.manage", "user.manage"}
+    assert all("reviewer" in v for k, v in PERMISSIONS.items() if k not in admin_only and k != "design.create")

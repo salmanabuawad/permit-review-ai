@@ -21,12 +21,12 @@ FIX = ROOT / "fixtures" / "demo"
 
 USERS = [
     ("u-admin", "demo", "מנהל מערכת (הדגמה)", "sysadmin"),
-    ("u-engineer", "demo", "מהנדס העיר (הדגמה)", "city_engineer"),
-    ("u-manager", "demo", "מנהלת אגף רישוי (הדגמה)", "dept_manager"),
+    ("u-engineer", "demo", "מהנדס העיר (הדגמה)", "reviewer"),
+    ("u-manager", "demo", "מנהלת אגף רישוי (הדגמה)", "reviewer"),
     ("u-reviewer", "demo", "בודק תכניות א׳ (הדגמה)", "reviewer"),
     ("u-reviewer2", "demo", "בודקת תכניות ב׳ (הדגמה)", "reviewer"),
-    ("u-planner", "demo", "עורך בקשה (הדגמה)", "planner"),
-    ("u-secretary", "demo", "מזכירות (הדגמה)", "secretariat"),
+    ("u-planner", "demo", "עורך בקשה (הדגמה)", "end_user"),
+    ("u-secretary", "demo", "מזכירות (הדגמה)", "reviewer"),
     ("u-bb-admin", "bnei-brak", "מנהל מערכת — בני ברק", "sysadmin"),
 ]
 
@@ -66,23 +66,23 @@ CASES = [
 
 PILOT_USERS = [
     ("u-admin", "מנהל מערכת", "sysadmin"),
-    ("u-engineer", "מהנדס העיר", "city_engineer"),
-    ("u-manager", "מנהל/ת אגף רישוי", "dept_manager"),
+    ("u-engineer", "מהנדס העיר", "reviewer"),
+    ("u-manager", "מנהל/ת אגף רישוי", "reviewer"),
     ("u-reviewer", "בודק/ת תכניות א׳", "reviewer"),
     ("u-reviewer2", "בודק/ת תכניות ב׳", "reviewer"),
-    ("u-planner", "עורך/ת בקשה", "planner"),
-    ("u-secretary", "מזכירות", "secretariat"),
+    ("u-planner", "עורך/ת בקשה", "end_user"),
+    ("u-secretary", "מזכירות", "reviewer"),
 ]
 
 
 HOF_ASHKELON = ("hof-ashkelon", "הוועדה המקומית לתכנון ובנייה חוף אשקלון")
 HOF_ASHKELON_USERS = [
     ("u-ha-admin", "מנהל מערכת — חוף אשקלון", "sysadmin"),
-    ("u-ha-engineer", "מהנדס הוועדה — חוף אשקלון", "city_engineer"),
-    ("u-ha-manager", "מנהל/ת רישוי — חוף אשקלון", "dept_manager"),
+    ("u-ha-engineer", "מהנדס הוועדה — חוף אשקלון", "reviewer"),
+    ("u-ha-manager", "מנהל/ת רישוי — חוף אשקלון", "reviewer"),
     ("u-ha-reviewer", "בודק/ת תכניות — חוף אשקלון", "reviewer"),
-    ("u-ha-planner", "עורך/ת בקשה — חוף אשקלון", "planner"),
-    ("u-ha-secretary", "מזכירות — חוף אשקלון", "secretariat"),
+    ("u-ha-planner", "עורך/ת בקשה — חוף אשקלון", "end_user"),
+    ("u-ha-secretary", "מזכירות — חוף אשקלון", "reviewer"),
 ]
 
 

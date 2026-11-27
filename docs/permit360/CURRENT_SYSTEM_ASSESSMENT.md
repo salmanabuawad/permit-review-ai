@@ -53,7 +53,7 @@ per-authority colour, authority onboarding (official-directory discovery; gov.il
 register of all 131 planning committees with site probe (vendor, request-search system, candidate sources).
 
 **Users and security — IMPLEMENTED.** App login (scrypt accounts in DB + legacy htpasswd), user management per
-authority, 7 roles × permission map, signed sessions with revocation, throttling, hash-chained audit log per authority,
+authority, two committee roles (administrator, reviewer) plus end users in the Pro workspace × permission map, signed sessions with revocation, throttling, hash-chained audit log per authority,
 signed review attestations, crawler isolation.
 
 **Learning — PARTIAL.** Committee decisions loaded per case → compared by topic (confirmed / missed / not raised) →

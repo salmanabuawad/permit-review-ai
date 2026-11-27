@@ -665,6 +665,8 @@ def feedback_decide(feedback_id: str, body: FeedbackDecisionIn, p: Principal = D
         raise HTTPException(404)
     if len(body.note.strip()) < 3:
         raise HTTPException(422, "נדרש נימוק")
+    if body.action == "accept" and rec.created_by == p.id and p.role != "sysadmin":
+        raise HTTPException(403, "תיקון מתקבל לבדיקות הרגרסיה על ידי בודק/ת אחר/ת או מנהל/ת הוועדה")      # four eyes
     try:
         FB.decide(s, rec, p.id, body.action, body.note.strip())
     except ValueError as e:

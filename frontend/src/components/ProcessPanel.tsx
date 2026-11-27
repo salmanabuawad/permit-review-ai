@@ -18,7 +18,7 @@ export default function ProcessPanel({ c }: { c: Case }) {
   if (!tasks) return <div className="empty">טוען…</div>
   if (!tasks.length) return <div className="empty">לתיק אין עדיין תהליך רישוי.
     {can('case.assign') && <> <button className="primary" onClick={() => api.post(`/api/cases/${c.id}/tasks/start`).then(load).catch(e => toast(e.message, true))}>פתיחת תהליך</button></>}</div>
-  const mine = (t: any) => [t.role, 'sysadmin', 'dept_manager'].includes(me?.role ?? '')
+  const mine = (t: any) => [t.role, 'sysadmin'].includes(me?.role ?? '')
   return <div style={{ overflowX: 'auto' }}><table className="small"><thead><tr><th>שלב</th><th>תפקיד</th><th>מצב</th><th>מוכן מ־</th><th>יעד</th><th>הושלם</th><th></th></tr></thead><tbody>
     {tasks.map(t => <tr key={t.id} className={t.status === 'waiting' ? 'muted' : ''}><td><b>{t.name_he}</b>{t.decision && <span className="chip outline" style={{ marginInlineStart: 4 }}>החלטה מחויבת בדין</span>}
       {t.depends_on.length > 0 && <div className="muted">אחרי: {t.depends_on.map((d: string) => tasks.find(x => x.step === d)?.name_he ?? d).join(', ')}</div>}</td>

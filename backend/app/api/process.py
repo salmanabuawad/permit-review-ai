@@ -3,6 +3,8 @@ from fastapi import APIRouter
 
 from .common import *  # noqa: F401,F403 — shared imports, schemas and helpers
 
+from ..security import role_of
+
 router = APIRouter()
 
 
@@ -71,7 +73,7 @@ def my_tasks(scope: str = "mine", p: Principal = Depends(require("case.read")), 
     out = []
     for t, c in s.execute(q.order_by(WorkflowTask.due_at)):
         d = W.task_dict(t)
-        if scope == "mine" and not (t.assignee == p.id or (t.assignee is None and t.role == p.role)):
+        if scope == "mine" and not (t.assignee == p.id or (t.assignee is None and role_of(t.role) == p.role)):
             continue
         if scope == "overdue" and not d["overdue"]:
             continue

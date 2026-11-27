@@ -27,27 +27,29 @@ def _case(client):
 
 
 def test_dependencies_roles_and_decisions(client):
+    """Two committee roles: reviewers do every step; a decision step needs a reasoned note; end users cannot act."""
     case = _case(client)
-    assert client.post(f"/api/cases/{case['id']}/tasks/start", headers=H("u-reviewer")).status_code == 403
+    assert client.post(f"/api/cases/{case['id']}/tasks/start", headers=H("u-planner")).status_code == 403
     tasks = client.post(f"/api/cases/{case['id']}/tasks/start", headers=H("u-manager")).json()
     assert [t["status"] for t in tasks if t["step"] == "intake"] == ["ready"]
     assert all(t["status"] == "waiting" for t in tasks if t["step"] != "intake")
+    assert all(t["role"] == "reviewer" for t in tasks)
     assert client.post(f"/api/cases/{case['id']}/tasks/start", headers=H("u-manager")).status_code == 409
     by = {t["step"]: t for t in tasks}
     assert client.post(f"/api/tasks/{by['completeness']['id']}", headers=H("u-reviewer"), json={"action": "start"}).status_code == 422
-    assert client.post(f"/api/tasks/{by['intake']['id']}", headers=H("u-reviewer"), json={"action": "start"}).status_code == 403
+    assert client.post(f"/api/tasks/{by['intake']['id']}", headers=H("u-planner"), json={"action": "start"}).status_code == 403
     assert client.post(f"/api/tasks/{by['intake']['id']}", headers=H("u-secretary"), json={"action": "done"}).status_code == 200
     assert client.post(f"/api/tasks/{by['completeness']['id']}", headers=H("u-reviewer"), json={"action": "done"}).status_code == 200
     now = {t["step"]: t["status"] for t in client.get(f"/api/cases/{case['id']}/tasks", headers=H("u-reviewer")).json()}
     assert now["engineering"] == now["regulatory"] == now["external"] == "ready" and now["committee"] == "waiting"   # parallel
     assert client.post(f"/api/tasks/{by['engineering']['id']}", headers=H("u-reviewer"), json={"action": "start"}).status_code == 200
-    for step, user in (("engineering", "u-reviewer"), ("regulatory", "u-reviewer"), ("external", "u-secretary")):
+    for step, user in (("engineering", "u-reviewer"), ("regulatory", "u-reviewer2"), ("external", "u-secretary")):
         assert client.post(f"/api/tasks/{by[step]['id']}", headers=H(user), json={"action": "done"}).status_code == 200
     cid = by["committee"]["id"]
-    assert client.post(f"/api/tasks/{cid}", headers=H("u-reviewer"), json={"action": "done", "note": "אושר"}).status_code == 403
-    assert client.post(f"/api/tasks/{cid}", headers=H("u-engineer"), json={"action": "done"}).status_code == 422   # needs a note
-    assert client.post(f"/api/tasks/{cid}", headers=H("u-engineer"), json={"action": "skip", "note": "x x x"}).status_code == 422
-    assert client.post(f"/api/tasks/{cid}", headers=H("u-engineer"), json={"action": "done", "note": "החלטה בישיבה 12"}).status_code == 200
+    assert client.post(f"/api/tasks/{cid}", headers=H("u-planner"), json={"action": "done", "note": "אושר בישיבה"}).status_code == 403
+    assert client.post(f"/api/tasks/{cid}", headers=H("u-reviewer"), json={"action": "done"}).status_code == 422   # needs a note
+    assert client.post(f"/api/tasks/{cid}", headers=H("u-reviewer"), json={"action": "skip", "note": "x x x"}).status_code == 422
+    assert client.post(f"/api/tasks/{cid}", headers=H("u-reviewer"), json={"action": "done", "note": "החלטה בישיבה 12"}).status_code == 200
     mine = client.get("/api/tasks", headers=H("u-secretary")).json()
     assert any(t["step"] == "conditions" for t in mine)
 
@@ -59,7 +61,7 @@ def test_overdue_escalation_and_bottlenecks(client):
         t.due_at = t.ready_at + dt.timedelta(days=t.sla_days)
         s.commit()
     od = client.get("/api/tasks?scope=overdue", headers=H("u-manager")).json()
-    assert od and od[0]["step"] == "conditions" and od[0]["overdue"] and od[0]["escalated_to"] == "dept_manager"
+    assert od and od[0]["step"] == "conditions" and od[0]["overdue"] and od[0]["escalated_to"] == "sysadmin"
     b = client.get("/api/workflow/bottlenecks", headers=H("u-manager")).json()
     assert b[0]["step"] == "conditions" and b[0]["overdue"] == 1
     assert any(x["avg_work_days"] is not None for x in b)
@@ -80,4 +82,4 @@ def test_management_dashboard(client):
     d = r.json()
     assert d["bottlenecks"] and any(w["overdue"] for w in d["workload"]) and d["overdue_tasks"]
     assert "summary_reuse_pct" in d["processing"] and d["projection_note_he"]
-    assert client.get("/api/dashboard/management", headers=H("u-reviewer")).status_code == 403
+    assert client.get("/api/dashboard/management", headers=H("u-planner")).status_code == 403

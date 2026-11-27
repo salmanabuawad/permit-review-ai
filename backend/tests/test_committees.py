@@ -46,7 +46,7 @@ def test_api_access_and_update(monkeypatch):
     assert r.status_code == 200 and r.json()["totals"]["committees"] == 131 and r.json()["can_edit"]
     row = next(x for x in r.json()["committees"] if x["name_he"] == "חוף אשקלון")
     assert row["kb_status"] == "IN_SYSTEM" and row["authorities"][0]["id"] == "hof-ashkelon"
-    assert c.get("/api/committees", headers={"X-User": "u-reviewer"}).status_code == 403
+    assert c.get("/api/committees", headers={"X-User": "u-planner"}).status_code == 403
     assert c.patch(f"/api/committees/{row['id']}", headers={"X-User": "u-ha-engineer"}, json={"vendor": "Complot"}).status_code == 403
     assert c.patch(f"/api/committees/{row['id']}", headers={"X-User": "u-ha-admin"}, json={"vendor": "nope"}).status_code == 422
     r = c.patch(f"/api/committees/{row['id']}", headers={"X-User": "u-ha-admin"},

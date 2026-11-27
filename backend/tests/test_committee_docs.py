@@ -87,7 +87,7 @@ def test_same_file_text_reused_and_search(monkeypatch):
     client = TestClient(app)
     hits = client.get("/api/committees/passages", params={"q": "קו בניין"}, headers={"X-User": "u-ha-admin"}).json()
     assert {h["committee"] for h in hits} == {"חוף אשקלון", "אשקלון"} and all(h["verification"] == "UNVERIFIED" for h in hits)
-    assert client.get("/api/committees/passages", params={"q": "קו"}, headers={"X-User": "u-reviewer"}).status_code == 403
+    assert client.get("/api/committees/passages", params={"q": "קו"}, headers={"X-User": "u-planner"}).status_code == 403
     docs = client.get(f"/api/committees/{cid}/documents", headers={"X-User": "u-ha-admin"}).json()
     snap = docs[0]["snapshot"]
     r = client.get(f"/api/committees/snapshots/{snap['id']}/file", headers={"X-User": "u-ha-admin"})

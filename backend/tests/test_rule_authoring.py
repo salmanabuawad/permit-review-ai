@@ -39,8 +39,8 @@ def test_validation_catches_broken_rules():
 
 
 def test_only_rule_editors_can_change_rules(client):
-    assert client.post("/api/rules", headers=H("u-reviewer"), json={"rule": NEW, "note": "בדיקה"}).status_code == 403
-    assert client.get("/api/rules/meta", headers=H("u-reviewer")).json()["can_edit"] is False
+    assert client.post("/api/rules", headers=H("u-planner"), json={"rule": NEW, "note": "בדיקה"}).status_code == 403
+    assert client.get("/api/rules/meta", headers=H("u-planner")).json()["can_edit"] is False
     assert client.get("/api/rules/meta", headers=H("u-engineer")).json()["can_edit"] is True
 
 

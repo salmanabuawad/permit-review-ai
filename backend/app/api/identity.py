@@ -1,7 +1,7 @@
 """API: login, current user, authorities and user management."""
 from fastapi import APIRouter
 
-from ..security import TIERS, WORKSPACE_TENANT, roles_for, superadmin_ids
+from ..security import TIERS, WORKSPACE_TENANT, role_of, roles_for, superadmin_ids
 
 from .common import *  # noqa: F401,F403 — shared imports, schemas and helpers
 
@@ -175,7 +175,7 @@ def authority_discover(tenant: str, account: User = Depends(login_account), s: S
 def users(p: Principal = Depends(current_user), s: Session = Depends(get_session)):
     """Only colleagues in the authenticated workspace."""
     return [{"id": u.id, "tenant_id": u.tenant_id, "display_name": u.display_name, "role": u.role,
-             "role_he": ROLES[u.role]["label_he"]} for u in s.scalars(select(User).where(User.tenant_id == p.tenant_id))]
+             "role_he": ROLES[role_of(u.role)]["label_he"]} for u in s.scalars(select(User).where(User.tenant_id == p.tenant_id))]
 
 
 @router.get("/api/users/manage")

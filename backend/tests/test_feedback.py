@@ -32,7 +32,7 @@ def test_override_feedback_accept_and_regression(client):
     recs = client.get("/api/feedback", headers=H("u-reviewer")).json()["records"]
     rec = next(x for x in recs if x["id"] == r.json()["feedback_id"])
     assert rec["category"] == "algorithm_defect" and rec["has_candidate"] and rec["original"]["status"] == f["status"]
-    assert client.post(f"/api/feedback/{rec['id']}/decision", headers=H("u-reviewer"), json={"action": "accept", "note": "כן"}).status_code == 403
+    assert client.post(f"/api/feedback/{rec['id']}/decision", headers=H("u-reviewer"), json={"action": "accept", "note": "מקבל את התיקון שלי"}).status_code == 403   # four eyes
     ok = client.post(f"/api/feedback/{rec['id']}/decision", headers=H("u-engineer"), json={"action": "accept", "note": "מקרה בדיקה"})
     assert ok.status_code == 200 and ok.json()["status"] == "accepted"
     assert client.post(f"/api/feedback/{rec['id']}/decision", headers=H("u-engineer"), json={"action": "dismiss", "note": "שוב"}).status_code == 422

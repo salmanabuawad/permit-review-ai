@@ -132,7 +132,7 @@ def test_coverage_audit_and_metrics_endpoints(client):
     cov = client.get(f"/api/runs/{run}/coverage", headers=H("u-reviewer")).json()
     assert cov["coverage"]["full_compliance_possible"] is False and cov["coverage"]["open"]
     assert cov["decision"] != "NO_DEFECTS_IDENTIFIED"
-    assert client.get(f"/api/runs/{run}/audit", headers=H("u-reviewer")).status_code == 403   # audit.read only
+    assert client.get(f"/api/runs/{run}/audit", headers=H("u-planner")).status_code == 403   # audit.read only
     audit = client.get(f"/api/runs/{run}/audit", headers=H("u-manager")).json()
     assert len(audit["run"]["digest"]) == 64 and audit["findings"]
     m = client.get(f"/api/runs/{run}/metrics", headers=H("u-manager")).json()["metrics"]
