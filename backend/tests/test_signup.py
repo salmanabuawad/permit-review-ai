@@ -128,3 +128,15 @@ def test_expired_requests_are_purged(env):
         assert signup.purge_expired(s) == 1
         s.commit()
         assert s.get(LoginAccount, "dana.eng") is None
+
+
+def test_property_owner_can_sign_up_as_end_customer(env):
+    c, sent = env
+    assert "owner" in c.get("/api/auth/signup").json()["professions"]
+    form = {**FORM, "username": "yossi.owner", "email": "owner@example.com", "profession": "owner", "license_number": "999"}
+    assert c.post("/api/auth/signup", json=form).status_code == 201
+    with SessionLocal() as s:
+        a = s.get(LoginAccount, "yossi.owner")
+        u = s.get(User, a.user_id)
+        assert u.role == "end_user" and u.tenant_id == WORKSPACE_TENANT and not a.active
+        assert a.signup_info["profession"] == "owner" and a.signup_info["license_number"] is None

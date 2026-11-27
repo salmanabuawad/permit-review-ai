@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-11-27 — Property owners and permit applicants can register
+
+- Self sign-up now offers the account type "בעל/ת נכס / מבקש/ת היתר" (property owner / permit applicant) next to
+  engineer, architect and practical engineer. They become end customers (end_user) in the Permit360 Pro workspace through the same
+  e-mail verification and superadmin approval; no licence number is asked or stored for them. The landing page,
+  about page and sign-up form say so in all three languages.
+
 ## 2026-11-27 — Public landing page
 
 - Signed-out visitors (and search engines) get a landing page at https://permit360.kortexd.com/ in Hebrew, English or

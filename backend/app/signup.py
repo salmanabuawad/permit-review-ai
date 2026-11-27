@@ -1,4 +1,5 @@
-"""End-user self sign-up for the Permit360 Pro workspace (engineers and architects).
+"""End-user self sign-up for the Permit360 Pro workspace (engineers and architects, and property owners / permit
+applicants as end customers).
 
 Flow: the form creates an inactive end_user login in the Pro workspace → a verification link goes to the e-mail
 address → after the link, either the superadmin approves (BBP_SIGNUP=approval, default) or the login opens at once
@@ -30,7 +31,9 @@ from .users import check_policy, hash_password, norm_username, now
 EMAIL_PENDING, APPROVAL_PENDING, APPROVED = "EMAIL_PENDING", "APPROVAL_PENDING", "APPROVED"
 VERIFY_HOURS = 48
 PER_ADDR, PER_ADDR_S = 3, 3600
-PROFESSIONS = {"engineer": "מהנדס/ת", "architect": "אדריכל/ית", "practical_engineer": "הנדסאי/ת", "other": "אחר"}
+PROFESSIONS = {"engineer": "מהנדס/ת", "architect": "אדריכל/ית", "practical_engineer": "הנדסאי/ת",
+               "owner": "בעל/ת נכס / מבקש/ת היתר", "other": "אחר"}
+CUSTOMERS = {"owner"}                                   # end customers: no professional licence number
 EMAIL = re.compile(r"^[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9.-]{1,190}\.[A-Za-z]{2,24}$")
 ACTOR = "self-signup"
 _hits: dict[str, list[float]] = {}
@@ -140,7 +143,7 @@ def request(s: Session, *, username: str, display_name: str, email: str, passwor
         raise SignupError("כתובת דוא״ל לא תקינה")
     if profession not in PROFESSIONS:
         raise SignupError("יש לבחור תחום מקצועי")
-    license_number = (license_number or "").strip()[:40] or None
+    license_number = None if profession in CUSTOMERS else (license_number or "").strip()[:40] or None
     organization = (organization or "").strip()[:200] or None
     check_policy(password, name)
     if s.get(LoginAccount, name):

@@ -38,7 +38,7 @@ export default function Login() {
     <div className="login-center">
       <form className="login" onSubmit={submit}>
         <h1>בדיקת היתרי בנייה</h1>
-        <div className="hint">כניסה לצוותי הרשויות והוועדות לתכנון ובנייה, ולמהנדסים ואדריכלים ב-Permit360 Pro</div>
+        <div className="hint">כניסה לצוותי הרשויות והוועדות לתכנון ובנייה, ולמהנדסים, אדריכלים ובעלי נכסים ב-Permit360 Pro</div>
         {view === 'sent' && <div className="login-ok" role="status">נשלח קישור אימות לכתובת הדוא״ל. יש לפתוח אותו בתוך 48 שעות.</div>}
         {view === 'login' && result && <div className={result.ok ? 'login-ok' : 'login-err'} role="status">{result.text}</div>}
         <label className="f">שם משתמש
@@ -50,7 +50,7 @@ export default function Login() {
         {err && <div className="login-err" role="alert">{err}</div>}
         <button className="primary" type="submit" disabled={busy}>{busy ? 'מתחבר…' : 'כניסה'}</button>
         {signup && signup.mode !== 'off' && <div className="login-alt">
-          מהנדס/ת או אדריכל/ית? <button type="button" className="link" onClick={() => { setErr(null); setView('signup') }}>הרשמה ל-Permit360 Pro</button>
+          מהנדס/ת, אדריכל/ית או בעל/ת נכס? <button type="button" className="link" onClick={() => { setErr(null); setView('signup') }}>הרשמה ל-Permit360 Pro</button>
         </div>}
         <div className="login-alt"><a href="/">← דף הבית</a> · <a href="/about.html">אודות · About · حول</a></div>
       </form>
@@ -71,6 +71,7 @@ function Signup({ professions, onSent, onBack }: { professions: Record<string, s
     setBusy(true)
     try {
       const { password2, ...body } = f
+      if (body.profession === 'owner') body.license_number = ''
       await api.post('/api/auth/signup', body)
       onSent()
     } catch (x) {
@@ -83,16 +84,16 @@ function Signup({ professions, onSent, onBack }: { professions: Record<string, s
     <div className="login-center">
       <form className="login" onSubmit={submit}>
         <h1>הרשמה ל-Permit360 Pro</h1>
-        <div className="hint">למהנדסים, אדריכלים והנדסאים המכינים בקשות להיתר. לאחר אימות הדוא״ל הבקשה נבדקת ומאושרת.</div>
+        <div className="hint">למהנדסים, אדריכלים והנדסאים המכינים בקשות להיתר, ולבעלי נכסים ומבקשי היתר. לאחר אימות הדוא״ל הבקשה נבדקת ומאושרת.</div>
         <label className="f">שם מלא<input required maxLength={200} value={f.display_name} onChange={set('display_name')} autoComplete="name" autoFocus /></label>
         <label className="f">דוא״ל<input type="email" required dir="ltr" value={f.email} onChange={set('email')} autoComplete="email" /></label>
-        <label className="f">תחום מקצועי
+        <label className="f">סוג חשבון
           <select required value={f.profession} onChange={set('profession')}>
             <option value="" disabled>בחירה…</option>
             {Object.entries(professions).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
           </select>
         </label>
-        <label className="f">מספר רישיון / רישום (לא חובה)<input dir="ltr" maxLength={40} value={f.license_number} onChange={set('license_number')} /></label>
+        {f.profession !== 'owner' && <label className="f">מספר רישיון / רישום (לא חובה)<input dir="ltr" maxLength={40} value={f.license_number} onChange={set('license_number')} /></label>}
         <label className="f">משרד / ארגון (לא חובה)<input maxLength={200} value={f.organization} onChange={set('organization')} autoComplete="organization" /></label>
         <label className="f">שם משתמש<input required dir="ltr" value={f.username} onChange={set('username')} placeholder="first.last" autoComplete="username" /></label>
         <label className="f">סיסמה (לפחות 10 תווים)<input type="password" required minLength={10} dir="ltr" value={f.password} onChange={set('password')} autoComplete="new-password" /></label>
