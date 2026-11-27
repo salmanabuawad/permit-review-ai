@@ -905,6 +905,7 @@ class CommitteeMeeting(Base):
     items: Mapped[int | None] = mapped_column(Integer)
     error: Mapped[str | None] = mapped_column(Text)
     fetched_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime())
+    protocol_state: Mapped[str | None] = mapped_column(String(16))   # None | done | none (no readable file) | failed
 
 
 class CommitteeMeetingItem(Base):
@@ -930,6 +931,8 @@ class CommitteeMeetingItem(Base):
     outcome: Mapped[str | None] = mapped_column(String(30), index=True)
     state: Mapped[str] = mapped_column(String(16), default='pending', index=True)   # pending | done | failed
     fetched_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime())
+    protocol: Mapped[dict | None] = mapped_column(JSON)          # the item's section of the decisions file (no names)
+    decision_source: Mapped[str | None] = mapped_column(String(16))   # page | protocol
 
 
 class CadastreParcel(Base):

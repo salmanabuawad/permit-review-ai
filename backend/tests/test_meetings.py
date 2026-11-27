@@ -87,3 +87,38 @@ def test_study_aggregates_without_personal_data():
     assert r["approval_conditions"]["פיקוד העורף / ממ\"ד"] == 1 and r["zikim_block_2832_plan_0723718"]["items"] == 3
     md = SM.markdown(r)
     assert "20200001" not in md and "אושרו 50%" in md
+
+
+ARCHIVE = """<table><tr><td>סדר יום לישיבה</td><td>סדר יום</td><td><a href="DocumentViewer?pageId=6720&amp;Name_File=11">x</a></td></tr>
+<tr><td>קובץ החלטות</td><td>פרוטוקול החלטות</td><td><a href="DocumentViewer?pageId=6720&amp;Name_File=12">x</a></td></tr>
+<tr><td>קובץ החלטות</td><td>קובץ החלטות מונגש</td><td><a href="DocumentViewer?pageId=6720&amp;Name_File=13">x</a></td></tr></table>"""
+PROTOCOL = """<div>סעיף:11</div><div>תוכניות:</div><div>156/03/6</div><div>יעוד:</div><div>מגורים</div>
+<div>בעלי עניין:</div><div>מבקש:</div><div>ישראל ישראלי</div><div>עורך:</div><div>פלוני אלמוני</div>
+<div>מהות בקשה</div><div>הקמת בית מגורים</div><div>חוות דעת</div><div>הבקשה עומדת בזכויות הבניה</div>
+<div>המלצות</div><div>לאשר.</div><div>החלטות</div><div>החלטה לסרב לבקשה - סטייה ניכרת</div><div>_____</div>"""
+
+
+def test_protocol_fills_missing_decision_without_names():
+    seed(reset=True, samples=False)
+    assert MT.pick_protocol(MT.archive_docs(ARCHIVE))["file"] == "13"
+    sec = MT.parse_protocol(PROTOCOL)["11"]
+    assert sec["plans"] == "156/03/6" and sec["recommendation"] == "לאשר." and "סטייה ניכרת" in sec["decision"]
+    assert "ישראלי" not in str(sec) and "אלמוני" not in str(sec)
+
+    def fetch(url, cfg, allowed, *a, **k):
+        body, ct = (ARCHIVE, "text/html") if "MeetingsArchive" in url else ("\ufeff<!DOCTYPE html><html>" + PROTOCOL, "application/octet-stream")
+        return F.Fetched("ok", url, 200, ct, body.encode(), final_url=url)
+    with SessionLocal() as s:
+        committees.import_register(s)
+        c = s.scalars(select(PlanningCommittee).where(PlanningCommittee.name_he == "חוף אשקלון")).one()
+        c.website_url, c.request_search_url = "https://v.example/", "https://v.example/SearchPermitApplication"
+        m = CommitteeMeeting(committee_id=c.id, type_code="1", type_he="רשות רישוי מקומית", meeting_number="9", real_number="20269",
+                             state="done")
+        s.add(m)
+        s.flush()
+        s.add(CommitteeMeetingItem(meeting_id=m.id, item_number="11", state="done", outcome="OPEN"))
+        s.commit()
+        out = MT.run_protocols(s, c, fetch, sleep=lambda _: None)
+        it = s.scalars(select(CommitteeMeetingItem)).one()
+        assert out["items_filled"] == 1 and it.outcome == "REJECTED" and it.decision_source == "protocol"
+        assert it.protocol["file"] == "13" and s.get(CommitteeMeeting, m.id).protocol_state == "done"

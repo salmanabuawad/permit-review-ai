@@ -117,6 +117,30 @@ def study(committee_id: str, since: dt.date) -> dict:
         if i.outcome in DECIDED:
             loc[i.locality or "לא צוין"][i.outcome] += 1
     out["top_localities"] = {k: dict(v) for k, v in sorted(loc.items(), key=lambda kv: -sum(kv[1].values()))[:15]}
+    out["decision_source"] = dict(collections.Counter(i.decision_source or ("page" if (i.decision or "").strip() else "none")
+                                                     for i, _ in done))
+    prot = [(i, m) for i, m in done if i.protocol]
+    out["with_protocol"] = len(prot)
+    rec = collections.Counter()
+    for i, _ in prot:
+        r = (i.protocol.get("recommendation") or "").strip()
+        if not r or i.outcome not in DECIDED:
+            continue
+        rec_ok = not re.search(r"לא\s+לאשר|לסרב|לדחות", r) and bool(re.search(r"לאשר|ממליצ", r))
+        rec[("ממליץ לאשר" if rec_ok else "ממליץ לסרב / אחר", "אושר" if i.outcome != "REJECTED" else "נדחה")] += 1
+    out["recommendation_vs_decision"] = {f"{a} → {b}": v for (a, b), v in sorted(rec.items())}
+    opin = collections.Counter()
+    for i, _ in prot:
+        if i.outcome == "REJECTED":
+            for k in tag(i.protocol.get("opinion"), REJECT_REASONS) or ["לא זוהה"]:
+                opin[k] += 1
+    out["rejected_opinion_reasons"] = dict(opin.most_common())
+    des = collections.defaultdict(collections.Counter)
+    for i, _ in prot:
+        if i.outcome in DECIDED and i.protocol.get("designation"):
+            d = re.sub(r"\s*-\s*מבא.*$", "", i.protocol["designation"]).strip()[:40]
+            des[d][i.outcome] += 1
+    out["by_designation"] = {k: dict(v) for k, v in sorted(des.items(), key=lambda kv: -sum(kv[1].values()))[:15]}
     cov = collections.defaultdict(lambda: [0, 0])
     for i, m in done:
         cov[m.type_he or m.type_code][1] += 1
@@ -151,15 +175,24 @@ def markdown(r: dict) -> str:
     L += [f"| {k} | {v} |" for k, v in r["approval_conditions"].items()]
     L += ["", "## יישובים (סעיפים שהוכרעו)", "", "| יישוב | אושר | אושר בתנאים | נדחה |", "|---|---|---|---|"]
     L += [f"| {k} | {v.get('APPROVED', 0)} | {v.get('APPROVED_CONDITIONS', 0)} | {v.get('REJECTED', 0)} |" for k, v in r["top_localities"].items()]
+    L += ["", "## מקור נוסח ההחלטה", "", "| מקור | סעיפים |", "|---|---|"]
+    src_he = {"page": "דף הסעיף", "protocol": "קובץ ההחלטות", "none": "אין נוסח"}
+    L += [f"| {src_he.get(k, k)} | {v} |" for k, v in r["decision_source"].items()]
+    L += ["", f"## המלצת הצוות מול ההחלטה ({r['with_protocol']} סעיפים עם קובץ החלטות)", "", "| המלצה → החלטה | סעיפים |", "|---|---|"]
+    L += [f"| {k} | {v} |" for k, v in r["recommendation_vs_decision"].items()]
+    L += ["", "## מה כתוב בחוות הדעת של בקשות שנדחו", "", "| נושא | סעיפים |", "|---|---|"]
+    L += [f"| {k} | {v} |" for k, v in r["rejected_opinion_reasons"].items()]
+    L += ["", "## לפי ייעוד (מקובץ ההחלטות)", "", "| ייעוד | אושר | אושר בתנאים | נדחה |", "|---|---|---|---|"]
+    L += [f"| {k} | {v.get('APPROVED', 0)} | {v.get('APPROVED_CONDITIONS', 0)} | {v.get('REJECTED', 0)} |" for k, v in r["by_designation"].items()]
     cov = r["coverage_by_meeting_type"]
-    L += ["", "## כיסוי: סעיפים שבדף שלהם יש נוסח החלטה", "", "| סוג ישיבה | עם החלטה | סעיפים |", "|---|---|---|"]
+    L += ["", "## כיסוי: סעיפים עם נוסח החלטה (דף הסעיף או קובץ ההחלטות)", "", "| סוג ישיבה | עם החלטה | סעיפים |", "|---|---|---|"]
     L += [f"| {k} | {v[0]} | {v[1]} |" for k, v in cov.items()]
     z = r["zikim_block_2832_plan_0723718"]
     L += ["", "## זיקים — גוש 2832 / תכנית 633-0723718", "", f"- סעיפים: {z['items']}",
           "- תוצאות: " + ", ".join(f"{OUTCOMES_HE.get(k, k)} {v}" for k, v in z["outcomes"].items()),
           "- הקלות: " + (", ".join(f"{k} {v}" for k, v in z["reliefs"].items()) or "—"), "",
           "## מגבלות", "", "- הסיווג לפי ניסוח ההחלטה (מילות מפתח); החלטות מורכבות עשויות להיות מסווגות 'אחר'.",
-          "- סעיפים בלי נוסח החלטה בדף הסעיף נספרים 'טרם הוחלט'; הנוסח המלא נמצא בפרוטוקול.",
+          "- סעיפים בלי נוסח החלטה (לא בדף הסעיף ולא בקובץ ההחלטות המונגש) נספרים 'טרם הוחלט'. קבצי החלטות מונגשים קיימים מאמצע 2023; לישיבות קודמות יש רק PDF שהטקסט העברי בו הפוך — טרם נקרא.",
           "- נימוקים ותנאים מזוהים לפי ניסוח; סעיף יכול להופיע בכמה קטגוריות."]
     return "\n".join(L) + "\n"
 

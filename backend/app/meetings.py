@@ -254,6 +254,9 @@ def run_job(session_factory, cid: str, fetcher=None, sleep=None) -> None:
         try:
             out = run_batch(s, c, fetcher, sleep)
             if not out["left"]:
+                p = run_protocols(s, s.get(PlanningCommittee, cid), fetcher, sleep, limit=BATCH)
+                out["protocols"], out["left"] = p, bool(p["left"])
+            if not out["left"]:
                 out["reclassified"] = reclassify(s, cid)
             c = s.get(PlanningCommittee, cid)
             prev = (c.kb_detail or {}).get("meetings") or {}
@@ -287,3 +290,138 @@ def counts(s: Session, cid: str) -> dict:
                               .where(CommitteeMeeting.committee_id == cid, CommitteeMeetingItem.state == "done")
                               .group_by(CommitteeMeetingItem.outcome)).all())
     return {"meetings_by_state": meetings, "outcomes": {k or "—": v for k, v in outcomes.items()}}
+
+
+# ---------------------------------------------------------------- protocols (decision files)
+
+ARCHIVE_PREF = ("קובץ החלטות מונגש", "פרוטוקול מונגש", "פרוטוקול החלטות", "קובץ החלטות", "פרוטוקול")
+FIELDS = {"תוכניות": "plans", "יעוד": "designation", "שימושים": "uses", "שטח החלקות": "parcel_area", "שטח מגרש נטו": "net_plot_area",
+          "תאור בקשה": "description"}
+SECTIONS = {"מהות בקשה": "essence", "חוות דעת": "opinion", "המלצות": "recommendation", "החלטות": "decision"}
+NAMES_BLOCK = ("בעלי עניין", "מבקש", "עורך", "מהנדס", "מתכנן", "בעל עניין")
+
+
+def archive_docs(page: str) -> list[dict]:
+    """[{'file': id, 'title', 'kind'}] from a MeetingsArchive page."""
+    out = []
+    for m in re.finditer(r"DocumentViewer\?pageId=\d+&(?:amp;)?Name_File=(\d+)", page):
+        s, e = page.rfind("<tr", 0, m.start()), page.find("</tr>", m.end())
+        cells = [c for c in (x.strip() for x in _text(re.sub(r"</td>", "\n", page[s:e])).splitlines()) if c]
+        out.append({"file": m.group(1), "title": cells[0] if cells else "", "kind": cells[1] if len(cells) > 1 else ""})
+    return out
+
+
+def pick_protocol(docs: list[dict]) -> dict | None:
+    for want in ARCHIVE_PREF:
+        hit = next((d for d in docs if d["kind"].strip() == want), None)
+        if hit:
+            return hit
+    return None
+
+
+def _lines(page: str) -> list[str]:
+    t = re.sub(r"<script.*?</script>|<style.*?</style>", "", page, flags=re.S | re.I)
+    t = re.sub(r"<br\s*/?>|</p>|</tr>|</h\d>|</div>|</li>", "\n", t, flags=re.I)
+    t = htmllib.unescape(re.sub(r"<[^>]+>", " ", t)).replace("﻿", "").replace("‏", "").replace("‎", "")
+    return [re.sub(r"[ \t\xa0]+", " ", x).strip() for x in t.splitlines() if x.strip()]
+
+
+def parse_protocol(page: str) -> dict[str, dict]:
+    """{item_number: {plans, designation, uses, parcel_area, net_plot_area, description, essence, opinion, recommendation,
+    decision}} from an accessible decisions file (HTML). The interested-parties block (names) is skipped."""
+    lines = _lines(page)
+    starts = [(i, m.group(1)) for i, x in enumerate(lines) if (m := re.fullmatch(r"סעיף\s*:\s*(\d+)", x))]
+    out: dict[str, dict] = {}
+    for k, (i, num) in enumerate(starts):
+        block = lines[i + 1: starts[k + 1][0] if k + 1 < len(starts) else len(lines)]
+        rec: dict = {}
+        cur, skip = None, False
+        for j, x in enumerate(block):
+            if x.startswith("_____"):
+                break
+            head = x.rstrip(":").strip()
+            if head in FIELDS and j + 1 < len(block):
+                rec[FIELDS[head]] = block[j + 1].strip()
+                cur, skip = None, False
+                continue
+            if head in SECTIONS:
+                cur, skip = SECTIONS[head], False
+                rec.setdefault(cur, [])
+                continue
+            if head.startswith(NAMES_BLOCK) or head in ("בעלי עניין",):
+                cur, skip = None, True
+                continue
+            if cur and not skip:
+                rec[cur].append(x)
+        for key in SECTIONS.values():
+            if key in rec:
+                rec[key] = "\n".join(rec[key]).strip() or None
+        out[num] = rec
+    return out
+
+
+def run_protocols(s: Session, c: PlanningCommittee, fetcher=None, sleep=None, limit: int = 400, only_missing: bool = False) -> dict:
+    """For meetings whose protocol was not read: archive page → accessible decisions file → per-item sections. An item
+    without a decision on its page takes the protocol's decision (decision_source = protocol)."""
+    import time
+
+    from .committee_docs import _allowed
+    from .source_monitor import fetch as F
+    from .source_monitor.service import load_config
+    from urllib.parse import quote
+    fetcher, sleep = fetcher or F.fetch, sleep or time.sleep
+    cfg, allowed, base = load_config(), _allowed(c), _base(c)
+    out = {"meetings": 0, "items_filled": 0, "items_annotated": 0, "no_file": 0, "failed": 0}
+    q = select(CommitteeMeeting).where(CommitteeMeeting.committee_id == c.id, CommitteeMeeting.protocol_state.is_(None),
+                                       CommitteeMeeting.real_number.is_not(None))
+    if only_missing:
+        q = q.where(CommitteeMeeting.id.in_(select(CommitteeMeetingItem.meeting_id).where(CommitteeMeetingItem.outcome == "OPEN")))
+    n = 0
+    for m in s.scalars(q.order_by(CommitteeMeeting.meeting_date.desc()).limit(limit // 2)):
+        if n:
+            sleep(cfg["delay_between_requests_s"])
+        n += 1
+        r = fetcher(f"{base}/MeetingsArchive?Committee_Type_Code={m.type_code}&Committee_Type_Desk={quote(m.type_he or '')}"
+                    f"&Meeting_Number={m.meeting_number}&Real_Meeting_Number={m.real_number}", cfg, allowed)
+        if r.status != "ok":
+            m.protocol_state = "failed"
+            out["failed"] += 1
+            s.commit()
+            continue
+        doc = pick_protocol(archive_docs(F.decode_html(r.body)))
+        if not doc:
+            m.protocol_state = "none"
+            out["no_file"] += 1
+            s.commit()
+            continue
+        sleep(cfg["delay_between_requests_s"])
+        n += 1
+        r = fetcher(f"{base}/DocumentViewer?pageId=6720&Name_File={doc['file']}", cfg, allowed)
+        ct = (r.content_type or "").split(";")[0]
+        head = (r.body or b"")[:400].lstrip(b"\xef\xbb\xbf \r\n\t").lower()
+        is_html = ct in ("text/html", "application/xhtml+xml") or head.startswith((b"<!doctype html", b"<html"))   # served as octet-stream
+        if r.status != "ok" or not is_html:
+            m.protocol_state, m.protocol_ref = ("none" if r.status == "ok" else "failed"), doc["file"]
+            out["no_file" if r.status == "ok" else "failed"] += 1
+            s.commit()
+            continue
+        sections = parse_protocol(F.decode_html(r.body))
+        for it in s.scalars(select(CommitteeMeetingItem).where(CommitteeMeetingItem.meeting_id == m.id)):
+            sec = sections.get(it.item_number)
+            if not sec:
+                continue
+            it.protocol = {**sec, "file": doc["file"], "kind": doc["kind"]}
+            out["items_annotated"] += 1
+            if not (it.decision or "").strip() and sec.get("decision"):
+                it.decision, it.outcome, it.decision_source = sec["decision"], classify(sec["decision"]), "protocol"
+                out["items_filled"] += 1
+            elif (it.decision or "").strip() and not it.decision_source:
+                it.decision_source = "page"
+        m.protocol_state, m.protocol_ref = "done", doc["file"]
+        out["meetings"] += 1
+        s.commit()
+        if n >= limit:
+            break
+    left = s.scalar(select(func.count()).select_from(CommitteeMeeting).where(
+        CommitteeMeeting.committee_id == c.id, CommitteeMeeting.protocol_state.is_(None), CommitteeMeeting.real_number.is_not(None))) or 0
+    return {**out, "left": left}

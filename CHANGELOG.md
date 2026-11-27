@@ -1,5 +1,16 @@
 # Changelog
 
+## 2026-11-27 — Committee decision files (protocols) and the Hof Ashkelon decisions study
+
+- Meeting protocols (migration 0024): each meeting's archive page → its accessible decisions file (HTML, served as an
+  octet-stream download) → per item: plans, designation, uses, areas, request, staff opinion (rights computation and
+  reviewer notes), recommendation and decision. The interested-parties block (names) is not stored. An item with no
+  decision on its page takes the file's decision (`decision_source = protocol`). Runs inside the meetings job.
+- Hof Ashkelon: accessible decision files exist from mid-2023 (155 meetings); 538 decisions filled, 922 items annotated.
+  Earlier meetings have only PDF protocols whose Hebrew text extracts in reversed visual order — not read yet.
+- docs/permit360/HOF_ASHKELON_DECISIONS_STUDY.md (aggregates only): 1,955 decided requests, ~94 % approved; staff
+  recommendation followed in 426 of 427 cases with both; recurring reasons and conditions; coverage gaps.
+
 ## 2026-11-27 — National cadastre (registered parcels)
 
 - `cadastre_parcels` / `cadastre_blocks` (migration 0023; PostGIS geometry in EPSG:2039 with GiST index) loaded from the
