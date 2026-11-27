@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-11-27 — National cadastre (registered parcels)
+
+- `cadastre_parcels` / `cadastre_blocks` (migration 0023; PostGIS geometry in EPSG:2039 with GiST index) loaded from the
+  Survey of Israel open data on data.gov.il by `scripts/load_cadastre.py`, through a dependency-free shapefile reader
+  (`app/shapefile_reader.py`). `GET /api/cadastre/parcel?gush=&helka=`. XPLAN discovery now prefers a verified parcel,
+  then the registered cadastral parcel (PARCEL_CADASTRE), then the declared plan's cell. An ambiguous parcel (several
+  rows) is never guessed. The files themselves need a signed-in download from data.gov.il (Google sign-in by a person).
+
 ## 2026-11-27 — Deep search of a committee; committee text in the summary; meeting record (study only)
 
 - Deep search (`POST /api/committees/deep`, crawler job `deep`): the committee's own site breadth-first (depth 3, up to

@@ -596,6 +596,16 @@ def discover_case_plans(case_id: str, p: Principal = Depends(require("source.cra
     return plan_discovery.view(s, c)
 
 
+@router.get("/api/cadastre/parcel")
+def cadastre_parcel(gush: str, helka: str, p: Principal = Depends(require("case.read")), s: Session = Depends(get_session)):
+    """A registered parcel's boundary from the national cadastre (Survey of Israel open data), GeoJSON in EPSG:2039."""
+    from .. import cadastre
+    r = cadastre.parcel(s, gush, helka)
+    if r is None:
+        raise HTTPException(404, "החלקה אינה בקדסטר שנטען (או שיש יותר מרשומה אחת)")
+    return r
+
+
 @router.get("/api/cases/{case_id}/plan-discovery")
 def case_plan_discovery(case_id: str, p: Principal = Depends(require("case.read")), s: Session = Depends(get_session)):
     return plan_discovery.view(s, get_case(s, p, case_id))

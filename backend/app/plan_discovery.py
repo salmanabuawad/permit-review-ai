@@ -42,7 +42,7 @@ PLAN_FIELDS = "pl_number,pl_name,station_desc,internet_short_status,pl_date_8,en
 CELL_FIELDS = "pl_number,num,mavat_name,station_desc,legal_area"
 
 STATUS_HE = {"NOT_DISCOVERED": "טרם בוצע איתור", "QUEUED": "ממתין לסורק", "RUNNING": "הסורק מאתר", "DISABLED": "איתור ב־XPLAN כבוי",
-             "MISSING_GEOMETRY": "אין גבול מגרש מאומת ואין תא שטח בתכנית המוצהרת", "UNAVAILABLE": "שירות XPLAN לא זמין",
+             "MISSING_GEOMETRY": "אין גבול מגרש מאומת, החלקה אינה בקדסטר ואין תא שטח בתכנית המוצהרת", "UNAVAILABLE": "שירות XPLAN לא זמין",
              "PARTIAL": "איתור חלקי", "CANDIDATES_FOUND": "נמצאו תכניות מועמדות", "FAILED": "האיתור נכשל"}
 
 
@@ -276,6 +276,15 @@ def _cells_for(s, case: PermitCase) -> list[tuple[str, str, str]]:
     return [(rows[0].plan, rows[0].cell, "authority_ledger")] if len(rows) == 1 else []
 
 
+def _cadastre(s, case: PermitCase) -> dict | None:
+    from . import cadastre
+    try:
+        return cadastre.parcel(s, case.gush, case.helka)
+    except Exception:  # noqa: BLE001 — no cadastre loaded
+        s.rollback()
+        return None
+
+
 def run_case(s, case: PermitCase, fetcher=None) -> dict:
     """Do the discovery for one case now (crawler process, or tests with a fake fetcher)."""
     fetcher = fetcher or F.fetch
@@ -290,6 +299,10 @@ def run_case(s, case: PermitCase, fetcher=None) -> dict:
     source = None
     if geo:
         source = {"kind": "PARCEL_VERIFIED", "note_he": "גבול מגרש מאומת מתוך רשומה רגולטורית"}
+    elif case.gush and case.helka and (cad := _cadastre(s, case)):
+        geo = cad.pop("geometry")
+        source = {"kind": "PARCEL_CADASTRE", **cad,
+                  "note_he": f"גבול חלקה רשומה {case.gush}/{case.helka} (מפ\"י, {cad['source']})"}
     else:
         for plan, cell, how in _cells_for(s, case):
             c = plan_cell(plan, cell, lyr, fetcher)

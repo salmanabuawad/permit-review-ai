@@ -100,7 +100,7 @@ def resolve_case(s,case):
     if discovery and discovery.tenant_id==case.tenant_id and discovery.state=='done':
         src=(discovery.result or {}).get('geometry_source') or {}
         # A discovery counts for the parcel it was run on: the verified parcel, or (no verified parcel) the plan cell.
-        if (geo and discovery.parcel_hash==digest(geo)) or (not geo and src.get('kind')=='PLAN_CELL_XPLAN'):
+        if (geo and discovery.parcel_hash==digest(geo)) or (not geo and src.get('kind') in ('PLAN_CELL_XPLAN','PARCEL_CADASTRE')):
             candidate={k:v for k,v in discovery.result.items() if k!='geometry'}
     for row in rows:
         a=row.data

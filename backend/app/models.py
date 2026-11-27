@@ -930,3 +930,32 @@ class CommitteeMeetingItem(Base):
     outcome: Mapped[str | None] = mapped_column(String(30), index=True)
     state: Mapped[str] = mapped_column(String(16), default='pending', index=True)   # pending | done | failed
     fetched_at: Mapped[dt.datetime | None] = mapped_column(UTCDateTime())
+
+
+class CadastreParcel(Base):
+    """A registered parcel (Survey of Israel open data). On PostgreSQL the boundary is the PostGIS column `geom`
+    (added by migration 0023, read with SQL in app/cadastre.py); `geojson` serves SQLite / tests."""
+    __tablename__ = 'cadastre_parcels'
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    gush: Mapped[int] = mapped_column(Integer)
+    gush_suffix: Mapped[int | None] = mapped_column(Integer)
+    helka: Mapped[int] = mapped_column(Integer)
+    legal_area: Mapped[float | None] = mapped_column(Float)
+    status: Mapped[str | None] = mapped_column(String(60))
+    locality: Mapped[str | None] = mapped_column(String(120))
+    attrs: Mapped[dict | None] = mapped_column(JSON)
+    source: Mapped[str] = mapped_column(String(120))
+    geojson: Mapped[str | None] = mapped_column(Text)
+
+
+class CadastreBlock(Base):
+    __tablename__ = 'cadastre_blocks'
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    gush: Mapped[int] = mapped_column(Integer)
+    gush_suffix: Mapped[int | None] = mapped_column(Integer)
+    legal_area: Mapped[float | None] = mapped_column(Float)
+    status: Mapped[str | None] = mapped_column(String(60))
+    locality: Mapped[str | None] = mapped_column(String(120))
+    attrs: Mapped[dict | None] = mapped_column(JSON)
+    source: Mapped[str] = mapped_column(String(120))
+    geojson: Mapped[str | None] = mapped_column(Text)
