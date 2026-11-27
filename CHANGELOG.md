@@ -7,6 +7,12 @@
   (`app/shapefile_reader.py`). `GET /api/cadastre/parcel?gush=&helka=`. XPLAN discovery now prefers a verified parcel,
   then the registered cadastral parcel (PARCEL_CADASTRE), then the declared plan's cell. An ambiguous parcel (several
   rows) is never guessed. The files themselves need a signed-in download from data.gov.il (Google sign-in by a person).
+- Loaded live 2026-11-27: snapshot 12.8.2026, 18,689 blocks and 1,097,775 parcels (1.8 GB with the GiST index).
+  Zikim check: plan cell 368 is split between parcels 2832/27 (24 % of the cell) and 2832/28 (76 %), and each parcel
+  is far larger than the cell. On the registered parcels, discovery adds two partial plans the cell did not show:
+  a תת"ל 100 notice under §§ 77–78 (preparation; conditions on permits) over part of parcel 27, and 633-0332759
+  (public buildings for education, roads, 2016) over part of parcel 28; the declared plan 633-0723718 covers each
+  parcel only partly. Which part a building stands on needs its location on the site plan.
 
 ## 2026-11-27 — Deep search of a committee; committee text in the summary; meeting record (study only)
 
