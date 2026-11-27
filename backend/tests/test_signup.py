@@ -60,7 +60,7 @@ def test_signup_verify_approve_login(env):
     assert c.post("/api/signups/dana.eng/approve", headers=h).status_code == 409             # not verified yet
     # verification link
     r = c.get(link(sent[0]).replace("https://permit.example.org", ""), follow_redirects=False)
-    assert r.status_code == 303 and r.headers["location"] == "/?signup=pending"
+    assert r.status_code == 303 and r.headers["location"] == "/login?signup=pending"
     assert sent[-1]["To"] == "ops@example.org"
     r = c.post("/api/auth/login", json={"username": "dana.eng", "password": FORM["password"]})
     assert r.status_code == 403 and "ממתינה" in r.json()["detail"]
@@ -78,7 +78,7 @@ def test_signup_verify_approve_login(env):
 def test_reject_frees_username_and_bad_links(env):
     c, sent = env
     c.post("/api/auth/signup", json=FORM)
-    assert c.get("/api/auth/signup/verify?t=dana.eng|9999999999|bad", follow_redirects=False).headers["location"] == "/?signup=invalid"
+    assert c.get("/api/auth/signup/verify?t=dana.eng|9999999999|bad", follow_redirects=False).headers["location"] == "/login?signup=invalid"
     assert c.post("/api/auth/signup", json={**FORM, "username": "other.eng"}).status_code == 409      # same e-mail
     assert c.post("/api/auth/signup", json={**FORM, "email": "x@example.com"}).status_code == 409       # same username
     h = admin_headers()
@@ -111,7 +111,7 @@ def test_open_mode_and_no_mail(env, monkeypatch):
     c, sent = env
     monkeypatch.setenv("BBP_SIGNUP", "open")
     c.post("/api/auth/signup", json=FORM)
-    assert c.get(link(sent[0]).replace("https://permit.example.org", ""), follow_redirects=False).headers["location"] == "/?signup=approved"
+    assert c.get(link(sent[0]).replace("https://permit.example.org", ""), follow_redirects=False).headers["location"] == "/login?signup=approved"
     assert c.post("/api/auth/login", json={"username": "dana.eng", "password": FORM["password"]}).status_code == 200
     monkeypatch.setattr(mailer, "transport", None)
     monkeypatch.delenv("BBP_SMTP_HOST", raising=False)

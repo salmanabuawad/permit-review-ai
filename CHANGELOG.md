@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-11-27 — Public landing page
+
+- Signed-out visitors (and search engines) get a landing page at https://permit360.kortexd.com/ in Hebrew, English or
+  Arabic (switcher; `?lang=`; browser language by default): what the system does for committees and for engineers and
+  architects, how it works, its principles, and buttons to sign in or register. Sign-in moved to `/login`
+  (`/login?register=1` opens registration); the e-mail verification link returns there.
+- Google Search Console: the site is verified (HTML file) and the sitemap submitted.
+
 ## 2026-11-27 — Search engines and AI tools: trilingual discovery
 
 - The app page carries a Hebrew / English / Arabic title, description, keywords, canonical URL (permit360.kortexd.com),

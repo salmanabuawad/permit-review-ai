@@ -88,7 +88,7 @@ def signup_verify(t: str = "", s: Session = Depends(get_session)):
     from fastapi.responses import RedirectResponse
     from .. import signup
     state = signup.verify(s, t)
-    return RedirectResponse("/?signup=" + {"APPROVED": "approved", "APPROVAL_PENDING": "pending"}.get(state, "invalid"), 303)
+    return RedirectResponse("/login?signup=" + {"APPROVED": "approved", "APPROVAL_PENDING": "pending"}.get(state, "invalid"), 303)
 
 
 def _signup_admin(p: Principal) -> None:

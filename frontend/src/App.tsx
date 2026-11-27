@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
-import { NavLink, Route, Routes } from 'react-router-dom'
+import { Navigate, NavLink, Route, Routes } from 'react-router-dom'
 import { api, selectedAuthority, setAuthority, authorityColor } from './api'
 import Authorities from './pages/Authorities'
 import Dashboard from './pages/Dashboard'
@@ -13,6 +13,7 @@ import Integrations from './pages/Integrations'
 import Audit from './pages/Audit'
 import ImportCases from './pages/ImportCases'
 import Login from './pages/Login'
+import Landing from './pages/Landing'
 import Learning from './pages/Learning'
 import Users from './pages/Users'
 import Committees from './pages/Committees'
@@ -90,9 +91,12 @@ export default function App() {
   const can = (p: string) => !!me?.permissions.includes(p)
   const isDemo = me?.is_demo ?? me?.tenant_id === 'demo'
   const org = me?.municipality_name || me?.tenant_id || 'סביבת רישוי'
-  useEffect(() => { document.title = `${isDemo ? 'סביבת הדגמה' : org} — בדיקת היתרי בנייה` }, [org, isDemo])
+  useEffect(() => { if (me) document.title = `${isDemo ? 'סביבת הדגמה' : org} — בדיקת היתרי בנייה` }, [me, org, isDemo])
 
-  if (needLogin) return <Login />
+  if (needLogin) {
+    const q = new URLSearchParams(window.location.search)
+    return window.location.pathname === '/login' || q.has('signup') ? <Login /> : <Landing />
+  }
   if (me?.must_change_password) return <ChangePassword forced onDone={() => window.location.assign('/')} />
 
   return (
@@ -138,6 +142,7 @@ export default function App() {
             {me && meta ? (
               <Routes>
                 <Route path="/" element={<Dashboard />} />
+                <Route path="/login" element={<Navigate to="/" replace />} />
                 <Route path="/authorities" element={<Authorities />} />
                 <Route path="/learning" element={<Learning />} />
                 <Route path="/cases" element={<Cases />} />

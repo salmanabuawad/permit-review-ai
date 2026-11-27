@@ -9,7 +9,7 @@ const SIGNUP_RESULT: Record<string, { ok: boolean; text: string }> = {
 
 /** Sign-in screen (the server sets an HttpOnly session cookie), and self sign-up for engineers and architects. */
 export default function Login() {
-  const [view, setView] = useState<'login' | 'signup' | 'sent'>('login')
+  const [view, setView] = useState<'login' | 'signup' | 'sent'>(new URLSearchParams(window.location.search).has('register') ? 'signup' : 'login')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
@@ -52,7 +52,7 @@ export default function Login() {
         {signup && signup.mode !== 'off' && <div className="login-alt">
           מהנדס/ת או אדריכל/ית? <button type="button" className="link" onClick={() => { setErr(null); setView('signup') }}>הרשמה ל-Permit360 Pro</button>
         </div>}
-        <div className="login-alt"><a href="/about.html">אודות · About · حول</a></div>
+        <div className="login-alt"><a href="/">← דף הבית</a> · <a href="/about.html">אודות · About · حول</a></div>
       </form>
     </div>
   )
