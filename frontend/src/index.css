@@ -665,3 +665,9 @@ html[dir=ltr] .sidebar-footer-dot, html[dir=ltr] .live-dot, html[dir=ltr] .statu
 html[dir=ltr] .stat-decoration { left: auto; right: 18px; }
 html[dir=ltr] .hero-btn span { padding-right: 0; padding-left: 8px; }
 @media (max-width:760px) { html[dir=ltr] .sidebar { right: auto; left: 0; transform: translateX(-105%); } html[dir=ltr] .sidebar.mobile-open { transform: translateX(0); } }
+.topbar .lang-picker, .topbar > button { flex-shrink: 0; }
+.topbar .lang-picker { min-width: 84px; }
+.topbar-policy { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex-shrink: 1; }
+@media (max-width: 1180px) { .topbar-policy { display: none; } }
+html[dir=ltr] .hero-btn span { display: inline-block; transform: scaleX(-1); }
+.topbar .authority-badge { flex-shrink: 1; min-width: 150px; }
