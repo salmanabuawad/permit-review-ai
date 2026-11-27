@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
-import { api, fmtDate } from '../api'
+import { api, fmtDate, uploadWithProgress } from '../api'
 import { useApp } from '../App'
 
 const TEXT_HE: Record<string, string> = { ok: 'טקסט חולץ', empty: 'ללא טקסט (סרוק?)', failed: 'חילוץ נכשל', none: '—' }
+const IMPORT_HE: Record<string, string> = { queued: 'ממתין', running: 'בעיבוד', done: 'הסתיים', failed: 'נכשל' }
+const mb = (n: number) => n >= 1024 ** 3 ? `${(n / 1024 ** 3).toFixed(1)} GB` : `${Math.max(1, Math.round(n / 1024 ** 2))} MB`
 
 /** Superadmin: the knowledge base the AI assistant answers from — national documents (laws, regulations,
  *  procedures; searched for every committee) and committee documents. Text is extracted on upload; splitting and
@@ -13,6 +15,14 @@ export default function Knowledge() {
   const [scope, setScope] = useState('national'), [q, setQ] = useState(''), [dir, setDir] = useState<any[]>([])
   const [kind, setKind] = useState('regulation'), [title, setTitle] = useState(''), [files, setFiles] = useState<File[]>([])
   const [busy, setBusy] = useState(false), [log, setLog] = useState<string[]>([]), [filter, setFilter] = useState('')
+  const [imports, setImports] = useState<any[]>([]), [pct, setPct] = useState<number | null>(null)
+  const loadImports = () => api.get<any>('/api/knowledge/imports').then(x => setImports(x.rows)).catch(() => {})
+  useEffect(() => { loadImports() }, [])
+  useEffect(() => {                                    // a ZIP import runs in the background: follow it
+    if (!imports.some(j => j.status === 'queued' || j.status === 'running')) return
+    const t = setTimeout(() => { loadImports(); load() }, 5000)
+    return () => clearTimeout(t)
+  }, [imports])
   const load = () => api.get<any>(`/api/knowledge/uploads${filter ? `?scope=${encodeURIComponent(filter)}` : ''}`)
     .then(x => { setRows(x.rows); setKinds(x.kinds) }).catch(e => toast(e.message, true))
   useEffect(() => { load() }, [filter])
@@ -29,6 +39,17 @@ export default function Knowledge() {
   const upload = async () => {
     setBusy(true); setLog([])
     for (const f of files) {
+      if (f.name.toLowerCase().endsWith('.zip')) {    // archive: streamed to the server, documents added in the background
+        const fd = new FormData()
+        fd.append('scope', scope); fd.append('kind', kind); fd.append('file', f)
+        try {
+          setPct(0)
+          const j = await uploadWithProgress<any>('/api/knowledge/imports', fd, setPct)
+          setLog(l => [...l, `${f.name}: הארכיון התקבל — ${j.total} קבצים, נוספים ברקע`])
+        } catch (e: any) { setLog(l => [...l, `${f.name}: ${e.message}`]) }
+        setPct(null); loadImports()
+        continue
+      }
       const fd = new FormData()
       fd.append('file', f); fd.append('scope', scope); fd.append('kind', kind); fd.append('title', files.length === 1 ? title : '')
       try { const r = await api.upload<any>('/api/knowledge/uploads', fd); setLog(l => [...l, `${f.name}: ${TEXT_HE[r.text_status] ?? r.text_status} · ${r.pages} עמ׳`]) }
@@ -56,11 +77,24 @@ export default function Knowledge() {
         <label>חיפוש ועדה<input value={q} onChange={e => setQ(e.target.value)} placeholder="שם ועדה או יישוב" /></label>
         <label>סוג<select value={kind} onChange={e => setKind(e.target.value)}>{Object.entries(kinds).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></label>
         {files.length <= 1 && <label style={{ flex: 2 }}>כותרת (רשות)<input value={title} onChange={e => setTitle(e.target.value)} placeholder="לדוגמה: תקנות התכנון והבנייה (בקשה להיתר) 2016" /></label>}
-        <label>קבצים (PDF, DOCX, XLSX — עד 50 MB)<input id="kb-files" type="file" multiple accept=".pdf,.docx,.xlsx" onChange={e => setFiles(Array.from(e.target.files ?? []))} /></label>
-        <button className="primary" disabled={busy || !files.length} onClick={upload}>{busy ? 'מעלה…' : `העלאה${files.length > 1 ? ` (${files.length})` : ''}`}</button>
+        <label>קבצים (PDF, DOCX, XLSX — עד 50 MB; ZIP של מסמכים — עד 8 GB)<input id="kb-files" type="file" multiple accept=".pdf,.docx,.xlsx,.zip" onChange={e => setFiles(Array.from(e.target.files ?? []))} /></label>
+        <button className="primary" disabled={busy || !files.length} onClick={upload}>{busy ? (pct !== null ? `מעלה… ${pct}%` : 'מעלה…') : `העלאה${files.length > 1 ? ` (${files.length})` : ''}`}</button>
       </div>
+      {pct !== null && <progress max={100} value={pct} style={{ width: '100%', marginTop: 8 }} />}
       {log.length > 0 && <ul className="small" style={{ marginBottom: 0 }}>{log.map((x, i) => <li key={i}>{x}</li>)}</ul>}
     </div>
+    {imports.length > 0 && <div className="card" style={{ marginTop: 12, padding: 0, overflowX: 'auto' }}>
+      <h3 style={{ padding: '10px 12px 0' }}>ייבוא ארכיונים</h3>
+      <table className="small"><thead><tr><th>ארכיון</th><th>מצב</th><th>התקדמות</th><th>נוספו</th><th>כפולים</th><th>דולגו</th><th>נכשלו</th><th>הועלה</th></tr></thead><tbody>
+        {imports.map(j => <tr key={j.id}>
+          <td><b>{j.filename}</b> <span className="muted">{mb(j.size)}</span>
+            {j.errors?.length > 0 && <details><summary className="muted">{`פירוט (${j.errors.length})`}</summary>
+              <ul style={{ margin: 0 }}>{j.errors.map((e: any, i: number) => <li key={i}><span dir="auto">{e.name}</span> — {e.reason}</li>)}</ul></details>}</td>
+          <td><span className={`chip ${j.status === 'done' ? 'ok' : j.status === 'failed' ? 'bad' : 'info'}`}>{IMPORT_HE[j.status] ?? j.status}</span></td>
+          <td>{`${j.processed}/${j.total}`}</td><td>{j.added}</td><td>{j.duplicate}</td><td>{j.skipped}</td><td>{j.failed}</td>
+          <td>{fmtDate(j.created_at)}</td></tr>)}
+      </tbody></table>
+    </div>}
     <div className="card" style={{ marginTop: 12, padding: 0, overflowX: 'auto' }}>
       <div className="filters-row" style={{ padding: '10px 12px 0' }}>
         <select value={filter} onChange={e => setFilter(e.target.value)}><option value="">כל המסמכים</option><option value="national">ידע ארצי</option>

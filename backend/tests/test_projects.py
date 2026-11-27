@@ -280,6 +280,61 @@ def test_superadmin_knowledge_uploads_national_and_committee(env, monkeypatch):
         assert CD.hybrid_search(s, "parking standard", ash, mode="keyword")
 
 
+def test_superadmin_knowledge_zip_import(env, monkeypatch, tmp_path):
+    import io
+    import zipfile
+
+    import pymupdf
+
+    from app import committee_docs as CD
+    from app import knowledge_import as KI
+    monkeypatch.setenv("BBP_SUPERADMINS", '["u-ha-admin"]')
+    monkeypatch.setattr(KI, "import_dir", lambda: tmp_path)
+    monkeypatch.setattr(KI, "kick", lambda: [KI.process(j, SessionLocal) for j in KI.jobs() if j["status"] == "queued"])
+    c = env
+    A = {"X-User": "u-ha-admin"}
+
+    def pdf(text):
+        d = pymupdf.open()
+        d.new_page().insert_text((72, 72), text)
+        return d.tobytes()
+    inner = io.BytesIO()
+    with zipfile.ZipFile(inner, "w") as z:
+        z.writestr("x.pdf", pdf("nested"))
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        same = pdf("zip parking standard 2027")
+        z.writestr("תקנות/חניה.pdf", same)
+        z.writestr("תקנות/copy.pdf", same)                                      # same bytes: one document
+        z.writestr("other/bylaw.pdf", pdf("zip bylaw signage"))
+        z.writestr("other/readme.txt", b"not a document")
+        z.writestr("__MACOSX/._x.pdf", b"junk")
+        z.writestr("inner.zip", inner.getvalue())
+        z.writestr("broken.pdf", b"%PDF-1.4 not really")
+    r = c.post("/api/knowledge/imports", files={"file": ("laws.zip", buf.getvalue(), "application/zip")},
+               data={"scope": "national", "kind": "law"}, headers=A)
+    assert r.status_code == 202, r.text
+    job = c.get("/api/knowledge/imports", headers=A).json()["rows"][0]
+    assert job["id"] == r.json()["id"] and job["status"] == "done" and job["total"] == 7 and job["processed"] == 7
+    assert (job["added"], job["duplicate"], job["skipped"], job["failed"]) == (2, 1, 3, 1), job
+    assert not (tmp_path / f"{job['id']}.zip").exists()                                          # archive removed when done
+    titles = {x["title"] for x in c.get("/api/knowledge/uploads", headers=A).json()["rows"]}
+    assert {"חניה", "bylaw"} <= titles
+    with SessionLocal() as s:
+        assert CD.hybrid_search(s, "zip parking standard", hof(s).id, mode="keyword")
+    assert c.post("/api/knowledge/imports", files={"file": ("a.zip", b"not a zip", "application/zip")},
+                  data={"scope": "national", "kind": "law"}, headers=A).status_code == 422
+    assert c.post("/api/knowledge/imports", files={"file": ("a.pdf", b"x", "application/pdf")},
+                  data={"scope": "national"}, headers=A).status_code == 422
+    assert c.post("/api/knowledge/imports", files={"file": ("a.zip", buf.getvalue(), "application/zip")},
+                  data={"scope": "national"}, headers=H).status_code == 403                                 # superadmin only
+    info = zipfile.ZipInfo("x")                                     # Windows archive without the UTF-8 flag
+    info.filename, info.flag_bits = "תקנות.pdf".encode("utf-8").decode("cp437"), 0
+    assert KI.member_name(info) == "תקנות.pdf"
+    info.filename = "תקנות.pdf".encode("cp862").decode("cp437")
+    assert KI.member_name(info) == "תקנות.pdf"
+
+
 def test_public_committee_lookup_and_demo_request(env, monkeypatch):
     from app import mailer
     from app.api import public

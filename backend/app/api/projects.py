@@ -229,6 +229,40 @@ async def knowledge_upload(file: UploadFile = File(...), scope: str = Form("nati
     return next(r for r in CD.uploads(s, scope) if r["id"] == doc.id)
 
 
+@router.post("/api/knowledge/imports", status_code=202)
+async def knowledge_import(file: UploadFile = File(...), scope: str = Form("national"), kind: str = Form("regulation"),
+                           admin: User = Depends(_platform_admin), s: Session = Depends(get_session)):
+    """Superadmin: a ZIP of many documents (up to 8 GB). The archive is streamed to disk and each PDF / DOCX / XLSX in
+    it becomes its own knowledge document in the background; GET /api/knowledge/imports shows the progress."""
+    from starlette.concurrency import run_in_threadpool
+
+    from .. import knowledge_import as KI
+    from ..models import PlanningCommittee
+    if not (file.filename or "").lower().endswith(".zip"):
+        raise HTTPException(422, "רק קובץ ZIP")
+    committee_id = None if scope == "national" else scope
+    if committee_id is not None and s.get(PlanningCommittee, committee_id) is None:
+        raise HTTPException(404, "ועדה לא נמצאה")
+    try:
+        job = await run_in_threadpool(KI.save_upload, file.file, file.filename, committee_id, scope, kind,
+                                      admin.id, admin.tenant_id)
+    except ValueError as e:
+        raise HTTPException(413 if "GB" in str(e) else 422, str(e)) from e
+    finally:
+        await file.close()
+    audit.record(s, admin.tenant_id, admin.id, "knowledge.import", "knowledge_import", job["id"],
+                 {"scope": scope, "kind": kind, "file": job["filename"], "size": job["size"], "files": job["total"]})
+    s.commit()
+    KI.kick()
+    return job
+
+
+@router.get("/api/knowledge/imports")
+def knowledge_imports(admin: User = Depends(_platform_admin)):
+    from .. import knowledge_import as KI
+    return {"rows": KI.jobs()}
+
+
 @router.post("/api/knowledge/uploads/{doc_id}/retire", status_code=204)
 def knowledge_retire(doc_id: int, admin: User = Depends(_platform_admin), s: Session = Depends(get_session)):
     from .. import committee_docs as CD

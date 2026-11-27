@@ -33,6 +33,9 @@ def _startup():
     if settings.typing_worker:
         import threading
         threading.Thread(target=_typing_worker, daemon=True, name="typing-worker").start()
+    from . import knowledge_import                  # resume a ZIP import interrupted by a restart
+    if knowledge_import._pending():
+        knowledge_import.kick()
     if settings.onboarding_worker:
         import threading
         threading.Thread(target=authorities.worker, args=(SessionLocal,), daemon=True, name="onboarding-worker").start()
