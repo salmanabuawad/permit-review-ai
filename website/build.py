@@ -422,6 +422,8 @@ def home(cfg, lang: str, c: dict) -> str:
 <section class="section" aria-labelledby="lc-title">
  <div class="wrap">
   <div class="section-head reveal"><h2 id="lc-title">{e(S['title'])}</h2><p>{e(S['text'])}</p></div>
+  <div class="st-speed reveal"><div class="st-speed-v">{e(S['speed']['value'])}</div>
+   <div><h3>{e(S['speed']['title'])}</h3><p>{e(S['speed']['text'])}</p><p class="st-speed-note">{e(S['speed']['note'])}</p></div></div>
   <ol class="stages">{stages}</ol>
   <p class="st-source"><a href="{e(S['source_url'])}" rel="noopener" target="_blank">{e(S['source'])}</a></p>
  </div>

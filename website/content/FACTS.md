@@ -98,3 +98,10 @@ as planned, never as available.
 - That it replaces the engineer, architect or reviewer.
 - Accuracy numbers, time savings, customer counts, partnerships or certifications.
 - Integration with Rishuy Zamin (it is planned).
+
+## Measured speed (live system, 28.11.2026)
+- The automated check of an application takes **up to about 5 minutes**: document intake at most 79 s (3 packages),
+  plan discovery for the parcel about 72–73 s (3 parcels), rule-engine run median 33 s and at most 102 s (27 runs,
+  26–28.11.2026). Sum of the slowest of each ≈ 4.2 minutes. Larger cases may take longer.
+- Say "automated check" / "up to about 5 minutes" with the measurement note; never "a permit in 5 minutes" and never
+  imply that the licensing authority's review or decision (and its statutory deadlines) is shortened.
