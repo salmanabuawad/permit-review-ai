@@ -316,6 +316,10 @@ def process(job: dict, factory) -> dict:
     job["status"], job["finished_at"] = "done", _now()
     _write(job)
     path.unlink(missing_ok=True)
+    from .config import settings
+    if settings.ocr_worker:                    # scanned PDFs in the archive: OCR in the background
+        from . import ocr
+        ocr.kick()
     return job
 
 

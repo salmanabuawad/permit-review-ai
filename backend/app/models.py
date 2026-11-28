@@ -662,7 +662,8 @@ class CommitteeSnapshot(Base):
     size: Mapped[int] = mapped_column(Integer)
     path: Mapped[str] = mapped_column(String(300))                   # relative to storage/_sources/committees
     pages: Mapped[int] = mapped_column(Integer, default=0)
-    text_status: Mapped[str] = mapped_column(String(20))             # ok | empty (scanned?) | failed | none
+    text_status: Mapped[str] = mapped_column(String(20))             # ok | ocr (text from OCR) | empty (scanned?) | failed | none
+    ocr_pages: Mapped[int | None] = mapped_column(Integer)           # pages read by OCR so far (empty PDFs)
     fetched_at: Mapped[dt.datetime] = mapped_column(UTCDateTime(), default=_now)
 
 

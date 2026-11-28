@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { api, fmtDate, uploadWithProgress } from '../api'
 import { useApp } from '../App'
 
-const TEXT_HE: Record<string, string> = { ok: 'טקסט חולץ', empty: 'ללא טקסט (סרוק?)', failed: 'חילוץ נכשל', none: '—' }
+const TEXT_HE: Record<string, string> = { ok: 'טקסט חולץ', ocr: 'טקסט מ-OCR (לא מאומת)', empty: 'ללא טקסט (סרוק?)', failed: 'חילוץ נכשל', none: '—' }
+const hasText = (st: string) => st === 'ok' || st === 'ocr'
 const IMPORT_HE: Record<string, string> = { queued: 'ממתין', running: 'בעיבוד', done: 'הסתיים', failed: 'נכשל' }
 const mb = (n: number) => n >= 1024 ** 3 ? `${(n / 1024 ** 3).toFixed(1)} GB` : `${Math.max(1, Math.round(n / 1024 ** 2))} MB`
 
@@ -27,7 +28,7 @@ export default function Knowledge() {
     .then(x => { setRows(x.rows); setKinds(x.kinds) }).catch(e => toast(e.message, true))
   useEffect(() => { load() }, [filter])
   useEffect(() => {                                    // indexing runs in the background: refresh while unfinished
-    if (!rows?.some(r => r.status === 'ok' && r.text_status === 'ok' && r.embedded < Math.max(r.chunks, 1))) return
+    if (!rows?.some(r => r.status === 'ok' && hasText(r.text_status) && r.embedded < Math.max(r.chunks, 1))) return
     const t = setTimeout(load, 15000)
     return () => clearTimeout(t)
   }, [rows])
@@ -107,9 +108,10 @@ export default function Knowledge() {
         {(rows ?? []).map(r => <tr key={r.id} className={r.status === 'retired' ? 'muted' : ''}>
           <td><b>{r.title || '—'}</b>{r.message && <div className="muted">{r.message}</div>}</td>
           <td>{r.scope_he}</td><td>{r.kind_he}</td>
-          <td>{TEXT_HE[r.text_status] ?? '—'}{r.pages ? ` · ${r.pages} עמ׳` : ''}</td>
+          <td>{TEXT_HE[r.text_status] ?? '—'}{r.pages ? ` · ${r.pages} עמ׳` : ''}
+            {r.text_status === 'empty' && r.ocr_pages != null && r.ocr_pages < r.pages && <div className="muted">{`OCR: ${r.ocr_pages}/${r.pages}`}</div>}</td>
           <td>{r.status === 'retired' ? <span className="chip">הוצא מהמאגר</span>
-            : r.text_status !== 'ok' ? '—' : r.chunks && r.embedded >= r.chunks ? <span className="chip ok">מוכן לחיפוש</span>
+            : !hasText(r.text_status) ? '—' : r.chunks && r.embedded >= r.chunks ? <span className="chip ok">מוכן לחיפוש</span>
               : <span className="chip info">בעיבוד {r.chunks ? `${r.embedded}/${r.chunks}` : ''}</span>}</td>
           <td>{fmtDate(r.uploaded_at)}</td>
           <td>{r.status !== 'retired' && <button className="sm" onClick={() => retire(r)}>הוצאה</button>}</td></tr>)}

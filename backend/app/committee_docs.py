@@ -107,15 +107,15 @@ def _save(s: Session, doc: CommitteeDocument, body: bytes, content_type: str, ex
         tmp.write_bytes(body)
         tmp.chmod(0o640)
         tmp.replace(path)
-    status = "none"
+    status, ocr_done = "none", None
     if pages is None:
         # the same bytes were extracted before (another committee, another URL): reuse that text
         twin = s.scalars(select(CommitteeSnapshot).where(CommitteeSnapshot.sha256 == sha,
-                                                         CommitteeSnapshot.text_status.in_(("ok", "empty")))).first()
+                                                         CommitteeSnapshot.text_status.in_(("ok", "ocr", "empty")))).first()
         if twin:
             pages = [p.text_he for p in s.scalars(select(CommitteePassage).where(CommitteePassage.snapshot_id == twin.id)
                                                   .order_by(CommitteePassage.page))]
-            status = twin.text_status
+            status, ocr_done = twin.text_status, twin.ocr_pages
         else:
             try:
                 pages = extract(body, ext)
@@ -125,7 +125,7 @@ def _save(s: Session, doc: CommitteeDocument, body: bytes, content_type: str, ex
     if status == "none" and pages is not None:
         status = "ok" if any(p.strip() for p in pages) else ("empty" if pages else "none")
     snap = CommitteeSnapshot(document_id=doc.id, sha256=sha, content_type=content_type[:120], size=len(body), path=rel,
-                             pages=len(pages or []), text_status=status)
+                             pages=len(pages or []), text_status=status, ocr_pages=ocr_done)
     s.add(snap)
     s.flush()
     for i, t in enumerate(pages or [], 1):
@@ -492,6 +492,7 @@ def uploads(s: Session, scope: str | None = None) -> list[dict]:
                     "uploaded_by": (d.found_on or "").removeprefix("upload:") or None,
                     "uploaded_at": d.checked_at.isoformat() if d.checked_at else None,
                     "text_status": snap.text_status if snap else None, "pages": snap.pages if snap else 0,
+                    "ocr_pages": snap.ocr_pages if snap else None,
                     "size": snap.size if snap else None, "passages": passages, "chunks": chunks, "embedded": embedded,
                     "message": d.message})
     return out

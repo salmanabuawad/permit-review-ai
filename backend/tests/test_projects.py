@@ -421,3 +421,84 @@ def test_public_committee_lookup_and_demo_request(env, monkeypatch):
     for _ in range(3):
         last = c.post("/api/public/demo-request", json=form)
     assert last.status_code == 429
+
+
+def _scanned_pdf(lines, pages=1):
+    """An image-only PDF (no text layer), like a scanned document."""
+    import pymupdf
+    out = pymupdf.open()
+    for k in range(pages):
+        src = pymupdf.open()
+        p = src.new_page()
+        for i, line in enumerate(lines):
+            p.insert_text((50, 100 + 40 * i), f"{line} {k + 1}", fontsize=24)
+        pix = p.get_pixmap(matrix=pymupdf.Matrix(3, 3))
+        out.new_page().insert_image(pymupdf.Rect(0, 0, 595, 842), pixmap=pix)
+    return out.tobytes()
+
+
+def test_knowledge_ocr_of_scanned_pdf(env, monkeypatch):
+    from app import committee_docs as CD
+    from app import ocr
+    from app.models import CommitteePassage, CommitteeSnapshot
+    monkeypatch.setenv("BBP_SUPERADMINS", '["u-ha-admin"]')
+    A = {"X-User": "u-ha-admin"}
+    body = _scanned_pdf(["Parking standard scanned"], pages=3)
+    r = env.post("/api/knowledge/uploads", headers=A, data={"scope": "national", "kind": "regulation", "title": "scan"},
+                 files={"file": ("scan.pdf", body, "application/pdf")})
+    assert r.status_code == 201, r.text
+    assert r.json()["text_status"] == "empty" and r.json()["pages"] == 3
+    doc_id = r.json()["id"]
+    with SessionLocal() as s:
+        mine = s.scalars(select(CommitteeSnapshot).where(CommitteeSnapshot.document_id == doc_id)).one().path
+    seen = []
+
+    def reader(path, n):                       # stands in for Tesseract; other tests' scans read as blank
+        if not str(path).endswith(mine):
+            return ""
+        seen.append(n)
+        if n == 2:
+            raise ValueError("OCR נכשל: test")
+        return "" if n == 3 else f"Parking standard scanned page {n}"
+    for _ in range(50):
+        with SessionLocal() as s:
+            snap = s.scalars(select(CommitteeSnapshot).where(CommitteeSnapshot.document_id == doc_id)).one()
+            if snap.ocr_pages == 3:
+                break
+            ocr.run_batch(s, max_pages=2, reader=reader)
+    with SessionLocal() as s:
+        snap = s.scalars(select(CommitteeSnapshot).where(CommitteeSnapshot.document_id == doc_id)).one()
+        assert (snap.text_status, snap.ocr_pages) == ("ocr", 3)
+        assert [p.page for p in s.scalars(select(CommitteePassage).where(CommitteePassage.snapshot_id == snap.id))] == [1]
+        assert sorted(seen) == [1, 2, 3]
+        assert ocr.run_batch(s, reader=reader)["snapshot"] != snap.id          # done: not read again
+        row = next(x for x in CD.uploads(s, "national") if x["id"] == doc_id)
+        assert row["text_status"] == "ocr" and row["passages"] == 1
+    # the same bytes uploaded again reuse the OCR text instead of reading it again
+    r = env.post("/api/knowledge/uploads", headers=A, data={"scope": "national", "kind": "regulation", "title": "scan"},
+                 files={"file": ("scan2.pdf", body, "application/pdf")})
+    assert r.json()["text_status"] == "ocr"
+    # a scan whose pages all read blank stays "empty" and leaves the queue
+    blank = _scanned_pdf([" "], pages=1)
+    r = env.post("/api/knowledge/uploads", headers=A, data={"scope": "national", "kind": "regulation", "title": "blank"},
+                 files={"file": ("blank.pdf", blank, "application/pdf")})
+    bid = r.json()["id"]
+    for _ in range(50):
+        with SessionLocal() as s:
+            if ocr.run_batch(s, reader=lambda p, n: "")["snapshot"] is None:
+                break
+    with SessionLocal() as s:
+        snap = s.scalars(select(CommitteeSnapshot).where(CommitteeSnapshot.document_id == bid)).one()
+        assert (snap.text_status, snap.ocr_pages) == ("empty", 1)
+
+
+def test_ocr_reads_a_real_scan(tmp_path):
+    from app import ocr
+    if not ocr.available():
+        pytest.skip("Tesseract with the Hebrew model is not installed")
+    f = tmp_path / "scan.pdf"
+    f.write_bytes(_scanned_pdf(["Building permit application", "Parking standard"]))
+    text = ocr.read_page(f, 1)
+    assert "Building permit" in text and "Parking" in text
+    with pytest.raises(ValueError):
+        ocr.read_page(tmp_path / "missing.pdf", 1)

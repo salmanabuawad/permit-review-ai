@@ -49,6 +49,7 @@ class Settings:
     llm_relay_token: str = _env("LLM_RELAY_TOKEN", "")
     vision_model: str = _env("VISION_MODEL", "ministral-3-8b-vision")
     typing_worker: bool = _env("TYPING_WORKER", "false").lower() in ("1", "true", "yes")   # on in the deployed app
+    ocr_worker: bool = _env("OCR_WORKER", "false").lower() in ("1", "true", "yes")   # Tesseract OCR of scanned knowledge PDFs
     onboarding_worker: bool = _env("ONBOARDING_WORKER", "false").lower() in ("1", "true", "yes")  # authority discovery jobs
     # the app never fetches regulatory sites itself: crawls are queued for the crawler process (app.crawler_worker),
     # which runs as its own OS user behind a public-internet-only firewall

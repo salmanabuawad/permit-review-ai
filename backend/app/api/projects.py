@@ -226,6 +226,9 @@ async def knowledge_upload(file: UploadFile = File(...), scope: str = Form("nati
     audit.record(s, admin.tenant_id, admin.id, "knowledge.upload", "committee_document", str(doc.id),
                  {"scope": scope, "kind": kind, "url": doc.url})
     s.commit()
+    if settings.ocr_worker:                    # a scanned PDF: read it by OCR in the background
+        from .. import ocr
+        ocr.kick()
     return next(r for r in CD.uploads(s, scope) if r["id"] == doc.id)
 
 
