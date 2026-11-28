@@ -52,7 +52,7 @@ curl -sI https://permit360.kortexd.com/login | head -1                     # 200
 ## Search engines
 
 The Search Console property https://permit360.kortexd.com/ is already verified; resubmit
-`https://permit360.kortexd.com/sitemap.xml` (it now lists the 40 website pages). The application's own pages are
+`https://permit360.kortexd.com/sitemap.xml` (it now lists the 48 website pages, including the accessibility statement and privacy policy). The application's own pages are
 `noindex` and disallowed in robots.txt.
 
 ## kortexd.com

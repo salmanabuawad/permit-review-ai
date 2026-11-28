@@ -106,3 +106,14 @@ One test request sent from the live English page (https://permit360.kortexd.com/
 "Website test (please ignore)", contact address info@kortexd.com): the page showed its thank-you message, the
 application answered `202` (it answers `503` when the mail server refuses), and the message arrived at
 info@kortexd.com — confirmed by the recipient.
+
+## Redesign (28.11.2026)
+
+Light, institutional look after a review of Israeli permit portals, committee sites, permit consultancies and
+international plan-review products: white header with a "request a demo" button and a compact language menu, light
+hero with a shorter headline, an "official sources" strip (cadastre, planning areas, XPLAN, law and regulations),
+accessibility statement and privacy policy in all four languages (`/<lang>/accessibility/`, `/<lang>/privacy/`),
+and a footer note that Permit360 is not a government system and that the law and plans are the binding text.
+`check_site.py`: 49 HTML files, 48 sitemap URLs, OK. Checked in the browser pane: Hebrew and English home at
+1366 px, Hebrew home and mobile menu at 375 px (no horizontal scroll), Hebrew accessibility page.
+axe-core and Lighthouse were not re-run for this release.

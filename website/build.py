@@ -31,6 +31,7 @@ LANG_SHORT = {"he": "עב", "ar": "ع", "en": "EN", "ru": "RU"}
 DIR = {"he": "rtl", "ar": "rtl", "en": "ltr", "ru": "ltr"}
 SLUGS = ["building-permit-preparation", "building-permit-review", "engineers-architects", "planning-committees",
          "building-rights", "committee-lookup", "planning-regulations", "cad-gis", "local-ai-security"]
+LEGAL = ["accessibility", "privacy"]   # statement pages (footer links), in every language
 ART = {"building-permit-preparation": "documents", "building-permit-review": "review", "engineers-architects": "parcel",
        "planning-committees": "review", "building-rights": "rights", "committee-lookup": "committee",
        "planning-regulations": "law", "cad-gis": "drawing", "local-ai-security": "shield"}
@@ -227,6 +228,10 @@ BRAND_MARK = ('<svg class="brand-mark" viewBox="0 0 36 36" aria-hidden="true" xm
               '<path d="M13 21V11h6.5a4 4 0 0 1 0 8H13" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>')
 
 
+GLOBE = ('<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">'
+         '<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.8 3.8 5.8 3.8 9s-1.2 6.2-3.8 9c-2.6-2.8-3.8-5.8-3.8-9S9.4 5.8 12 3z"/></svg>')
+
+
 def header(cfg, lang: str, c: dict, slug: str | None) -> str:
     u = c["ui"]
     home = f"/{lang}/"
@@ -246,8 +251,10 @@ def header(cfg, lang: str, c: dict, slug: str | None) -> str:
    <a href="{home}#contact">{e(u['nav_contact'])}</a>
   </div>
   <div class="nav-actions">
-   <div class="lang-switch" role="navigation" aria-label="{e(u['language'])}">{langs}</div>
-   <a class="btn btn-ghost btn-sm" href="{cfg.app}/login?lang={lang}">{e(u['signin'])}</a>
+   <div class="lang-drop"><button type="button" aria-expanded="false" aria-haspopup="true" aria-label="{e(u['language'])}: {e(LANG_NAME[lang])}">{GLOBE}<span>{e(LANG_SHORT[lang])}</span></button>
+    <div class="lang-switch" role="navigation" aria-label="{e(u['language'])}">{langs}</div></div>
+   <a class="nav-signin" href="{cfg.app}/login?lang={lang}">{e(u['signin'])}</a>
+   <a class="btn btn-primary btn-sm" href="/{lang}/#contact">{e(u['request_demo'])}</a>
   </div>
  </nav>
 </header>"""
@@ -268,7 +275,9 @@ def footer(cfg, lang: str, c: dict) -> str:
    <div><h2>{e(f['guides'])}</h2><ul>{guides}</ul></div>
    <div><h2>{e(f['company'])}</h2><ul><li><a href="https://kortexd.com/">Kortex Digital</a></li><li><a href="/{lang}/#contact">{e(u['request_demo'])}</a></li>{langs}</ul></div>
   </div>
-  <div class="foot-bottom"><span dir="ltr">© {date.today().year} Kortex Digital Ltd · Permit360</span><span>{e(f['privacy'])}</span></div>
+  <p class="foot-disclaimer">{e(f['disclaimer'])}</p>
+  <div class="foot-bottom"><span dir="ltr">© {date.today().year} Kortex Digital Ltd · Permit360</span>
+   <nav class="foot-legal" aria-label="{e(f['company'])}"><a href="/{lang}/accessibility/">{e(f['accessibility'])}</a><a href="/{lang}/privacy/">{e(f['privacy_policy'])}</a><a href="mailto:info@kortexd.com" dir="ltr">info@kortexd.com</a></nav></div>
  </div>
 </footer>
 </body>
@@ -334,13 +343,18 @@ def home(cfg, lang: str, c: dict) -> str:
    <h1>{e(h['h1'])} <span class="accent">{e(h['h1_accent'])}</span></h1>
    <p class="lead">{e(h['lead'])}</p>
    <div class="hero-actions">
-    <a class="btn btn-primary" href="{cfg.app}/login?register=1&amp;lang={lang}">{e(h['cta_primary'])} <span class="arrow" aria-hidden="true">→</span></a>
-    <a class="btn btn-ghost" href="#demo">{e(h['cta_secondary'])}</a>
+    <a class="btn btn-primary" href="#contact">{e(u['request_demo'])} <span class="arrow" aria-hidden="true">→</span></a>
+    <a class="btn btn-ghost" href="{cfg.app}/login?register=1&amp;lang={lang}">{e(h['cta_primary'])}</a>
+    <a class="btn-link" href="#demo">{e(h['cta_secondary'])} <span class="arrow" aria-hidden="true">→</span></a>
    </div>
    <ul class="proof" aria-label="Permit360">{proof}</ul>
   </div>
   <div class="hero-visual"><div class="frame">{hero_art}</div><p class="visual-note">{e(m['alt'])}</p></div>
  </div>
+</section>
+
+<section class="sources-strip" aria-labelledby="src-title">
+ <div class="wrap"><b id="src-title">{e(h['sources']['title'])}</b><ul>{"".join(f"<li>{e(x)}</li>" for x in h['sources']['items'])}</ul></div>
 </section>
 
 <section class="lookup wrap" aria-labelledby="lookup-title">
@@ -520,6 +534,40 @@ def page(cfg, lang: str, c: dict, slug: str) -> str:
 """ + footer(cfg, lang, c)
 
 
+# ---------------------------------------------------------------- statements (accessibility, privacy)
+
+def legal(cfg, lang: str, c: dict, slug: str) -> str:
+    p = c["legal"][slug]
+    crumbs = {"@type": "BreadcrumbList", "itemListElement": [
+        {"@type": "ListItem", "position": 1, "name": "Permit360", "item": url(cfg, lang)},
+        {"@type": "ListItem", "position": 2, "name": p["nav"], "item": url(cfg, lang, slug)}]}
+    ld = {"@context": "https://schema.org", "@graph": [org_ld(cfg), {"@type": "WebPage", "url": url(cfg, lang, slug), "name": p["title"],
+          "description": p["description"], "inLanguage": lang, "isPartOf": {"@id": f"{cfg.base}/#website"},
+          "publisher": {"@id": "https://kortexd.com/#organization"}, "dateModified": cfg.today}, crumbs]}
+    secs = []
+    for s in p["sections"]:
+        body = "".join(f"<p>{mail(e(x))}</p>" for x in s.get("paragraphs", []))
+        if s.get("bullets"):
+            body += "<ul>" + "".join(f"<li>{e(b)}</li>" for b in s["bullets"]) + "</ul>"
+        secs.append(f'<section><h2>{e(s["h2"])}</h2>{body}</section>')
+    return head(cfg, lang, c, p["title"], p["description"], slug, [ld]) + header(cfg, lang, c, slug) + f"""
+<main id="main">
+<section class="page-hero legal-hero">
+ <div class="wrap"><div>
+  <nav class="crumbs" aria-label="breadcrumb"><a href="/{lang}/">Permit360</a><span aria-hidden="true">/</span><span>{e(p['nav'])}</span></nav>
+  <h1>{e(p['h1'])}</h1>
+  <p class="lead">{e(p['lead'])}</p>
+ </div></div>
+</section>
+<div class="wrap legal-body"><article class="prose">{''.join(secs)}</article></div>
+</main>
+""" + footer(cfg, lang, c)
+
+
+def mail(html: str) -> str:
+    return html.replace("info@kortexd.com", '<a href="mailto:info@kortexd.com" dir="ltr">info@kortexd.com</a>')
+
+
 # ---------------------------------------------------------------- root, 404, sitemap, robots, llms, OG
 
 def root(cfg, contents) -> str:
@@ -554,7 +602,7 @@ def not_found(cfg, contents) -> str:
 
 def sitemap(cfg) -> str:
     rows = []
-    for slug in [None, *SLUGS]:
+    for slug in [None, *SLUGS, *LEGAL]:
         for l in LANGS:
             alts = "".join(f'<xhtml:link rel="alternate" hreflang="{x}" href="{url(cfg, x, slug)}"/>' for x in LANGS)
             alts += f'<xhtml:link rel="alternate" hreflang="x-default" href="{url(cfg, "he", slug)}"/>'
@@ -686,6 +734,9 @@ def main():
         for s in SLUGS:
             (out / l / s).mkdir()
             (out / l / s / "index.html").write_text(page(cfg, l, contents[l], s), encoding="utf-8")
+        for s in LEGAL:
+            (out / l / s).mkdir()
+            (out / l / s / "index.html").write_text(legal(cfg, l, contents[l], s), encoding="utf-8")
     (out / "site" / "404.html").write_text(not_found(cfg, contents), encoding="utf-8")
     (out / "sitemap.xml").write_text(sitemap(cfg), encoding="utf-8")
     app_paths = ["/api/", "/llm-relay/", "/login", "/apply", "/cases", "/projects", "/architect", "/rules", "/sources", "/committees",

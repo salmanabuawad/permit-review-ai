@@ -232,6 +232,15 @@
   "contact": {
    "title": "Talk to the Permit360 team",
    "text": "Tell us whether you prepare applications or review them, and we will arrange a walkthrough with your own type of project."
+  },
+  "sources": {
+   "title": "Built on official sources",
+   "items": [
+    "Survey of Israel cadastre",
+    "Planning Administration planning areas",
+    "XPLAN plans",
+    "Planning and Building Law and licensing regulations"
+   ]
   }
  },
  "form": {
@@ -812,7 +821,108 @@
   "product": "Product",
   "guides": "Guides",
   "company": "Company",
-  "privacy": "Details sent through the form are e-mailed to the Permit360 team at Kortex Digital only so we can reply; the website does not store them."
+  "privacy": "Details sent through the form are e-mailed to the Permit360 team at Kortex Digital only so we can reply; the website does not store them.",
+  "accessibility": "Accessibility statement",
+  "privacy_policy": "Privacy policy",
+  "disclaimer": "Permit360 is a Kortex Digital product, not a government system, and is not affiliated with Rishuy Zamin. Information on this website is general: the binding text is that of the law, regulations and plans, and decisions are made by the committee and the professionals."
  },
- "llms_summary": "Permit360 by Kortex Digital Ltd is software for preparing, checking and reviewing building permit applications in Israel. Permit360 Pro serves engineers, architects, practical engineers and property owners: it identifies the responsible planning committee by block and parcel (gush and helka) from the Survey of Israel cadastre and Planning Administration boundaries, retrieves applicable plans from XPLAN, computes building rights when plan provisions are available, and runs a pre-submission check. Permit360 Authority serves local and regional planning committees with document intake, deterministic rule checks that cite plan clauses, regulations and guidelines, CAD analysis, reviewer-controlled findings and a tamper-evident audit log. Language models run on local hardware and never decide compliance or perform measurements; the statutory decision remains with the committee. Integration with Rishuy Zamin, municipal GIS and OCR for scanned documents are planned. The interface is available in Hebrew, English, Arabic and Russian."
+ "llms_summary": "Permit360 by Kortex Digital Ltd is software for preparing, checking and reviewing building permit applications in Israel. Permit360 Pro serves engineers, architects, practical engineers and property owners: it identifies the responsible planning committee by block and parcel (gush and helka) from the Survey of Israel cadastre and Planning Administration boundaries, retrieves applicable plans from XPLAN, computes building rights when plan provisions are available, and runs a pre-submission check. Permit360 Authority serves local and regional planning committees with document intake, deterministic rule checks that cite plan clauses, regulations and guidelines, CAD analysis, reviewer-controlled findings and a tamper-evident audit log. Language models run on local hardware and never decide compliance or perform measurements; the statutory decision remains with the committee. Integration with Rishuy Zamin, municipal GIS and OCR for scanned documents are planned. The interface is available in Hebrew, English, Arabic and Russian.",
+ "legal": {
+  "accessibility": {
+   "nav": "Accessibility statement",
+   "title": "Accessibility statement — Permit360",
+   "h1": "Accessibility statement",
+   "description": "The Permit360 website accessibility statement: accessibility features, the tests performed and how to contact us about accessibility.",
+   "lead": "We want everyone, including people with disabilities, to be able to use the Permit360 website independently and on equal terms.",
+   "sections": [
+    {
+     "h2": "Accessibility level",
+     "paragraphs": [
+      "The website is built to the WCAG 2.1 level AA guidelines, on which Israeli Standard IS 5568 is based, with the intention of meeting the Equal Rights for Persons with Disabilities (Service Accessibility Adjustments) Regulations, 2013."
+     ]
+    },
+    {
+     "h2": "What we have done",
+     "bullets": [
+      "A “skip to content” link at the top of every page",
+      "Full keyboard navigation with a clear focus outline",
+      "Headings and labelled landmarks for screen readers",
+      "Labels on every form field and announced status messages",
+      "Checked colour contrast for text and controls",
+      "The operating system's “reduce motion” setting is respected — no animation",
+      "Right-to-left and left-to-right layouts in four languages"
+     ]
+    },
+    {
+     "h2": "Testing",
+     "paragraphs": [
+      "On 27.11.2026, 16 pages (the home page in all four languages and guide pages) were tested with axe-core against the WCAG 2.0 and 2.1 A and AA rules, at desktop and phone widths — no violations were found. Lighthouse accessibility score on the tested pages: 100."
+     ]
+    },
+    {
+     "h2": "Scope",
+     "paragraphs": [
+      "This statement covers the public website. The example screens in the interactive demo are illustrations. The Permit360 application itself, after sign-in, is not covered by this statement."
+     ]
+    },
+    {
+     "h2": "Contact us about accessibility",
+     "paragraphs": [
+      "If something on the website is hard to use or not accessible, please tell us and we will fix it. Write to info@kortexd.com with the page, the problem and the browser or assistive technology you used."
+     ]
+    },
+    {
+     "h2": "Last updated",
+     "paragraphs": [
+      "This statement was last updated on 28.11.2026."
+     ]
+    }
+   ]
+  },
+  "privacy": {
+   "nav": "Privacy policy",
+   "title": "Privacy policy — Permit360",
+   "h1": "Privacy policy",
+   "description": "What the Permit360 website collects, what it is used for and what happens to it: the demo-request form, the committee lookup and server logs.",
+   "lead": "This policy explains what information the public Permit360 website, operated by Kortex Digital Ltd, collects and what is done with it.",
+   "sections": [
+    {
+     "h2": "Demo-request form",
+     "paragraphs": [
+      "The form asks for your name, e-mail, organisation, role, phone and a message — name and e-mail are required, the rest is optional. Sending it requires your consent. The details are e-mailed to the Permit360 team at Kortex Digital only so we can reply, and are not stored in the website's database."
+     ]
+    },
+    {
+     "h2": "Committee lookup by block and parcel",
+     "paragraphs": [
+      "The block and parcel numbers are sent to our server to find the committee from official data. No personal details are needed, and the result is not stored in any profile."
+     ]
+    },
+    {
+     "h2": "Server logs and security",
+     "paragraphs": [
+      "Like most websites, the server records requests (IP address, time and the address requested) for security and operations. The IP address is also used to limit request rates and prevent abuse."
+     ]
+    },
+    {
+     "h2": "Cookies and tracking",
+     "paragraphs": [
+      "The public website uses no cookies, no analytics and no third-party tracking, and loads nothing from other websites. After you sign in to the Permit360 application, a sign-in cookie that the application needs is used."
+     ]
+    },
+    {
+     "h2": "Your rights and contacting us",
+     "paragraphs": [
+      "Write to info@kortexd.com to see, correct or ask us to delete the information you gave us, under the Israeli Protection of Privacy Law, 5741-1981."
+     ]
+    },
+    {
+     "h2": "Last updated",
+     "paragraphs": [
+      "This policy was last updated on 28.11.2026."
+     ]
+    }
+   ]
+  }
+ }
 }

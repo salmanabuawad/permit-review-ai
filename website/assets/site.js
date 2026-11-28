@@ -14,11 +14,13 @@
 
   /* ---------------- header: mobile menu and guides dropdown */
   var header = $(".site-header"), menuBtn = $(".menu-btn");
+  var onScroll = function () { if (header) header.classList.toggle("scrolled", window.scrollY > 8); };
+  window.addEventListener("scroll", onScroll, { passive: true }); onScroll();
   if (menuBtn) menuBtn.addEventListener("click", function () {
     var open = header.toggleAttribute("data-open");
     menuBtn.setAttribute("aria-expanded", String(open));
   });
-  $$(".nav-drop").forEach(function (d) {
+  $$(".nav-drop, .lang-drop").forEach(function (d) {
     var b = $("button", d);
     b.addEventListener("click", function (e) {
       e.stopPropagation();
@@ -27,11 +29,11 @@
     });
   });
   document.addEventListener("click", function (e) {
-    $$(".nav-drop[data-open]").forEach(function (d) { if (!d.contains(e.target)) { d.removeAttribute("data-open"); $("button", d).setAttribute("aria-expanded", "false"); } });
+    $$(".nav-drop[data-open], .lang-drop[data-open]").forEach(function (d) { if (!d.contains(e.target)) { d.removeAttribute("data-open"); $("button", d).setAttribute("aria-expanded", "false"); } });
   });
   document.addEventListener("keydown", function (e) {
     if (e.key !== "Escape") return;
-    $$(".nav-drop[data-open]").forEach(function (d) { d.removeAttribute("data-open"); var b = $("button", d); b.setAttribute("aria-expanded", "false"); b.focus(); });
+    $$(".nav-drop[data-open], .lang-drop[data-open]").forEach(function (d) { d.removeAttribute("data-open"); var b = $("button", d); b.setAttribute("aria-expanded", "false"); b.focus(); });
   });
 
   /* ---------------- reveal on scroll */
