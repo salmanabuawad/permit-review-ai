@@ -297,6 +297,29 @@
     "text": "Taking in the documents, finding the plans that apply to the parcel and running every rule on the application take up to about 5 minutes together. Applicants fix problems before filing, and committee reviewers start from a ready findings report. The decision and its deadlines stay with the licensing authority.",
     "note": "Measured in the live system, November 2026: document intake up to 79 s, plan discovery about 73 s, rule run 33 s median and up to 102 s (27 runs). Larger cases may take longer."
    }
+  },
+  "permit_holder": {
+   "kicker": "Licensed permit holder track",
+   "title": "For licensed permit holders: check before you sign",
+   "text": "On the licensed permit holder track (“self-licensing”, מורשה להיתר), a registered architect or engineer takes on wide powers in the licensing and construction stages in place of the licensing authority — and with them responsibility for the application's compliance with the plans and rules. The Planning Administration has announced it is expanding the track.",
+   "lead": "Permit360 Pro runs the same rule engine committees use on your draft, before you sign:",
+   "bullets": [
+    "The responsible committee by block and parcel, from official boundaries",
+    "The plans that apply to the parcel from XPLAN, and building rights when the plan provisions are available",
+    "Findings that each cite their source — plan clause, regulation or committee guideline",
+    "Readiness score, blockers and how to fix them"
+   ],
+   "note": "The track belongs to the Planning Administration and the local authorities; Permit360 is not part of it and is not connected to Rishuy Zamin. The check supports the professional — the responsibility and the signature stay theirs.",
+   "sources": [
+    {
+     "label": "Planning Administration — moves to streamline planning and licensing (24.11.2026, Hebrew)",
+     "url": "https://www.gov.il/he/pages/news24112026"
+    },
+    {
+     "label": "Tel Aviv-Yafo municipality — licensed permit holder (Hebrew)",
+     "url": "https://www.tel-aviv.gov.il/Residents/Construction/Pages/PermitHolder.aspx"
+    }
+   ]
   }
  },
  "form": {

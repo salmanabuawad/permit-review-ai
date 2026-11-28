@@ -57,6 +57,8 @@ noted. `{n}` placeholders must be kept. Lengths are limits, not targets.
                 "items": [ {"n": "0".."7", "title": "official stage name", "time": "official deadline or ''",
                             "text": "what happens (Planning Administration guide)", "help": "Permit360's part ('' when none)",
                             "role": "pro|authority|both|none"} ] },
+                // permit_holder: {"kicker", "title", "text", "lead", "bullets": [4], "note", "sources": [{"label", "url"}]}
+                //   — the licensed permit holder track (FACTS.md "Licensed permit holder track"); shown after the stages
                 // stages.speed: {"value": "up to ~5 minutes", "title", "text", "note": measurement} — FACTS.md "Measured speed"  // 8 items: planning information + the 7 official stages
     "principles": { "title": "...", "items": [ {"title": "...", "text": "1–2 sentences"} ] }, // 4: evidence, people decide, local AI, Israeli data
     "faq": [ {"q": "...", "a": "2–3 sentences"} ],  // 6

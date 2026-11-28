@@ -336,6 +336,7 @@ def home(cfg, lang: str, c: dict) -> str:
         return (f'<li class="reveal{" muted-stage" if x["role"] == "none" else ""}"><span class="st-n" aria-hidden="true">{e(x["n"])}</span>'
                 f'<div class="st-main"><h3>{e(x["title"])}{time}</h3><p>{e(x["text"])}</p></div>{help_}</li>')
     stages = "".join(stage(x) for x in S["items"])
+    PH = h["permit_holder"]
     picons = ["evidence", "people", "local", "israel"]
     principles = "".join(f'<div class="principle reveal">{art.icon(picons[i])}<h3>{e(x["title"])}</h3><p>{e(x["text"])}</p></div>'
                          for i, x in enumerate(h["principles"]["items"]))
@@ -426,6 +427,14 @@ def home(cfg, lang: str, c: dict) -> str:
    <div><h3>{e(S['speed']['title'])}</h3><p>{e(S['speed']['text'])}</p><p class="st-speed-note">{e(S['speed']['note'])}</p></div></div>
   <ol class="stages">{stages}</ol>
   <p class="st-source"><a href="{e(S['source_url'])}" rel="noopener" target="_blank">{e(S['source'])}</a></p>
+  <aside class="holder reveal" aria-labelledby="ph-title">
+   <div class="holder-text"><span class="kicker">{e(PH['kicker'])}</span><h3 id="ph-title">{e(PH['title'])}</h3><p>{e(PH['text'])}</p>
+    <p class="holder-note">{e(PH['note'])}</p>
+    <ul class="holder-src">{"".join(f'<li><a href="{e(x["url"])}" rel="noopener" target="_blank">{e(x["label"])}</a></li>' for x in PH['sources'])}</ul></div>
+   <div class="holder-pro"><span class="st-role pro">Permit360 Pro</span><p>{e(PH['lead'])}</p>
+    <ul class="checks">{"".join(f"<li>{e(b)}</li>" for b in PH['bullets'])}</ul>
+    <a class="btn btn-primary btn-sm" href="{cfg.app}/login?register=1&amp;lang={lang}">{e(h['cta_primary'])} <span class="arrow" aria-hidden="true">→</span></a></div>
+  </aside>
  </div>
 </section>
 

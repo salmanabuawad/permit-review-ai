@@ -105,3 +105,13 @@ as planned, never as available.
   26–28.11.2026). Sum of the slowest of each ≈ 4.2 minutes. Larger cases may take longer.
 - Say "automated check" / "up to about 5 minutes" with the measurement note; never "a permit in 5 minutes" and never
   imply that the licensing authority's review or decision (and its statutory deadlines) is shortened.
+
+## Licensed permit holder track (מורשה להיתר) — 28.11.2026
+- The track is the Planning Administration's and the local authorities', not Permit360's. Sources:
+  https://www.gov.il/he/pages/news24112026 (the Planning Administration announced expanding the track) and
+  https://www.tel-aviv.gov.il/Residents/Construction/Pages/PermitHolder.aspx (a registered architect / engineer gets
+  wide powers in licensing and construction instead of the licensing authority; no enforcement powers).
+- The website section describes only the existing Permit360 Pro pre-submission check (committee by block/parcel,
+  XPLAN plans, building rights when available, findings citing sources, readiness and blockers) as a check before the
+  professional signs. Never claim Permit360 is part of, approved for or integrated with the track or Rishuy Zamin, and
+  never that it replaces the professional's responsibility or signature.
