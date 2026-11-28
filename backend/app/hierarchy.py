@@ -192,11 +192,12 @@ def _served():
 def extract_clauses(s: Session, limit: int = 300) -> int:
     """Cut clauses for current committee passages that have none yet. Returns clauses added."""
     index = term_index(s)
-    done = select(RegulatoryClause.passage_id)
+    # NOT EXISTS, not NOT IN: PostgreSQL rescans a large NOT IN list for every row (25 minutes at 270k clauses)
+    done = select(RegulatoryClause.id).where(RegulatoryClause.passage_id == CommitteePassage.id).exists()
     q = (select(CommitteePassage, CommitteeDocument.committee_id)
          .join(CommitteeSnapshot, CommitteePassage.snapshot_id == CommitteeSnapshot.id)
          .join(CommitteeDocument, CommitteeSnapshot.document_id == CommitteeDocument.id)
-         .where(CommitteeDocument.sha256 == CommitteeSnapshot.sha256, CommitteePassage.id.not_in(done))
+         .where(CommitteeDocument.sha256 == CommitteeSnapshot.sha256, ~done)
          .order_by(CommitteeDocument.committee_id.not_in(_served()), CommitteePassage.id).limit(limit))
     n = 0
     for p, committee_id in s.execute(q).all():

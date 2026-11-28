@@ -93,10 +93,11 @@ def vec_literal(v: list[float]) -> str:
 
 def make_chunks(s: Session, limit: int = 2000) -> int:
     """Split passages that have no chunks yet (current document versions only)."""
-    done = select(CommitteeChunk.passage_id)
+    # NOT EXISTS, not NOT IN: PostgreSQL rescans a large NOT IN list for every row
+    done = select(CommitteeChunk.id).where(CommitteeChunk.passage_id == CommitteePassage.id).exists()
     q = (select(CommitteePassage).join(CommitteeSnapshot, CommitteePassage.snapshot_id == CommitteeSnapshot.id)
          .join(CommitteeDocument, CommitteeSnapshot.document_id == CommitteeDocument.id)
-         .where(CommitteeDocument.sha256 == CommitteeSnapshot.sha256, CommitteePassage.id.not_in(done))
+         .where(CommitteeDocument.sha256 == CommitteeSnapshot.sha256, ~done)
          .order_by(CommitteeDocument.committee_id.not_in(_served()), CommitteePassage.id).limit(limit))
     n = 0
     for p in s.scalars(q):
