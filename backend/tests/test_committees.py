@@ -171,3 +171,26 @@ def test_interrupted_jobs_marked_failed():
     assert committees.fail_interrupted(SessionLocal) == 1
     with SessionLocal() as s:
         assert s.get(PlanningCommittee, cid).kb_detail["fetch"]["state"] == "failed"
+
+
+def test_uploaded_documents_make_a_blocked_committee_ready():
+    """A committee whose site is blocked gets its knowledge base from uploads; a later failed probe keeps that."""
+    import pymupdf
+
+    from app import committee_docs as CD
+    seed(reset=True, samples=False)
+    fetch, _ = _site({})
+    with SessionLocal() as s:
+        committees.import_register(s)
+        c = s.scalars(select(PlanningCommittee).limit(1)).one()
+        c.website_url = "https://down.example/"
+        s.commit()
+        committees.probe(s, c, fetch, sleep=lambda _: None)
+        assert c.kb_status == "BLOCKED"
+        d = pymupdf.open()
+        d.new_page().insert_text((72, 72), "committee guideline uploaded by the administrator")
+        CD.upload(s, c.id, d.tobytes(), "g.pdf", "guideline", "", "admin")
+        s.commit()
+        assert c.kb_status == "DOCUMENTS_FETCHED"
+        committees.probe(s, c, fetch, sleep=lambda _: None)          # the site is still down
+        assert c.kb_status == "DOCUMENTS_FETCHED" and c.kb_detail["probe"]["errors"]

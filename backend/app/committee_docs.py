@@ -434,6 +434,10 @@ def upload(s: Session, committee_id: str | None, body: bytes, filename: str, kin
         doc.sha256 = sha
     doc.kind, doc.title = kind, (title or doc.title or filename or "")[:300]
     doc.status, doc.checked_at = "ok", dt.datetime.now(dt.timezone.utc)
+    if committee_id is not None:            # the committee now has documents in the knowledge base (e.g. its site is blocked)
+        c = s.get(PlanningCommittee, committee_id)
+        if c.kb_status != "DOCUMENTS_FETCHED":
+            c.kb_status = "DOCUMENTS_FETCHED"
     return doc
 
 

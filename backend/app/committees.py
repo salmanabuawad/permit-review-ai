@@ -335,8 +335,8 @@ def probe(s: Session, c: PlanningCommittee, fetcher=None, sleep=None) -> dict:
 
 def _finish(s: Session, c: PlanningCommittee, summary: dict, blocked: bool = False, sources: list | None = None) -> dict:
     c.last_probed_at = dt.datetime.now(dt.timezone.utc)
-    if blocked:
-        c.kb_status = "BLOCKED"
+    if blocked:      # a committee whose documents are already in the knowledge base keeps that status
+        c.kb_status = "DOCUMENTS_FETCHED" if c.kb_status == "DOCUMENTS_FETCHED" else "BLOCKED"
     else:
         # values the probe set itself may be corrected by a later probe; an administrator's values are never touched
         auto = set((c.kb_detail or {}).get("auto_fields") or [])
