@@ -15,7 +15,10 @@ export default function ApplyWizard() {
   const { id } = useParams()
   const [step, setStep] = useState(0)
   const [busy, setBusy] = useState(false)
-  const [f, setF] = useState({ gush: '', helka: '', lot: '', title: '' })
+  const [f, setF] = useState(() => {
+    const q = new URLSearchParams(window.location.search), num = (k: string) => (q.get(k) ?? '').replace(/\D/g, '').slice(0, 6)
+    return { gush: num('gush'), helka: num('helka'), lot: '', title: '' }
+  })
   const [found, setFound] = useState<any>(null), [pick, setPick] = useState(''), [q, setQ] = useState(''), [dir, setDir] = useState<any[]>([])
   const [v, setV] = useState<any>(null)
   const [req, setReq] = useState({ permit_type: 'new_building', purpose: '', main_use: '' })

@@ -8,6 +8,12 @@ const SIGNUP_RESULT: Record<string, { ok: boolean; text: string }> = {
   invalid: { ok: false, text: 'קישור האימות אינו תקף או שפג תוקפו. אפשר להירשם מחדש.' },
 }
 
+/** Where to go after signing in: the application page the user was sent from (same-origin paths only). */
+export function nextPath(): string {
+  const n = new URLSearchParams(window.location.search).get('next') ?? ''
+  return n.startsWith('/') && !n.startsWith('//') && !n.startsWith('/\\') && !n.startsWith('/login') ? n : '/'
+}
+
 /** Sign-in screen (the server sets an HttpOnly session cookie), and self sign-up for engineers and architects. */
 export default function Login() {
   const [view, setView] = useState<'login' | 'signup' | 'sent'>(new URLSearchParams(window.location.search).has('register') ? 'signup' : 'login')
@@ -26,7 +32,7 @@ export default function Login() {
     try {
       await api.post('/api/auth/login', { username, password })
       setAuthority('')
-      window.location.assign('/')
+      window.location.assign(nextPath())
     } catch (x) {
       setErr(x instanceof ApiError ? x.message : 'שגיאת רשת')
       setBusy(false)

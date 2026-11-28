@@ -153,35 +153,6 @@
    "next": "Next",
    "step": "Step {n} of 6"
   },
-  "lifecycle": {
-   "title": "The permit lifecycle, end to end",
-   "items": [
-    {
-     "title": "Property",
-     "text": "Start from the registered block and parcel, not from an address or a guess."
-    },
-    {
-     "title": "Committee",
-     "text": "Identify the responsible planning committee from official planning-area boundaries."
-    },
-    {
-     "title": "Planning information",
-     "text": "See the applicable plans, land uses, restrictions and building rights for the plot."
-    },
-    {
-     "title": "Application",
-     "text": "Assemble the request, documents and declaration in a guided, resumable wizard."
-    },
-    {
-     "title": "Review",
-     "text": "Check the application against approved rules, with every finding tied to its source."
-    },
-    {
-     "title": "Decision support",
-     "text": "Reviewers decide, return for completions and track every correction in the audit log."
-    }
-   ]
-  },
   "principles": {
    "title": "How Permit360 works",
    "items": [
@@ -241,6 +212,85 @@
     "XPLAN plans",
     "Planning and Building Law and licensing regulations"
    ]
+  },
+  "stages": {
+   "title": "The licensing stages of a permit application — and where Permit360 fits",
+   "text": "The seven stages in the Planning Administration's guide, and the planning-information step before them. The application itself is filed and handled in Rishuy Zamin; Permit360 helps applicants arrive ready and helps committees review quickly, with a source for every finding.",
+   "source": "Source: Planning Administration — licensing stages of a building permit application (Hebrew)",
+   "p360": "Permit360",
+   "outside": "Outside Permit360",
+   "role": {
+    "pro": "Permit360 Pro",
+    "authority": "Permit360 Authority",
+    "both": "Pro · Authority"
+   },
+   "items": [
+    {
+     "n": "0",
+     "title": "Planning information",
+     "time": "",
+     "text": "Before filing: the plans, guidelines and conditions that apply to the land.",
+     "help": "The responsible committee by block and parcel, applicable plans from XPLAN, restrictions and building rights for the plot.",
+     "role": "pro"
+    },
+    {
+     "n": "1",
+     "title": "Filing the application",
+     "time": "",
+     "text": "The applicant's architect or engineer prepares it according to the plans and spatial guidelines, then fills in the details and attaches the documents in Rishuy Zamin.",
+     "help": "A guided application wizard and a pre-submission check with the same rule engine committees use: readiness score, blockers and fixes.",
+     "role": "both"
+    },
+    {
+     "n": "2",
+     "title": "Preliminary conditions check",
+     "time": "within 10 days",
+     "text": "The committee engineer checks that every required detail and document is included; an incomplete application is not accepted.",
+     "help": "Pro flags missing documents before filing; Authority takes in the documents and classifies them by content.",
+     "role": "both"
+    },
+    {
+     "n": "3",
+     "title": "Spatial review and licensing decision",
+     "time": "up to 45 working days",
+     "text": "Compliance with the law, regulations, plans and spatial guidelines — areas, floors, building lines, height and uses — and a decision.",
+     "help": "A rule engine with a cited source for every finding and measurement from DWG/DXF drawings; the reviewer accepts or overrides each finding with a reason.",
+     "role": "both"
+    },
+    {
+     "n": "4",
+     "title": "Design control",
+     "time": "",
+     "text": "Engineering control — structure, fire safety, civil defence, sanitation and more — at a control institute or the licensing authority.",
+     "help": "",
+     "role": "none"
+    },
+    {
+     "n": "5",
+     "title": "Applicant's report",
+     "time": "",
+     "text": "The spatial changes made after design control, or a declaration that none were made.",
+     "help": "Checks run again on the corrected version, and the differences between versions are shown.",
+     "role": "authority"
+    },
+    {
+     "n": "6",
+     "title": "Summary, payments and fees",
+     "time": "charges within 10 days",
+     "text": "The engineer checks the changes against the decision, and the licensing authority sends the charges.",
+     "help": "",
+     "role": "none"
+    },
+    {
+     "n": "7",
+     "title": "Issuing the permit",
+     "time": "within 5 days of payment",
+     "text": "Once payments are made or guarantees given, the permit is issued; it is valid for six years.",
+     "help": "",
+     "role": "none"
+    }
+   ],
+   "source_url": "https://www.gov.il/he/pages/steps_licensing_full_permit?chapterIndex=1"
   }
  },
  "form": {

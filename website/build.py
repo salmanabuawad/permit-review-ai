@@ -324,7 +324,18 @@ def home(cfg, lang: str, c: dict) -> str:
         return (f'<article class="edition {cls} reveal" id="{key}"><span class="edition-label">{e(x["label"])}</span><h3>{e(x["title"])}</h3><p>{e(x["text"])}</p>'
                 f'<ul class="checks">{"".join(f"<li>{e(b)}</li>" for b in x["bullets"])}</ul>'
                 f'<a class="btn btn-outline" href="/{lang}/{slug}/">{e(u["read_more"])} <span class="arrow" aria-hidden="true">→</span></a></article>')
-    lifecycle = "".join(f'<li class="reveal"><b>{e(x["title"])}</b><span>{e(x["text"])}</span></li>' for x in h["lifecycle"]["items"])
+    S = h["stages"]
+
+    def stage(x):
+        time = f'<span class="st-time">{e(x["time"])}</span>' if x["time"] else ""
+        if x["role"] == "none":
+            help_ = f'<div class="st-help none"><span>{e(S["outside"])}</span></div>'
+        else:
+            help_ = (f'<div class="st-help"><span class="st-role {x["role"]}">{e(S["role"][x["role"]])}</span>'
+                     f'<p>{e(x["help"])}</p></div>')
+        return (f'<li class="reveal{" muted-stage" if x["role"] == "none" else ""}"><span class="st-n" aria-hidden="true">{e(x["n"])}</span>'
+                f'<div class="st-main"><h3>{e(x["title"])}{time}</h3><p>{e(x["text"])}</p></div>{help_}</li>')
+    stages = "".join(stage(x) for x in S["items"])
     picons = ["evidence", "people", "local", "israel"]
     principles = "".join(f'<div class="principle reveal">{art.icon(picons[i])}<h3>{e(x["title"])}</h3><p>{e(x["text"])}</p></div>'
                          for i, x in enumerate(h["principles"]["items"]))
@@ -410,8 +421,9 @@ def home(cfg, lang: str, c: dict) -> str:
 
 <section class="section" aria-labelledby="lc-title">
  <div class="wrap">
-  <div class="section-head reveal"><h2 id="lc-title">{e(h['lifecycle']['title'])}</h2></div>
-  <ol class="lifecycle">{lifecycle}</ol>
+  <div class="section-head reveal"><h2 id="lc-title">{e(S['title'])}</h2><p>{e(S['text'])}</p></div>
+  <ol class="stages">{stages}</ol>
+  <p class="st-source"><a href="{e(S['source_url'])}" rel="noopener" target="_blank">{e(S['source'])}</a></p>
  </div>
 </section>
 

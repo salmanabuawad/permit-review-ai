@@ -52,7 +52,11 @@ noted. `{n}` placeholders must be kept. Lengths are limits, not targets.
       // evidence-backed findings · track corrections
       "prev": "Previous", "next": "Next", "step": "Step {n} of 6"
     },
-    "lifecycle": { "title": "...", "items": [ {"title": "...", "text": "1 sentence"} ] },  // 6 items
+    "stages": { "title": "...", "text": "...", "source": "...", "source_url": "gov.il", "p360": "Permit360", "outside": "...",
+                "role": {"pro": "...", "authority": "...", "both": "..."},
+                "items": [ {"n": "0".."7", "title": "official stage name", "time": "official deadline or ''",
+                            "text": "what happens (Planning Administration guide)", "help": "Permit360's part ('' when none)",
+                            "role": "pro|authority|both|none"} ] },  // 8 items: planning information + the 7 official stages
     "principles": { "title": "...", "items": [ {"title": "...", "text": "1–2 sentences"} ] }, // 4: evidence, people decide, local AI, Israeli data
     "faq": [ {"q": "...", "a": "2–3 sentences"} ],  // 6
     "contact": { "title": "...", "text": "1–2 sentences" }

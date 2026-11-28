@@ -68,7 +68,7 @@
       var parcel = r.parcel_area_m2 ? '<span class="m-num">' + fmt(Math.round(r.parcel_area_m2)) + "</span> " + esc(L.sqm) : "";
       var loc = (r.localities || []).join(", ");
       var head = '<div class="lr-title">' + esc(L.gush) + ' <bdi class="m-num">' + esc(r.gush) + "</bdi> · " + esc(L.helka) + ' <bdi class="m-num">' + esc(r.helka) + "</bdi></div>";
-      var cont = '<div class="lr-actions"><a class="btn btn-primary btn-sm" href="' + APP + "/apply?lang=" + LANG + '">' + esc(L["continue"]) + ' <span class="arrow" aria-hidden="true">→</span></a></div><p class="lr-note">' + esc(L.note) + "</p>";
+      var cont = '<div class="lr-actions"><a class="btn btn-primary btn-sm" href="' + APP + "/apply?lang=" + LANG + "&gush=" + encodeURIComponent(r.gush) + "&helka=" + encodeURIComponent(r.helka) + '">' + esc(L["continue"]) + ' <span class="arrow" aria-hidden="true">→</span></a></div><p class="lr-note">' + esc(L.note) + "</p>";
       if (r.status === "RESOLVED" && c[0]) {
         var a = c[0];
         show(head + '<div class="lr-title" style="margin-top:10px">' + esc(L.resolved) + '</div><div class="lr-committee" lang="he">' + esc(a.committee) + "</div>" +

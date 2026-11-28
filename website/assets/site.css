@@ -278,16 +278,25 @@ html:is([lang="he"], [lang="ar"]) .kicker { letter-spacing: .01em; text-transfor
 .m-svg { border: 1px solid var(--line); border-radius: 11px; background: #fbfcfd; }
 .m-stack { display: grid; gap: 12px; }
 
-/* lifecycle */
-.lifecycle { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 14px; counter-reset: lc; }
-.lifecycle li { position: relative; padding: 22px 18px 20px; background: var(--white); border: 1px solid var(--line); border-radius: var(--radius); counter-increment: lc; }
-.lifecycle li::before { content: counter(lc, decimal-leading-zero); font-family: "Inter", sans-serif; font-size: 13px; font-weight: 750; color: var(--teal-600);
-  display: block; margin-bottom: 12px; }
-.lifecycle li::after { content: ""; position: absolute; inset-block-start: 30px; inset-inline-start: 46px; inset-inline-end: 18px; height: 1px;
-  background: linear-gradient(90deg, var(--teal-300), transparent); }
-html[dir="rtl"] .lifecycle li::after { background: linear-gradient(270deg, var(--teal-300), transparent); }
-.lifecycle b { display: block; color: var(--navy-900); line-height: 1.35; margin-bottom: 6px; }
-.lifecycle span { font-size: 14.5px; color: var(--muted); line-height: 1.55; display: block; }
+/* licensing stages (Planning Administration) and Permit360's part */
+.stages { list-style: none; margin: 0; padding: 0; border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--white);
+  overflow: hidden; box-shadow: var(--shadow); }
+.stages li { display: grid; grid-template-columns: 56px minmax(0, 1.15fr) minmax(0, 1fr); gap: 20px; align-items: start; padding: 20px 24px;
+  border-block-start: 1px solid var(--line-2); }
+.stages li:first-child { border-block-start: 0; background: var(--paper); }
+.st-n { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; font-family: "Inter", sans-serif; font-weight: 750;
+  font-size: 15px; color: var(--navy-900); background: var(--teal-50); border: 1px solid var(--teal-100); }
+.muted-stage .st-n { background: var(--paper); border-color: var(--line); color: var(--muted); }
+.st-main h3 { font-size: 18px; margin: 6px 0 4px; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.st-main p { margin: 0; color: var(--ink-2); font-size: 15.5px; line-height: 1.6; }
+.st-time { font-size: 12.5px; font-weight: 700; color: var(--navy-600); background: #eef3f8; border: 1px solid #dbe5ee; border-radius: 6px; padding: 2px 8px; }
+.st-help { border-inline-start: 3px solid var(--teal-600); padding: 4px 0 4px 16px; padding-inline: 16px 0; margin-top: 4px; }
+.st-help p { margin: 6px 0 0; font-size: 15px; color: var(--ink); line-height: 1.55; }
+.st-help.none { border-inline-start-color: var(--line); color: var(--muted); font-size: 14px; padding-block: 8px; }
+.st-role { display: inline-block; direction: ltr; font-family: "Inter", sans-serif; font-size: 12px; font-weight: 750; letter-spacing: .03em;
+  color: var(--teal-700); background: var(--teal-50); border: 1px solid var(--teal-100); border-radius: 6px; padding: 2px 8px; }
+.st-role.authority { color: var(--navy-600); background: #eef3f8; border-color: #dbe5ee; }
+.st-source { margin: 14px 0 0; font-size: 14px; } .st-source a { color: var(--muted); }
 
 /* principles (dark) */
 .principles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
@@ -383,7 +392,6 @@ html[dir="rtl"] .lifecycle li::after { background: linear-gradient(270deg, var(-
 
 /* ---------------------------------------------------------------- responsive */
 @media (max-width: 1080px) {
-  .lifecycle { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .principles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .foot-grid { grid-template-columns: 1fr 1fr; }
 }
@@ -411,7 +419,9 @@ html[dir="rtl"] .lifecycle li::after { background: linear-gradient(270deg, var(-
 }
 @media (max-width: 640px) {
   body { font-size: 16px; }
-  .lifecycle, .principles, .guides, .related, .form-grid, .foot-grid { grid-template-columns: minmax(0, 1fr); }
+  .stages li { grid-template-columns: 40px minmax(0, 1fr); gap: 12px 14px; padding: 18px 16px; }
+  .stages .st-help { grid-column: 2; }
+  .principles, .guides, .related, .form-grid, .foot-grid { grid-template-columns: minmax(0, 1fr); }
   .lr-grid { grid-template-columns: minmax(0, 1fr); }
   .hero-actions .btn, .cta-band .btn { flex: 1 1 100%; }
   .stage { padding: 12px; }

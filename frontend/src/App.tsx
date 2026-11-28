@@ -101,6 +101,11 @@ export default function App() {
   if (needLogin) {
     const q = new URLSearchParams(window.location.search)
     if (window.location.pathname === '/login' || q.has('signup')) return <Login />
+    const here = window.location.pathname + window.location.search
+    if (window.location.pathname !== '/') {          // a link into the application: sign in, then return to it
+      window.location.replace(`/login?next=${encodeURIComponent(here)}`)
+      return null
+    }
     window.location.replace(`/${uiLang}/`)           // signed out: the public website (same host, /he/ /ar/ /en/ /ru/)
     return null
   }
