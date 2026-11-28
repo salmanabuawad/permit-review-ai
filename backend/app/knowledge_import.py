@@ -7,8 +7,8 @@ Progress lives in a small JSON file next to the archive, so an import interrupte
 stopped. The archive is deleted when the import finishes (the documents themselves are kept in storage).
 
 Regulation360 exports are understood: a file under ui_upload/<NNN>_<NATIONAL | code>_<committee name>/ goes to that
-scope (committees matched by Hebrew name), with the type and title from the folder's index.csv (else the subfolder
-name, else the import's type); main_system/ server packages are not imported but kept in <job>-server/ for an
+scope (committees matched by Hebrew name), with the type, title and official address from the folder's index.csv
+(columns kind, title, source_url; else the subfolder name, else the import's type); main_system/ server packages are not imported but kept in <job>-server/ for an
 operator to install into knowledge/.
 """
 from __future__ import annotations
@@ -199,7 +199,7 @@ def folder_scope(name: str, s, cache: dict) -> tuple[str, str | None, str, str] 
 
 
 def folder_index(z: zipfile.ZipFile, names: dict, root: str, cache: dict) -> dict:
-    """The scope folder's index.csv (file → kind, title), when the export has one."""
+    """The scope folder's index.csv (file → kind, title, source_url), when the export has one."""
     key = f"index:{root}"
     if key not in cache:
         cache[key] = {}
@@ -209,7 +209,8 @@ def folder_index(z: zipfile.ZipFile, names: dict, root: str, cache: dict) -> dic
                 text = z.read(info).decode("utf-8-sig", errors="replace")
                 for row in csv.DictReader(io.StringIO(text)):
                     if row.get("file"):
-                        cache[key][row["file"].replace("\\", "/")] = (row.get("kind") or "", (row.get("title") or "").strip())
+                        cache[key][row["file"].replace("\\", "/")] = (row.get("kind") or "", (row.get("title") or "").strip(),
+                                                                    (row.get("source_url") or "").strip())
             except (csv.Error, OSError, zipfile.BadZipFile):
                 pass
     return cache[key]
@@ -281,10 +282,10 @@ def process(job: dict, factory) -> dict:
                             raise ValueError(f"ועדה לא נמצאה: {fs[2]}")
                         cid = fs[1] if fs else job["committee_id"]
                         label = fs[2] if fs else job["scope"]
-                        kind, title_hint = job["kind"], ""
+                        kind, title_hint, source_url = job["kind"], "", None
                         if fs:                              # type and title from the folder's index.csv / subfolder
                             rel = name[len(fs[3]) + 1:]
-                            k, title_hint = folder_index(z, names, fs[3], cache).get(rel, ("", ""))
+                            k, title_hint, source_url = folder_index(z, names, fs[3], cache).get(rel, ("", "", ""))
                             sub = rel.split("/")[0] if "/" in rel else ""
                             kind = k if k in CD.UPLOAD_KINDS else sub if sub in CD.UPLOAD_KINDS else job["kind"]
                         with z.open(info) as f:
@@ -295,9 +296,9 @@ def process(job: dict, factory) -> dict:
                                     else CommitteeDocument.committee_id == cid)
                         existed = s.scalar(q) is not None
                         title = "" if existed else (title_hint or PurePosixPath(base).stem)  # a copy keeps the first title
-                        doc = CD.upload(s, cid, body, base, kind, title, job["user"])
+                        doc = CD.upload(s, cid, body, base, kind, title, job["user"], source_url=source_url)
                         audit.record(s, job["tenant"], job["user"], "knowledge.upload", "committee_document",
-                                     str(doc.id), {"scope": cid or "national", "kind": kind, "url": doc.url,
+                                     str(doc.id), {"scope": cid or "national", "kind": kind, "url": doc.url, "source_url": doc.source_url,
                                                    "import": job["id"], "member": name[-300:]})
                         s.commit()
                     job["duplicate" if existed else "added"] += 1

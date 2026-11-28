@@ -390,7 +390,7 @@ def hybrid_search(s: Session, q: str, committee_id: str | None = None, mode: str
         else:
             ch, _ = best_chunk[pid]
             excerpt = x.text_he[ch.start:ch.end]
-        out.append({"committee": c.name_he if c else NATIONAL_HE, "committee_id": c.id if c else None, "document": d.title or d.url, "url": d.url, "kind": d.kind,
+        out.append({"committee": c.name_he if c else NATIONAL_HE, "committee_id": c.id if c else None, "document": d.title or d.url, "url": cite_url(d), "kind": d.kind,
                     "page": x.page, "snapshot_id": snap.id, "excerpt": excerpt, "verification": "UNVERIFIED",
                     "found_by": [n for n, lst in (("keyword", kw), ("semantic", sem)) if pid in lst],
                     "similarity": round(best_chunk[pid][1], 3) if pid in best_chunk else None, "passage_id": pid})
@@ -398,9 +398,24 @@ def hybrid_search(s: Session, q: str, committee_id: str | None = None, mode: str
 
 
 # ---------------------------------------------------------------- uploads to the AI knowledge base (superadmin)
+def official_url(u: str | None) -> str | None:
+    """An https address with a host, as given; anything else (blank, upload:, javascript:, http) is None."""
+    u = (u or "").strip()
+    if not u or len(u) > 1000:
+        return None
+    parts = urlsplit(u)
+    return u if parts.scheme == "https" and parts.hostname else None
 
-def upload(s: Session, committee_id: str | None, body: bytes, filename: str, kind: str, title: str, user: str) -> CommitteeDocument:
+
+def cite_url(d: CommitteeDocument) -> str:
+    """What a citation links to: the official address of an upload when known, else the document's own URL."""
+    return d.source_url or d.url
+
+
+def upload(s: Session, committee_id: str | None, body: bytes, filename: str, kind: str, title: str, user: str,
+           source_url: str | None = None) -> CommitteeDocument:
     """Add a document to the knowledge base the assistant searches: a committee's, or national (committee_id None).
+    source_url: the official address the file was downloaded from (https only), which citations link to.
     Text is extracted in the sandbox; the crawler worker splits and embeds it when idle. The same file twice is one
     document; a retired one comes back."""
     import datetime as dt
@@ -433,6 +448,8 @@ def upload(s: Session, committee_id: str | None, body: bytes, filename: str, kin
     elif doc.status == "retired":
         doc.sha256 = sha
     doc.kind, doc.title = kind, (title or doc.title or filename or "")[:300]
+    if source_url := official_url(source_url):
+        doc.source_url = source_url
     doc.status, doc.checked_at = "ok", dt.datetime.now(dt.timezone.utc)
     if committee_id is not None:            # the committee now has documents in the knowledge base (e.g. its site is blocked)
         c = s.get(PlanningCommittee, committee_id)
@@ -493,7 +510,7 @@ def uploads(s: Session, scope: str | None = None) -> list[dict]:
         c = s.get(PlanningCommittee, d.committee_id) if d.committee_id else None
         out.append({"id": d.id, "title": d.title, "kind": d.kind, "kind_he": UPLOAD_KINDS.get(d.kind, d.kind),
                     "committee_id": d.committee_id, "scope_he": c.name_he if c else NATIONAL_HE, "status": d.status,
-                    "uploaded_by": (d.found_on or "").removeprefix("upload:") or None,
+                    "uploaded_by": (d.found_on or "").removeprefix("upload:") or None, "source_url": d.source_url,
                     "uploaded_at": d.checked_at.isoformat() if d.checked_at else None,
                     "text_status": snap.text_status if snap else None, "pages": snap.pages if snap else 0,
                     "ocr_pages": snap.ocr_pages if snap else None,

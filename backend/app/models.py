@@ -642,6 +642,8 @@ class CommitteeDocument(Base):
     title: Mapped[str | None] = mapped_column(String(300))
     kind: Mapped[str] = mapped_column(String(20))                    # guideline | plan | bylaw | procedure
     found_on: Mapped[str | None] = mapped_column(String(1000))      # page that linked it (None: the probe's list)
+    # an upload's official address (url is upload:<sha256>): what citations link to
+    source_url: Mapped[str | None] = mapped_column(String(1000))
     status: Mapped[str] = mapped_column(String(20), default='pending')   # pending | ok | unchanged | skipped | failed
     message: Mapped[str | None] = mapped_column(String(300))
     http_status: Mapped[int | None] = mapped_column(Integer)

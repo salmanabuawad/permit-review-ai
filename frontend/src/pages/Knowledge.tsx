@@ -15,6 +15,7 @@ export default function Knowledge() {
   const [rows, setRows] = useState<any[] | null>(null), [kinds, setKinds] = useState<Record<string, string>>({})
   const [scope, setScope] = useState('national'), [q, setQ] = useState(''), [dir, setDir] = useState<any[]>([])
   const [kind, setKind] = useState('regulation'), [title, setTitle] = useState(''), [files, setFiles] = useState<File[]>([])
+  const [sourceUrl, setSourceUrl] = useState('')
   const [busy, setBusy] = useState(false), [log, setLog] = useState<string[]>([]), [filter, setFilter] = useState('')
   const [imports, setImports] = useState<any[]>([]), [pct, setPct] = useState<number | null>(null)
   const loadImports = () => api.get<any>('/api/knowledge/imports').then(x => setImports(x.rows)).catch(() => {})
@@ -53,10 +54,11 @@ export default function Knowledge() {
       }
       const fd = new FormData()
       fd.append('file', f); fd.append('scope', scope); fd.append('kind', kind); fd.append('title', files.length === 1 ? title : '')
+      fd.append('source_url', files.length === 1 ? sourceUrl.trim() : '')
       try { const r = await api.upload<any>('/api/knowledge/uploads', fd); setLog(l => [...l, `${f.name}: ${TEXT_HE[r.text_status] ?? r.text_status} · ${r.pages} עמ׳`]) }
       catch (e: any) { setLog(l => [...l, `${f.name}: ${e.message}`]) }
     }
-    setFiles([]); setTitle('')
+    setFiles([]); setTitle(''); setSourceUrl('')
     const el = document.getElementById('kb-files') as HTMLInputElement | null
     if (el) el.value = ''
     setBusy(false); load()
@@ -78,6 +80,7 @@ export default function Knowledge() {
         <label>חיפוש ועדה<input value={q} onChange={e => setQ(e.target.value)} placeholder="שם ועדה או יישוב" /></label>
         <label>סוג<select value={kind} onChange={e => setKind(e.target.value)}>{Object.entries(kinds).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></label>
         {files.length <= 1 && <label style={{ flex: 2 }}>כותרת (רשות)<input value={title} onChange={e => setTitle(e.target.value)} placeholder="לדוגמה: תקנות התכנון והבנייה (בקשה להיתר) 2016" /></label>}
+        {files.length <= 1 && <label style={{ flex: 2 }}>כתובת המקור הרשמי (רשות)<input className="ltr" type="url" value={sourceUrl} onChange={e => setSourceUrl(e.target.value)} placeholder="https://www.gov.il/BlobFolder/…" /></label>}
         <label>קבצים (PDF, DOCX, XLSX — עד 50 MB; ZIP של מסמכים — עד 8 GB)<input id="kb-files" type="file" multiple accept=".pdf,.docx,.xlsx,.zip" onChange={e => setFiles(Array.from(e.target.files ?? []))} /></label>
         <button className="primary" disabled={busy || !files.length} onClick={upload}>{busy ? (pct !== null ? `מעלה… ${pct}%` : 'מעלה…') : `העלאה${files.length > 1 ? ` (${files.length})` : ''}`}</button>
       </div>
@@ -106,7 +109,7 @@ export default function Knowledge() {
       </div>
       <table className="small"><thead><tr><th>מסמך</th><th>היקף</th><th>סוג</th><th>טקסט</th><th>אינדקס</th><th>הועלה</th><th></th></tr></thead><tbody>
         {(rows ?? []).map(r => <tr key={r.id} className={r.status === 'retired' ? 'muted' : ''}>
-          <td><b>{r.title || '—'}</b>{r.message && <div className="muted">{r.message}</div>}</td>
+          <td><b>{r.title || '—'}</b>{r.source_url && <> · <a href={r.source_url} target="_blank" rel="noreferrer">מקור</a></>}{r.message && <div className="muted">{r.message}</div>}</td>
           <td>{r.scope_he}</td><td>{r.kind_he}</td>
           <td>{TEXT_HE[r.text_status] ?? '—'}{r.pages ? ` · ${r.pages} עמ׳` : ''}
             {r.text_status === 'empty' && r.ocr_pages != null && r.ocr_pages < r.pages && <div className="muted">{`OCR: ${r.ocr_pages}/${r.pages}`}</div>}</td>

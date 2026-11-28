@@ -213,18 +213,20 @@ def knowledge_uploads(scope: str | None = None, admin: User = Depends(_platform_
 
 @router.post("/api/knowledge/uploads", status_code=201)
 async def knowledge_upload(file: UploadFile = File(...), scope: str = Form("national"), kind: str = Form("regulation"),
-                           title: str = Form(""), admin: User = Depends(_platform_admin), s: Session = Depends(get_session)):
+                           title: str = Form(""), source_url: str = Form(""), admin: User = Depends(_platform_admin),
+                           s: Session = Depends(get_session)):
     """Superadmin: add a document to the knowledge base the assistant answers from — national (laws, regulations,
     procedures; searched with every committee) or one committee's. Unverified knowledge, never a rule."""
     from .. import committee_docs as CD
     body = await file.read(CD.MAX_UPLOAD + 1)
     try:
-        doc = CD.upload(s, None if scope == "national" else scope, body, file.filename or "upload", kind, title, admin.id)
+        doc = CD.upload(s, None if scope == "national" else scope, body, file.filename or "upload", kind, title, admin.id,
+                       source_url=source_url)
     except ValueError as e:
         s.rollback()
         raise HTTPException(413 if "50 MB" in str(e) else 422, str(e)) from e
     audit.record(s, admin.tenant_id, admin.id, "knowledge.upload", "committee_document", str(doc.id),
-                 {"scope": scope, "kind": kind, "url": doc.url})
+                 {"scope": scope, "kind": kind, "url": doc.url, "source_url": doc.source_url})
     s.commit()
     if settings.ocr_worker:                    # a scanned PDF: read it by OCR in the background
         from .. import ocr

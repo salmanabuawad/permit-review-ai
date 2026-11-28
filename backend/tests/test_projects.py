@@ -254,9 +254,11 @@ def test_superadmin_knowledge_uploads_national_and_committee(env, monkeypatch):
         ash = s.scalars(select(PlanningCommittee).where(PlanningCommittee.name_he == "אשקלון")).one().id
     regs = pdf("national parking standard 2026")
     up = c.post("/api/knowledge/uploads", files={"file": ("regs.pdf", regs, "application/pdf")},
-                data={"scope": "national", "kind": "regulation", "title": "Parking regulations"}, headers=A)
+                data={"scope": "national", "kind": "regulation", "title": "Parking regulations",
+                      "source_url": "https://www.gov.il/BlobFolder/reg/he/regs.pdf"}, headers=A)
     assert up.status_code == 201, up.text
     row = up.json()
+    assert row["source_url"] == "https://www.gov.il/BlobFolder/reg/he/regs.pdf"
     assert row["committee_id"] is None and row["scope_he"] == "ידע ארצי" and row["text_status"] == "ok" and row["passages"] == 1
     assert c.post("/api/knowledge/uploads", files={"file": ("g.pdf", pdf("hof only guideline"), "application/pdf")},
                   data={"scope": hid, "kind": "guideline"}, headers=A).status_code == 201
@@ -363,9 +365,12 @@ def test_knowledge_zip_import_regulation360_export(env, monkeypatch, tmp_path):
         z.writestr("exports/main_system/packages/r360_X.zip", b"PK-not-really")
         z.writestr("exports/main_system/knowledge/source_texts/x/p001.txt", "page")
         z.writestr("exports/ui_upload/000_NATIONAL_חקיקה ארצית/index.csv",
-                   "file,kind,kind_he,title\nlaw/0001/a.pdf,law,חוק,חוק התכנון והבנייה (נוסח משני)\n")
+                   "file,kind,kind_he,title,source_url\n"
+                   "law/0001/a.pdf,law,חוק,חוק התכנון והבנייה (נוסח משני),https://www.gov.il/BlobFolder/policy/x/he/a.pdf\n"
+                   "law/0001/b.pdf,law,חוק,קישור לא תקין,javascript:alert(1)\n")
         z.writestr("exports/ui_upload/000_NATIONAL_חקיקה ארצית/summary.json", "{}")
         z.writestr("exports/ui_upload/000_NATIONAL_חקיקה ארצית/law/0001/a.pdf", pdf("national planning law text"))
+        z.writestr("exports/ui_upload/000_NATIONAL_חקיקה ארצית/law/0001/b.pdf", pdf("second national text"))
         z.writestr("exports/ui_upload/001_LC-D-633_חוף אשקלון/guideline/0001/g.pdf", pdf("hof guideline text"))
         z.writestr("exports/ui_upload/002_LC-X-999_ועדה שאינה קיימת/other/x.pdf", pdf("nowhere"))
         z.writestr("exports/ui_upload/_cache/ab/cached.pdf", pdf("cached copy"))              # working folder: skipped
@@ -373,13 +378,20 @@ def test_knowledge_zip_import_regulation360_export(env, monkeypatch, tmp_path):
                  data={"scope": "national", "kind": "other"}, headers=A)
     assert r.status_code == 202, r.text
     job = env.get("/api/knowledge/imports", headers=A).json()["rows"][0]
-    assert (job["added"], job["failed"], job["server_packages"]) == (2, 1, 3), job
+    assert (job["added"], job["failed"], job["server_packages"]) == (3, 1, 3), job
     assert "ועדה לא נמצאה" in job["errors"][0]["reason"]
     assert (tmp_path / f"{job['id']}-server" / "packages" / "r360_X.zip").read_bytes() == b"PK-not-really"
     with SessionLocal() as s:
         docs = {d.title: d for d in s.scalars(select(CommitteeDocument).where(CommitteeDocument.url.like("upload:%")))}
     law = docs["חוק התכנון והבנייה (נוסח משני)"]
     assert law.committee_id is None and law.kind == "law"                                   # title and type from index.csv
+    assert law.source_url == "https://www.gov.il/BlobFolder/policy/x/he/a.pdf"              # official address kept
+    assert docs["קישור לא תקין"].source_url is None and docs["g"].source_url is None        # only https addresses
+    rows = {x["title"]: x for x in env.get("/api/knowledge/uploads", headers=A).json()["rows"]}
+    assert rows["חוק התכנון והבנייה (נוסח משני)"]["source_url"] == law.source_url
+    from app import committee_docs as CD                          # citations link to the official address
+    with SessionLocal() as s:
+        assert [h["url"] for h in CD.hybrid_search(s, "national planning law", hid, mode="keyword")] == [law.source_url]
     assert docs["g"].committee_id == hid and docs["g"].kind == "guideline"                  # scope by folder name
 
     from app import committee_docs as CD                          # an extraction stopped by a restart is redone
